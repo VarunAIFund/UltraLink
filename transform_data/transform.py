@@ -13,7 +13,7 @@ client = OpenAI()
 
 def extract_profile_data(raw_data: dict) -> dict:
     """
-    Transform raw Lever candidate data into structured PersonProfile using direct extraction and OpenAI for remaining fields
+    Transform raw Apify LinkedIn data into structured PersonProfile using direct extraction and OpenAI for remaining fields
     """
     
     # Get current date
