@@ -8,7 +8,7 @@ class Education(BaseModel):
     field: str
 
 
-class Position(BaseModel):
+class Experience(BaseModel):
     vector_embedding: str
     org: str
     title: str
@@ -27,4 +27,4 @@ class AIInferredProfile(BaseModel):
     years_experience: int
     worked_at_startup: bool
     education: List[Education]
-    positions: List[Position]
+    experiences: List[Experience]
