@@ -40,8 +40,9 @@ def clean_apify_data(input_file: str, output_file: str):
 
 if __name__ == "__main__":
     # Set paths relative to this script
+    file_name = "large_set"
     script_dir = os.path.dirname(__file__)
-    input_file = os.path.join(script_dir, "..", "apify ", "large_set.json")
-    output_file = os.path.join(script_dir, "large_set_cleaned.json")
+    input_file = os.path.join(script_dir, "..", "apify", f"{file_name}.json")
+    output_file = os.path.join(script_dir, f"{file_name}_cleaned.json")
     
     clean_apify_data(input_file, output_file)

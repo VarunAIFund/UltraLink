@@ -4,27 +4,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-UltraLink is a LinkedIn profile data transformation and database import system that processes raw LinkedIn data scraped via Apify, transforms it using OpenAI's structured outputs, and imports it into a PostgreSQL database. The project follows a clear ETL (Extract, Transform, Load) pipeline.
+UltraLink is a comprehensive LinkedIn data processing system with two main pipelines:
+1. **Profile Pipeline**: Processes LinkedIn profile data and transforms it using OpenAI's structured outputs
+2. **Company Pipeline**: Extracts and cleans LinkedIn company data for business intelligence
 
 ## Commands
 
-### Data Processing Pipeline
+### Profile Data Pipeline (transform_data directory)
 
 ```bash
-# 1. Clean raw Apify data (extract essential fields)
-python clean_apify.py
+# Main profile processing pipeline
+python transform.py                # Transform LinkedIn profile data using OpenAI GPT-5-nano
+python import_to_db.py            # Import structured profiles to PostgreSQL database
+python analyze_data_stats.py      # Generate data quality analysis reports
+python test_set.py               # Create test datasets from larger files
 
-# 2. Transform cleaned data using OpenAI structured outputs
-python transform.py
+# Data cleaning and preparation
+python clean_profiles.py         # Clean raw LinkedIn profile data
+```
 
-# 3. Import structured profiles to PostgreSQL database
-python import_to_db.py
+### Company Data Pipeline (transform_data directory)
 
-# Generate data quality analysis report
-python analyze_data_stats.py
+```bash
+# Company data processing
+python extract_company_urls.py   # Extract unique company LinkedIn URLs from profile experiences
+python clean_companies.py        # Clean company data from Apify scraping results
 
-# Test transformation on sample data
-python test_transform.py
+# Manual company data collection (when automated scraping is restricted)
+python manual_linkedin_scraper.py   # Browser-assisted manual company data collection
 ```
 
 ### Database Operations
@@ -36,24 +43,37 @@ python -c "from db_config import test_connection; test_connection()"
 
 ## Architecture
 
-### Data Flow Pipeline
+### Profile Data Flow Pipeline
 ```
-Raw Apify Data → Clean → AI Transform → Database Import
-     ↓              ↓           ↓            ↓
-large_set.json → cleaned_apify.json → structured_profiles.json → PostgreSQL
+LinkedIn Profile Data → AI Transform → Database Import → Analysis
+        ↓                    ↓              ↓            ↓
+   profile_data.json → structured_profiles.json → PostgreSQL → reports
+```
+
+### Company Data Flow Pipeline  
+```
+LinkedIn Profiles → Extract URLs → Manual Collection → Clean Data
+       ↓                ↓               ↓              ↓
+  experiences[] → company_urls.txt → manual_input → cleaned_companies.json
 ```
 
 ### Core Components
 
-1. **Data Cleaning (`clean_apify.py`)** - Extracts essential fields from complex Apify LinkedIn scraping data
-2. **AI Transformation (`transform.py`)** - Uses OpenAI GPT-5-nano with structured parsing to infer profile information including seniority, skills, experience calculations, and startup employment history
-3. **Database Import (`import_to_db.py`)** - Imports into PostgreSQL using 3-table normalized schema: `candidates`, `positions`, `education`
+#### Profile Processing
+1. **AI Transformation (`transform.py`)** - Uses OpenAI GPT-5-nano with structured parsing to transform LinkedIn profiles into standardized format with inferred seniority, skills, experience analysis, and startup employment history
+2. **Database Import (`import_to_db.py`)** - Imports into PostgreSQL using 3-table normalized schema: `candidates`, `positions`, `education`
+3. **Data Analysis (`analyze_data_stats.py`)** - Comprehensive data quality analysis and completeness reporting
+
+#### Company Processing  
+4. **URL Extraction (`extract_company_urls.py`)** - Extracts unique LinkedIn company URLs from profile experience data
+5. **Company Cleaning (`clean_companies.py`)** - Processes and standardizes company data from Apify scraping results
+6. **Manual Collection (`manual_linkedin_scraper.py`)** - Browser-assisted manual data collection for comprehensive company information
 
 ### Data Models
 
 The system uses Pydantic models in `models.py`:
-- `AIInferredProfile` - Main profile structure with name, location, seniority, skills, years_experience
-- `Position` - Work experience with org, title, summary, location, industry_tags
+- `AIInferredProfile` - Main profile structure with name, location, seniority, skills, years_experience, experiences, education
+- `Experience` - Work experience with vector_embedding, org, title, summary, short_summary, location, industry_tags  
 - `Education` - Educational background with school, degree, field
 
 ### Database Configuration
