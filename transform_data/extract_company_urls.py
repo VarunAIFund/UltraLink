@@ -97,7 +97,7 @@ def extract_company_urls(input_file: str, output_file: str):
 
 def main():
     """Main function"""
-    input_file = "cleaned_apify.json"
+    input_file = "../apify/test.json"
     output_file = "unique_company_linkedin_urls.txt"
     
    

@@ -6,6 +6,20 @@ def clean_apify_data(input_file: str, output_file: str):
     Clean Apify LinkedIn data to keep only essential fields
     """
     
+    # Load company data for matching
+    company_file = os.path.join(os.path.dirname(__file__), "more_companies_cleaned.json")
+    company_lookup = {}
+    
+    try:
+        with open(company_file, 'r', encoding='utf-8') as f:
+            companies = json.load(f)
+            for company in companies:
+                url = company.get("alternate_url", "").rstrip('/')
+                if url:
+                    company_lookup[url] = company.get("description", "")
+    except FileNotFoundError:
+        print(f"Warning: {company_file} not found")
+    
     # Read the original Apify data
     with open(input_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
@@ -13,6 +27,14 @@ def clean_apify_data(input_file: str, output_file: str):
     cleaned_data = []
     
     for person in data:
+        # Clean experiences and add company descriptions
+        experiences = person.get("experiences", [])
+        for experience in experiences:
+            company_url = experience.get("companyLink1") or ""
+            company_url = company_url.rstrip('/')
+            if company_url in company_lookup:
+                experience["description"] = company_lookup[company_url]
+        
         cleaned_person = {
             "fullName": person.get("fullName"),
             "email": person.get("email"),
@@ -24,7 +46,7 @@ def clean_apify_data(input_file: str, output_file: str):
             "addressWithoutCountry": person.get("addressWithoutCountry"),
             "profilePic": person.get("profilePic"),
             "profilePicHighQuality": person.get("profilePicHighQuality"),
-            "experiences": person.get("experiences", []),
+            "experiences": experiences,
             "educations": person.get("educations", [])
         }
         
@@ -40,7 +62,7 @@ def clean_apify_data(input_file: str, output_file: str):
 
 if __name__ == "__main__":
     # Set paths relative to this script
-    file_name = "large_set"
+    file_name = "test"
     script_dir = os.path.dirname(__file__)
     input_file = os.path.join(script_dir, "..", "apify", f"{file_name}.json")
     output_file = os.path.join(script_dir, f"{file_name}_cleaned.json")

@@ -68,6 +68,7 @@ def extract_profile_data(raw_data: dict) -> dict:
       * summary: Job summary (extract from description text components in subComponents)
       * short_summary: Generate a standardized, descriptive text that summarizes this work experience in one or two sentences explaining the candidate's role and responsibilities in a narrative format. 
       * location: Look at addressWithCountry field. If completely blank, leave blank. Position location standardized to "City, State/Province, Country" format. If any component is missing, include what's available. If remote work, use "Remote".
+      * company_skills: List of technical and domain skills typically associated with working at this specific company based on experience description and implied skills (e.g., for Google: ["distributed systems", "machine learning", "cloud computing", "search algorithms"]; for Stripe: ["payments", "fintech", "API design", "financial systems"]; for Meta: ["social media", "advertising", "mobile development", "data analytics"]; for Pinecone: ["vector databases", "embeddings", "similarity search", "machine learning", "RAG", "AI infrastructure"])
       * industry_tags: List of relevant industry tags that describe the organization/role (e.g., "fintech", "healthcare", "edtech", "ecommerce", "saas", "ai/ml", etc.)
     - education: List of education objects with properly cleaned information (from educations array):
       * school: Just the university/institution name (from title field)
@@ -157,7 +158,7 @@ def process_candidates(input_file: str, output_file: str):
 
 if __name__ == "__main__":
     # Process the Apify LinkedIn data
-    input_file = "data/test_set.json"
+    input_file = "test_cleaned.json"
     output_file = "structured_profiles.json"
     
     process_candidates(input_file, output_file)

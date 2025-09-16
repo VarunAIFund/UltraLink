@@ -11,10 +11,12 @@ class Education(BaseModel):
 class Experience(BaseModel):
     vector_embedding: str
     org: str
+    company_url: str
     title: str
     summary: str
     short_summary: str
     location: str
+    company_skills: List[str]
     industry_tags: List[str]
 
 
