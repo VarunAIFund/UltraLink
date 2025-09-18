@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Literal
 from pydantic import BaseModel
 
 
@@ -17,6 +17,8 @@ class Experience(BaseModel):
     short_summary: str
     location: str
     company_skills: List[str]
+    business_model: Literal["B2B", "B2C", "B2B2C", "C2C", "B2G"]
+    product_type: str
     industry_tags: List[str]
 
 
@@ -24,7 +26,7 @@ class AIInferredProfile(BaseModel):
     name: str
     headline: str
     location: str
-    seniority: str
+    seniority: Literal["Intern", "Entry", "Junior", "Mid", "Senior", "Lead", "Manager", "Director", "VP", "C-Level"]
     skills: List[str]
     years_experience: int
     worked_at_startup: bool
