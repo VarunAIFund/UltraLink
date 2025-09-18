@@ -64,7 +64,7 @@ def run_pipeline():
     print("  - test_cleaned.json (or large_set_cleaned.json)")
     print("  - structured_profiles.json")
     print("  - data_analysis_report.txt")
-    print("  - PostgreSQL database tables")
+    #print("  - PostgreSQL database tables")
 
 if __name__ == "__main__":
     run_pipeline()

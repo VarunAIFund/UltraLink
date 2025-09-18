@@ -61,7 +61,6 @@ def extract_profile_data(raw_data: dict) -> dict:
     - worked_at_startup: Boolean indicating if they worked at startups. IMPORTANT: Consider the company's status at the TIME they worked there, not current status. Examples:
       * Google (founded 1998, IPO 2004): Anyone who worked there 1998-2004 = startup
     - experiences: List of experience objects, one for each position in work history:
-      * vector_embedding: Empty string ""
       * org: Organization name (extract from subtitle field, e.g., "Google · Full-time" -> "Google")
       * company_url: Company URL (extract from companyLink1 field)
       * title: Job title

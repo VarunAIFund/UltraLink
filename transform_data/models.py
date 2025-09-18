@@ -9,7 +9,6 @@ class Education(BaseModel):
 
 
 class Experience(BaseModel):
-    vector_embedding: str
     org: str
     company_url: str
     title: str
