@@ -93,6 +93,17 @@ Please provide a comprehensive quality assessment covering:
    - Recommendations for improving the AI processing?
 
 Please provide specific examples from the data and actionable insights.
+
+At the end, provide final scores (0-100) for each category:
+
+**FINAL SCORES:**
+- Data Completeness Score: X/100
+- Data Accuracy Score: X/100  
+- Data Enhancement Score: X/100
+- Processing Success Score: X/100
+- Overall Quality Score: X/100
+
+Provide brief justification for each score.
 """
 
 # Call GPT-5
