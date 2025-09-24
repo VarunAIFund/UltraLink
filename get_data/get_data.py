@@ -17,19 +17,35 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 # Initialize the ApifyClient with your API token
 client = ApifyClient(os.getenv('APIFY_KEY'))
 input_file = "connections_data/linda_connections.csv"
+name = input_file.split("/")[-1].replace("_connections.csv", "").replace("connections_data/", "")
+print(name)
+
+# Check for existing results
+existing_urls = set()
+try:
+    with open(f'results/{name}_connections.json', 'r', encoding='utf-8') as f:
+        existing_data = json.load(f)
+        for item in existing_data:
+            if 'linkedinUrl' in item:
+                existing_urls.add(item['linkedinUrl'])
+except FileNotFoundError:
+    pass
 
 # Open and read the CSV file
 with open(input_file, 'r', encoding='utf-8') as f:
     reader = csv.DictReader(f)
     linkedin_urls = []
     for row in reader:
-        linkedin_urls.append(row['URL'])
+        url = row['URL']
+        if url not in existing_urls:
+            linkedin_urls.append(url)
 
 # Prepare the Actor input
 run_input = { 
     "profileUrls": linkedin_urls[:1]
 }
 
+print(linkedin_urls)
 # Run the Actor and wait for it to finish
 #run = client.actor("2SyF0bVxmgGr8IVCZ").call(run_input=run_input)
 
@@ -40,7 +56,7 @@ for item in client.dataset(run["defaultDatasetId"]).iterate_items():
     print(item)
 
 # Save results to JSON file
-with open('apify_results.json', 'w', encoding='utf-8') as f:
+with open(f'results/{name}_connections.json', 'w', encoding='utf-8') as f:
     json.dump(results, f, indent=2, ensure_ascii=False)
 
 print(f"\n✅ Scraped {len(results)} profiles")
