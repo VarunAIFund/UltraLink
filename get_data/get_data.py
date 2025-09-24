@@ -41,7 +41,7 @@ with open(input_file, 'r', encoding='utf-8') as f:
 
 # Prepare the Actor input
 run_input = { 
-    "profileUrls": linkedin_urls
+    "profileUrls": linkedin_urls[:2]
 }
 print(f"linkedin_urls: {linkedin_urls[0]}")
 print(run_input)
