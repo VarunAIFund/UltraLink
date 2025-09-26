@@ -126,6 +126,24 @@ def analyze_company_data(data):
         'top_industries': industries.most_common(5)
     }
 
+def analyze_duplicates(data):
+    """Analyze duplicate LinkedIn URLs"""
+    linkedin_urls = []
+    for profile in data:
+        url = profile.get('linkedinUrl')
+        if url:
+            linkedin_urls.append(url)
+    
+    unique_urls = set(linkedin_urls)
+    duplicates = len(linkedin_urls) - len(unique_urls)
+    
+    return {
+        'total_urls': len(linkedin_urls),
+        'unique_urls': len(unique_urls),
+        'duplicate_count': duplicates,
+        'duplicate_rate': (duplicates / len(linkedin_urls)) * 100 if linkedin_urls else 0
+    }
+
 def generate_quality_report(data):
     """Generate comprehensive quality report"""
     total_records = len(data)
@@ -134,6 +152,13 @@ def generate_quality_report(data):
     print("LINKEDIN DATA QUALITY ASSESSMENT")
     print("=" * 60)
     print(f"Total Records: {total_records}")
+    
+    # Duplicate analysis
+    dup_stats = analyze_duplicates(data)
+    print(f"Unique LinkedIn URLs: {dup_stats['unique_urls']}")
+    print(f"Duplicate URLs: {dup_stats['duplicate_count']}")
+    if dup_stats['duplicate_count'] > 0:
+        print(f"Duplicate rate: {dup_stats['duplicate_rate']:.1f}%")
     print()
     
     # Field completeness

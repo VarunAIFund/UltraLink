@@ -8,6 +8,7 @@ Uses Apify's LinkedIn scraper to get profile data from LinkedIn URLs
 import json
 import os
 import csv
+from datetime import datetime
 from apify_client import ApifyClient
 from dotenv import load_dotenv
 
@@ -18,6 +19,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 client = ApifyClient(os.getenv('APIFY_KEY'))
 input_file = "connections_data/linda_connections.csv"
 name = input_file.split("/")[-1].replace("_connections.csv", "").replace("connections_data/", "")
+csv_size = 0
 # Check for existing results
 existing_urls = set()
 try:
@@ -27,8 +29,6 @@ try:
             existing_urls.add(item['linkedinUrl'])
 except FileNotFoundError:
     pass
-
-print(existing_urls)
 
 # Open and read the CSV file
 with open(input_file, 'r', encoding='utf-8') as f:
@@ -41,9 +41,8 @@ with open(input_file, 'r', encoding='utf-8') as f:
 
 # Prepare the Actor input
 run_input = { 
-    "profileUrls": linkedin_urls[:2]
+    "profileUrls": linkedin_urls[:200]
 }
-print(f"linkedin_urls: {linkedin_urls[0]}")
 print(run_input)
 # Run the Actor and wait for it to finish
 if len(linkedin_urls) > 0:
@@ -51,7 +50,15 @@ if len(linkedin_urls) > 0:
 
 # Fetch and print Actor results from the run's dataset (if there are any)
 results = []
+current_time = datetime.now().isoformat()
+
 for item in client.dataset(run["defaultDatasetId"]).iterate_items():
+    # Add timestamp to each entry
+    if 'connected_to' not in item:
+        item['connected_to'] = []
+    item['connected_to'].append(name)
+    item['connected_to'] = list(set(item['connected_to']))
+    item['scraped_at'] = current_time
     results.append(item)
 
 # Save results to JSON file
