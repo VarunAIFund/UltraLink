@@ -17,7 +17,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 # Initialize the ApifyClient with your API token
 client = ApifyClient(os.getenv('APIFY_KEY'))
-input_file = "connections_data/linda_connections.csv"
+input_file = "connections_data/jon_connections.csv"
 name = input_file.split("/")[-1].replace("_connections.csv", "").replace("connections_data/", "")
 csv_size = 0
 # Check for existing results
@@ -39,27 +39,49 @@ with open(input_file, 'r', encoding='utf-8') as f:
         if url not in existing_urls:
             linkedin_urls.append(url)
 
-# Prepare the Actor input
-run_input = { 
-    "profileUrls": linkedin_urls[:200]
-}
-print(run_input)
-# Run the Actor and wait for it to finish
-if len(linkedin_urls) > 0:
-    run = client.actor("2SyF0bVxmgGr8IVCZ").call(run_input=run_input)
+csv_size = len(linkedin_urls)
+batch_size = 200
+num_batches = (csv_size + batch_size - 1) // batch_size  # Ceiling division
 
-# Fetch and print Actor results from the run's dataset (if there are any)
-results = []
+print(f"Total URLs to process: {csv_size}")
+print(f"Batch size: {batch_size}")
+print(f"Number of batches: {num_batches}")
+
+# Process URLs in batches
+all_results = []
 current_time = datetime.now().isoformat()
 
-for item in client.dataset(run["defaultDatasetId"]).iterate_items():
-    # Add timestamp to each entry
-    if 'connected_to' not in item:
-        item['connected_to'] = []
-    item['connected_to'].append(name)
-    item['connected_to'] = list(set(item['connected_to']))
-    item['scraped_at'] = current_time
-    results.append(item)
+for batch_num in range(num_batches):
+    start_idx = batch_num * batch_size
+    end_idx = min(start_idx + batch_size, csv_size)
+    batch_urls = linkedin_urls[start_idx:end_idx]
+    
+    print(f"\nProcessing batch {batch_num + 1}/{num_batches} ({len(batch_urls)} URLs)")
+    
+    # Prepare the Actor input
+    run_input = { 
+        "profileUrls": batch_urls
+    }
+    
+    # Run the Actor and wait for it to finish
+    if len(batch_urls) > 0:
+        run = client.actor("2SyF0bVxmgGr8IVCZ").call(run_input=run_input)
+        
+        # Fetch and print Actor results from the run's dataset
+        batch_results = []
+        for item in client.dataset(run["defaultDatasetId"]).iterate_items():
+            # Add timestamp to each entry
+            if 'connected_to' not in item:
+                item['connected_to'] = []
+            item['connected_to'].append(name)
+            item['connected_to'] = list(set(item['connected_to']))
+            item['scraped_at'] = current_time
+            batch_results.append(item)
+        
+        all_results.extend(batch_results)
+        print(f"Batch {batch_num + 1} completed: {len(batch_results)} profiles scraped")
+
+results = all_results
 
 # Save results to JSON file
 os.makedirs('results', exist_ok=True)
