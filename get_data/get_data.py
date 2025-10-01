@@ -61,21 +61,47 @@ num_batches = (csv_size + batch_size - 1) // batch_size  # Ceiling division
 print(f"Total URLs to scrape: {csv_size}")
 print(f"URLs to update connections: {len(urls_to_update)}")
 print(f"Batch size: {batch_size}")
-print(f"Number of batches: {num_batches}")
+print(f"Total batches available: {num_batches}")
 
 if urls_to_update:
     print(f"Updated {len(urls_to_update)} existing profiles with '{name}' connection")
+
+# Ask user how many batches to process
+if csv_size > 0:
+    while True:
+        try:
+            user_input = input(f"\nHow many batches do you want to scrape? (1-{num_batches}, or 'all'): ").strip().lower()
+            
+            if user_input == 'all':
+                batches_to_process = num_batches
+                break
+            else:
+                batches_to_process = int(user_input)
+                if 1 <= batches_to_process <= num_batches:
+                    break
+                else:
+                    print(f"Please enter a number between 1 and {num_batches}, or 'all'")
+        except ValueError:
+            print("Please enter a valid number or 'all'")
+    
+    print(f"\n🚀 Processing {batches_to_process} out of {num_batches} available batches")
+    remaining_urls = csv_size - (batches_to_process * batch_size)
+    if remaining_urls > 0:
+        print(f"📋 {remaining_urls} URLs will remain for future processing")
+else:
+    batches_to_process = 0
+    print("\n🎉 No new URLs to scrape!")
 
 # Process URLs in batches
 all_results = []
 current_time = datetime.now().isoformat()
 
-for batch_num in range(num_batches):
+for batch_num in range(batches_to_process):
     start_idx = batch_num * batch_size
     end_idx = min(start_idx + batch_size, csv_size)
     batch_urls = linkedin_urls[start_idx:end_idx]
     
-    print(f"\nProcessing batch {batch_num + 1}/{num_batches} ({len(batch_urls)} URLs)")
+    print(f"\nProcessing batch {batch_num + 1}/{batches_to_process} requested ({len(batch_urls)} URLs)")
     
     # Prepare the Actor input
     run_input = { 
@@ -98,7 +124,7 @@ for batch_num in range(num_batches):
             batch_results.append(item)
         
         all_results.extend(batch_results)
-        print(f"Batch {batch_num + 1} completed: {len(batch_results)} profiles scraped")
+        print(f"✅ Batch {batch_num + 1}/{batches_to_process} completed: {len(batch_results)} profiles scraped")
 
 results = all_results
 
@@ -125,7 +151,16 @@ all_profiles.extend(results)
 with open('results/connections.json', 'w', encoding='utf-8') as f:
     json.dump(all_profiles, f, indent=2, ensure_ascii=False)
 
-print(f"\n✅ Scraped {len(results)} new profiles")
+print(f"\n🎉 PROCESSING COMPLETE")
+print(f"✅ Scraped {len(results)} new profiles")
 print(f"📄 Updated {len(urls_to_update)} existing connections")
 print(f"📄 Total profiles in connections.json: {len(all_profiles)}")
 print(f"📄 Results saved to: results/connections.json")
+
+# Show remaining work if applicable
+if batches_to_process < num_batches:
+    remaining_batches = num_batches - batches_to_process
+    remaining_urls = csv_size - len(results)
+    print(f"\n📋 REMAINING WORK:")
+    print(f"   - {remaining_batches} batches remaining ({remaining_urls} URLs)")
+    print(f"   - Run the script again to continue processing")

@@ -9,7 +9,7 @@ import json
 import os
 from collections import defaultdict, Counter
 
-def load_scraped_data(filename="results/linda_connections.json"):
+def load_scraped_data(filename="results/connections.json"):
     """Load scraped LinkedIn data"""
     try:
         with open(filename, 'r', encoding='utf-8') as f:
