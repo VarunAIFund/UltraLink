@@ -20,32 +20,51 @@ client = ApifyClient(os.getenv('APIFY_KEY'))
 input_file = "connections_data/jon_connections.csv"
 name = input_file.split("/")[-1].replace("_connections.csv", "").replace("connections_data/", "")
 csv_size = 0
-# Check for existing results
+# Check for existing results in the master connections file
 existing_urls = set()
+existing_profiles = {}
 try:
-    with open(f'results/{name}_connections.json', 'r', encoding='utf-8') as f:
+    with open('results/connections.json', 'r', encoding='utf-8') as f:
         existing_data = json.load(f)
         for item in existing_data:
-            existing_urls.add(item['linkedinUrl'])
+            linkedin_url = item['linkedinUrl']
+            existing_urls.add(linkedin_url)
+            existing_profiles[linkedin_url] = item
 except FileNotFoundError:
-    pass
+    existing_data = []
 
 # Open and read the CSV file
 with open(input_file, 'r', encoding='utf-8') as f:
     reader = csv.DictReader(f)
     linkedin_urls = []
+    urls_to_update = []  # URLs that exist but need connection update
+    
     for row in reader:
         url = row['URL']
         if url not in existing_urls:
-            linkedin_urls.append(url)
+            linkedin_urls.append(url)  # New URLs to scrape
+        else:
+            # Check if this connection source is already in the profile
+            existing_profile = existing_profiles[url]
+            if name not in existing_profile.get('connected_to', []):
+                urls_to_update.append(url)  # Existing profile needs connection update
+
+# Update existing profiles with new connection
+for url in urls_to_update:
+    existing_profiles[url]['connected_to'].append(name)
+    existing_profiles[url]['connected_to'] = list(set(existing_profiles[url]['connected_to']))
 
 csv_size = len(linkedin_urls)
-batch_size = 200
+batch_size = 100
 num_batches = (csv_size + batch_size - 1) // batch_size  # Ceiling division
 
-print(f"Total URLs to process: {csv_size}")
+print(f"Total URLs to scrape: {csv_size}")
+print(f"URLs to update connections: {len(urls_to_update)}")
 print(f"Batch size: {batch_size}")
 print(f"Number of batches: {num_batches}")
+
+if urls_to_update:
+    print(f"Updated {len(urls_to_update)} existing profiles with '{name}' connection")
 
 # Process URLs in batches
 all_results = []
@@ -83,21 +102,30 @@ for batch_num in range(num_batches):
 
 results = all_results
 
-# Save results to JSON file
+# Save results to the master connections file
 os.makedirs('results', exist_ok=True)
 
-# Load existing results and append new ones
-try:
-    with open(f'results/{name}_connections.json', 'r', encoding='utf-8') as f:
-        existing_results = json.load(f)
-except FileNotFoundError:
-    existing_results = []
+# Combine all profiles: existing + updated + newly scraped
+all_profiles = []
 
-# Combine existing and new results
-combined_results = existing_results + results
+# Add updated existing profiles
+for profile in existing_data:
+    linkedin_url = profile['linkedinUrl']
+    if linkedin_url in existing_profiles:
+        # Use the updated version (with new connections)
+        all_profiles.append(existing_profiles[linkedin_url])
+    else:
+        # Keep original version
+        all_profiles.append(profile)
 
-with open(f'results/{name}_connections.json', 'w', encoding='utf-8') as f:
-    json.dump(combined_results, f, indent=2, ensure_ascii=False)
+# Add newly scraped profiles
+all_profiles.extend(results)
 
-print(f"\n✅ Scraped {len(results)} profiles")
-print(f"📄 Results saved to: apify_results.json")
+# Save to master connections file
+with open('results/connections.json', 'w', encoding='utf-8') as f:
+    json.dump(all_profiles, f, indent=2, ensure_ascii=False)
+
+print(f"\n✅ Scraped {len(results)} new profiles")
+print(f"📄 Updated {len(urls_to_update)} existing connections")
+print(f"📄 Total profiles in connections.json: {len(all_profiles)}")
+print(f"📄 Results saved to: results/connections.json")
