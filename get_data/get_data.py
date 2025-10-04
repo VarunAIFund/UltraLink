@@ -17,7 +17,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 # Initialize the ApifyClient with your API token
 client = ApifyClient(os.getenv('APIFY_KEY'))
-input_file = "connections_data/jon_connections.csv"
+input_file = "connections_data/dan_connections.csv"
 name = input_file.split("/")[-1].replace("_connections.csv", "").replace("connections_data/", "")
 csv_size = 0
 # Check for existing results in the master connections file
@@ -53,6 +53,28 @@ with open(input_file, 'r', encoding='utf-8') as f:
 for url in urls_to_update:
     existing_profiles[url]['connected_to'].append(name)
     existing_profiles[url]['connected_to'] = list(set(existing_profiles[url]['connected_to']))
+
+# Save connection updates immediately to prevent data loss
+if urls_to_update:
+    # Create updated profiles list
+    updated_existing_data = []
+    for profile in existing_data:
+        linkedin_url = profile['linkedinUrl']
+        if linkedin_url in existing_profiles:
+            # Use updated version
+            updated_existing_data.append(existing_profiles[linkedin_url])
+        else:
+            # Keep original
+            updated_existing_data.append(profile)
+    
+    # Save immediately
+    with open('results/connections.json', 'w', encoding='utf-8') as f:
+        json.dump(updated_existing_data, f, indent=2, ensure_ascii=False)
+    
+    print(f"💾 Saved {len(urls_to_update)} connection updates immediately")
+    
+    # Update existing_data for subsequent processing
+    existing_data = updated_existing_data
 
 csv_size = len(linkedin_urls)
 batch_size = 100
@@ -125,37 +147,45 @@ for batch_num in range(batches_to_process):
         
         all_results.extend(batch_results)
         print(f"✅ Batch {batch_num + 1}/{batches_to_process} completed: {len(batch_results)} profiles scraped")
+        
+        # Save progress incrementally after each batch
+        if batch_results:
+            # Load current connections file
+            try:
+                with open('results/connections.json', 'r', encoding='utf-8') as f:
+                    current_connections = json.load(f)
+            except FileNotFoundError:
+                current_connections = []
+            
+            # Append new batch results
+            current_connections.extend(batch_results)
+            
+            # Save updated file
+            with open('results/connections.json', 'w', encoding='utf-8') as f:
+                json.dump(current_connections, f, indent=2, ensure_ascii=False)
+            
+            print(f"💾 Saved batch {batch_num + 1} progress ({len(current_connections)} total profiles)")
+            
+            # Update existing_data for next iteration
+            existing_data = current_connections
 
 results = all_results
 
-# Save results to the master connections file
-os.makedirs('results', exist_ok=True)
-
-# Combine all profiles: existing + updated + newly scraped
-all_profiles = []
-
-# Add updated existing profiles
-for profile in existing_data:
-    linkedin_url = profile['linkedinUrl']
-    if linkedin_url in existing_profiles:
-        # Use the updated version (with new connections)
-        all_profiles.append(existing_profiles[linkedin_url])
-    else:
-        # Keep original version
-        all_profiles.append(profile)
-
-# Add newly scraped profiles
-all_profiles.extend(results)
-
-# Save to master connections file
-with open('results/connections.json', 'w', encoding='utf-8') as f:
-    json.dump(all_profiles, f, indent=2, ensure_ascii=False)
-
+# Final summary - data is already saved incrementally
 print(f"\n🎉 PROCESSING COMPLETE")
 print(f"✅ Scraped {len(results)} new profiles")
 print(f"📄 Updated {len(urls_to_update)} existing connections")
-print(f"📄 Total profiles in connections.json: {len(all_profiles)}")
-print(f"📄 Results saved to: results/connections.json")
+
+# Get final count from the actual file
+try:
+    with open('results/connections.json', 'r', encoding='utf-8') as f:
+        final_data = json.load(f)
+    final_count = len(final_data)
+except FileNotFoundError:
+    final_count = 0
+
+print(f"📄 Total profiles in connections.json: {final_count}")
+print(f"📄 All results saved incrementally during processing")
 
 # Show remaining work if applicable
 if batches_to_process < num_batches:
