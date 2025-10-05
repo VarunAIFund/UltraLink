@@ -2,7 +2,8 @@
 """
 Add Connection Source
 
-Adds a 'connected_to' array field to each profile indicating the connection source
+Adds a 'connected_to' array field to each LinkedIn profile indicating the connection source.
+Tracks who each person is connected to for relationship mapping and network analysis.
 """
 
 import json

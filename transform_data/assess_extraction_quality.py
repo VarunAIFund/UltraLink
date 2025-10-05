@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""
+Assess Extraction Quality
+
+GPT-5 powered assessment comparing raw vs transformed LinkedIn profile data quality.
+Provides detailed quality scores and recommendations for improving AI transformation process.
+"""
+
 import json
 import os
 from openai import OpenAI

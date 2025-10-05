@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+"""
+Clean Profile Data
+
+Cleans raw LinkedIn profile data for AI transformation. Removes unnecessary fields,
+standardizes data formats, and prepares profiles for GPT-5-nano structured output processing.
+"""
+
 import json
 import os
 

@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""
+Analyze Data Statistics
+
+Comprehensive data quality analysis and field completeness reporting for transformed LinkedIn profiles.
+Generates detailed statistics on field fill rates, experience data, education completeness, and more.
+"""
+
 import json
 from collections import defaultdict, Counter
 from typing import Dict, List, Any, Union

@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+"""
+Clean Companies Data
+
+Cleans and standardizes company data from Apify scraping. Processes raw company JSON,
+applies URL redirect mappings, and standardizes company information for database import.
+"""
+
 import json
 import os
 import csv

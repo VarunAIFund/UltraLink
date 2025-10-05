@@ -1,3 +1,12 @@
+#!/usr/bin/env python3
+"""
+AI Profile Transformation Engine
+
+Main AI transformation engine using OpenAI GPT-5-nano structured outputs.
+Transforms raw LinkedIn profiles into enhanced structured data with inferred insights
+including seniority, skills, experience summaries, and company analysis.
+"""
+
 import json
 import os
 from typing import List

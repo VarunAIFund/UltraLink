@@ -2,7 +2,8 @@
 """
 Manual Login LinkedIn Scraper
 
-Opens browser, waits for you to sign in, then captures redirects
+Browser-assisted manual company data collection tool. Opens browser, waits for manual login,
+then captures LinkedIn company page redirects for data collection and processing.
 """
 
 import csv

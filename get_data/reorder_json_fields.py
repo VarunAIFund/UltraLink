@@ -2,7 +2,8 @@
 """
 Reorder JSON Fields
 
-Moves the 'connected_to' field to appear directly after 'followers' field in all profiles
+Reorders LinkedIn profile JSON structure to place 'connected_to' field after 'followers'.
+Maintains consistent field ordering across all profiles for better readability and processing.
 """
 
 import json

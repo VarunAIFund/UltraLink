@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+"""
+Database Configuration
+
+Database configuration and connection management for PostgreSQL.
+Supports both Railway cloud database and local PostgreSQL with automatic fallback.
+"""
+
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker

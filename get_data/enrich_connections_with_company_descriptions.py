@@ -2,8 +2,8 @@
 """
 Enrich Connections with Company Descriptions
 
-Adds company descriptions from companies.json to each experience in connections.json
-Matches companies by normalizing LinkedIn company URLs to extract company IDs
+Enhances LinkedIn connections data by adding company descriptions from scraped company dataset.
+Matches experience company URLs with company data to enrich profiles with detailed company information.
 """
 
 import json

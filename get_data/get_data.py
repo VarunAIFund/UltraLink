@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Apify LinkedIn Data Scraper
+Apify LinkedIn Profile Scraper
 
-Uses Apify's LinkedIn scraper to get profile data from LinkedIn URLs
+Main LinkedIn profile scraping engine using Apify API with intelligent batch processing.
+Processes CSV connection files, handles duplicates, tracks connection sources, and saves incrementally.
 """
 
 import json

@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+"""
+Pydantic Data Models
+
+Pydantic data models for structured LinkedIn profile transformation and validation.
+Defines schemas for AI-inferred profiles, experiences, and education data with type safety.
+"""
+
 from typing import List, Optional, Literal
 from pydantic import BaseModel
 

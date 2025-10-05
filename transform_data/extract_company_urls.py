@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""
+Extract Company URLs
+
+Extracts unique LinkedIn company URLs from profile experience data.
+Creates unique_company_linkedin_urls.txt file for company data scraping pipeline.
+"""
+
 import json
 import os
 from typing import Set

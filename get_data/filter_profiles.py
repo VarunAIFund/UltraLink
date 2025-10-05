@@ -2,8 +2,8 @@
 """
 Filter Profiles - Combined
 
-Removes profiles with null fullName OR empty experiences from main file
-Saves all filtered profiles to one combined file
+Removes incomplete LinkedIn profiles with null fullName OR empty experiences from dataset.
+Creates backups and saves filtered profiles to separate files for quality assurance.
 """
 
 import json

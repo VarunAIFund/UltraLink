@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Evaluate Data Quality of Scraped LinkedIn Connections
+Evaluate Data Quality
 
-Analyzes the quality and completeness of scraped LinkedIn profile data
+Comprehensive data quality assessment and field completeness analysis for scraped LinkedIn profiles.
+Analyzes fill rates, duplicate detection, experience completeness, and generates detailed quality reports.
 """
 
 import json
