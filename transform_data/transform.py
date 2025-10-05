@@ -9,8 +9,10 @@ including seniority, skills, experience summaries, and company analysis.
 
 import json
 import os
+import asyncio
+import time
 from typing import List
-from openai import OpenAI
+from openai import AsyncOpenAI
 from models import AIInferredProfile
 from dotenv import load_dotenv
 from datetime import datetime
@@ -18,9 +20,14 @@ from datetime import datetime
 # Load .env from parent directory
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
-client = OpenAI()
+client = AsyncOpenAI()
 
-def extract_profile_data(raw_data: dict) -> dict:
+# Rate limiting configuration
+MAX_REQUESTS_PER_MIN = 100
+RATE_LIMIT_INTERVAL = 60 / MAX_REQUESTS_PER_MIN  # 0.6 seconds between requests
+BATCH_SIZE = 100
+
+async def extract_profile_data(raw_data: dict) -> dict:
     """
     Transform raw Apify LinkedIn data into structured PersonProfile using direct extraction and OpenAI for remaining fields
     """
@@ -34,6 +41,7 @@ def extract_profile_data(raw_data: dict) -> dict:
     # Extract fields directly from JSON data
     direct_fields = {
         "id": candidate_id,
+        "connected_to": raw_data.get("connected_to", []),
         "phone": raw_data.get("mobileNumber", ""),
         "email": raw_data.get("email", ""),
         "linkedinUrl": raw_data.get("linkedinUrl", ""),
@@ -91,7 +99,7 @@ def extract_profile_data(raw_data: dict) -> dict:
 
     # Should short summary be there if the summary is empty?
     
-    response = client.responses.parse(
+    response = await client.responses.parse(
         model="gpt-5-nano",
         input=[
             {"role": "system", "content": "Extract the structured profile information from candidate data."},
@@ -127,49 +135,63 @@ def extract_profile_data(raw_data: dict) -> dict:
         "education": [edu.model_dump() for edu in ai_profile.education]
     }
 
-def process_candidates(input_file: str, output_file: str):
+async def process_candidates(input_file: str, output_file: str):
     """
     Process all candidates from input file and save structured profiles to output file
     """
     with open(input_file, 'r') as f:
         candidates = json.load(f)
     
-    # Initialize output file with empty array
-    with open(output_file, 'w') as f:
-        json.dump([], f)
+    print(f"Starting async processing of {len(candidates)} candidates")
+    print(f"Rate limit: {MAX_REQUESTS_PER_MIN} requests/min ({RATE_LIMIT_INTERVAL:.1f}s between requests)")
     
-    processed_count = 0
+    tasks = []
+    start_time = time.time()
     
+    # Process each candidate with rate limiting (following your example pattern)
     for i, candidate in enumerate(candidates):
-        print(f"Processing candidate {i+1}/{len(candidates)}: {candidate.get('fullName', 'Unknown')}")
+        print(f"Processing {i+1}/{len(candidates)}: {candidate.get('fullName', 'Unknown')}")
         
-        try:
-            profile = extract_profile_data(candidate)
-            
-            # Read existing profiles
-            with open(output_file, 'r') as f:
-                existing_profiles = json.load(f)
-            
-            # Add new profile
-            existing_profiles.append(profile)
-            
-            # Write back to file immediately
-            with open(output_file, 'w') as f:
-                json.dump(existing_profiles, f, indent=2)
-            
-            processed_count += 1
-            print(f"✓ Saved profile for {profile['name']} ({processed_count} total)")
-            
-        except Exception as e:
-            print(f"✗ Error processing candidate {candidate.get('fullName', 'unknown')}: {str(e)}")
-            continue
+        # Create task and add to list (stagger requests to maintain rate)
+        task = asyncio.create_task(extract_profile_data(candidate))
+        tasks.append(task)
+        await asyncio.sleep(RATE_LIMIT_INTERVAL)
     
-    print(f"\nProcessed {processed_count} candidates successfully")
-    print(f"All profiles saved to: {output_file}")
+    # Wait for all tasks to complete and collect results
+    print("Waiting for all tasks to complete...")
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Save successful results to file and debug failures
+    successful_results = []
+    failed_count = 0
+    
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            failed_count += 1
+            print(f"❌ Task {i+1} failed: {type(result).__name__}: {result}")
+        else:
+            successful_results.append(result)
+    
+    with open(output_file, 'w') as f:
+        json.dump(successful_results, f, indent=2)
+    
+    print(f"Completed {len(candidates)} requests in {time.time() - start_time:.1f}s")
+    print(f"Successful: {len(successful_results)}, Failed: {failed_count}")
+    print(f"Results saved to: {output_file}")
+
+async def main():
+    """Main async function"""
+    # Process the Apify LinkedIn data
+    #input_file = "../get_data/results/connections.json"
+    input_file = "test_set_new.json"
+    output_file = "structured_profiles_test.json"
+    
+    script_start_time = time.time()
+    await process_candidates(input_file, output_file)
+    total_duration = time.time() - script_start_time
+    
+    print(f"\n🎉 Script completed successfully!")
+    print(f"Total script duration: {total_duration:.1f}s")
 
 if __name__ == "__main__":
-    # Process the Apify LinkedIn data
-    input_file = "test_cleaned.json"
-    output_file = "structured_profiles.json"
-    
-    process_candidates(input_file, output_file)
+    asyncio.run(main())
