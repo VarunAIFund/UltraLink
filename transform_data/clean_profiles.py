@@ -35,26 +35,20 @@ def clean_apify_data(input_file: str, output_file: str):
     cleaned_data = []
     
     for person in data:
-        # Clean experiences and add company descriptions
-        experiences = person.get("experiences", [])
-        for experience in experiences:
-            company_url = experience.get("companyLink1") or ""
-            company_url = company_url.rstrip('/')
-            if company_url in company_lookup:
-                experience["description"] = company_lookup[company_url]
         
         cleaned_person = {
+            "linkedinUrl": person.get("linkedinUrl"),
             "fullName": person.get("fullName"),
             "email": person.get("email"),
+            "connected_to": person.get("connected_to", []),
             "mobileNumber": person.get("mobileNumber"),
-            "linkedinUrl": person.get("linkedinUrl"),
             "headline": person.get("headline"),
             "addressWithCountry": person.get("addressWithCountry"),
             "addressCountryOnly": person.get("addressCountryOnly"),
             "addressWithoutCountry": person.get("addressWithoutCountry"),
             "profilePic": person.get("profilePic"),
             "profilePicHighQuality": person.get("profilePicHighQuality"),
-            "experiences": experiences,
+            "experiences": person.get("experiences", []),
             "educations": person.get("educations", [])
         }
         
@@ -70,9 +64,9 @@ def clean_apify_data(input_file: str, output_file: str):
 
 if __name__ == "__main__":
     # Set paths relative to this script
-    file_name = "test"
+    file_name = "connections"
     script_dir = os.path.dirname(__file__)
-    input_file = os.path.join(script_dir, "..", "apify", f"{file_name}.json")
+    input_file = os.path.join(script_dir, "..", "apify", f"../get_data/results/{file_name}.json")
     output_file = os.path.join(script_dir, f"{file_name}_cleaned.json")
     
     clean_apify_data(input_file, output_file)

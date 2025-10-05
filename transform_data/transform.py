@@ -114,6 +114,7 @@ def extract_profile_data(raw_data: dict) -> dict:
         "location": ai_profile.location,
         "phone": direct_fields["phone"],
         "email": direct_fields["email"],
+        "connected_to": direct_fields["connected_to"],
         "linkedinUrl": direct_fields["linkedinUrl"],
         "profilePic": direct_fields["profilePic"],
         "profilePicHighQuality": direct_fields["profilePicHighQuality"],

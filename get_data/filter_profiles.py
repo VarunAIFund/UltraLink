@@ -9,7 +9,7 @@ Creates backups and saves filtered profiles to separate files for quality assura
 import json
 import os
 
-def filter_profiles(input_file="results/linda_connections.json"):
+def filter_profiles(input_file="results/connections.json"):
     """Filter profiles based on fullName and experiences fields"""
     
     # Load the data
@@ -101,9 +101,60 @@ def filter_profiles(input_file="results/linda_connections.json"):
     print(f"  - Moved {len(filtered_profiles)} incomplete profiles to filtered file")
     print(f"  - Success rate: {(len(complete_profiles) / len(all_profiles)) * 100:.1f}%")
 
+def preview_filter(input_file="results/connections.json"):
+    """Preview how many profiles would be filtered"""
+    
+    try:
+        with open(input_file, 'r', encoding='utf-8') as f:
+            all_profiles = json.load(f)
+    except FileNotFoundError:
+        print(f"❌ File not found: {input_file}")
+        return 0, 0
+    
+    # Count profiles that would be filtered
+    null_name_count = 0
+    empty_exp_count = 0
+    
+    for profile in all_profiles:
+        full_name = profile.get('fullName')
+        experiences = profile.get('experiences', [])
+        
+        if not full_name or full_name.strip() == "":
+            null_name_count += 1
+        elif not experiences or len(experiences) == 0:
+            empty_exp_count += 1
+    
+    total_to_filter = null_name_count + empty_exp_count
+    total_to_keep = len(all_profiles) - total_to_filter
+    
+    return len(all_profiles), total_to_filter, null_name_count, empty_exp_count, total_to_keep
+
 def main():
     """Main function"""
-    filter_profiles()
+    print("🔗 LinkedIn Profile Filter")
+    print("=" * 50)
+    
+    # Preview the filtering
+    total_profiles, profiles_to_filter, null_names, empty_experiences, profiles_to_keep = preview_filter()
+    
+    if total_profiles == 0:
+        return
+    
+    print(f"📊 Preview:")
+    print(f"  Total profiles: {total_profiles}")
+    print(f"  Complete profiles (keep): {profiles_to_keep}")
+    print(f"  Incomplete profiles (filter): {profiles_to_filter}")
+    print(f"    - Profiles with null/empty fullName: {null_names}")
+    print(f"    - Profiles with empty experiences: {empty_experiences}")
+    print(f"  Success rate: {(profiles_to_keep / total_profiles) * 100:.1f}%")
+    
+    # Ask for confirmation
+    confirmation = input(f"\nProceed to filter out {profiles_to_filter} incomplete profiles? (y/n): ").strip().lower()
+    
+    if confirmation in ['y', 'yes']:
+        filter_profiles()
+    else:
+        print("❌ Operation cancelled")
 
 if __name__ == "__main__":
     main()
