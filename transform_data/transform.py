@@ -144,39 +144,63 @@ async def process_candidates(input_file: str, output_file: str):
     
     print(f"Starting async processing of {len(candidates)} candidates")
     print(f"Rate limit: {MAX_REQUESTS_PER_MIN} requests/min ({RATE_LIMIT_INTERVAL:.1f}s between requests)")
+    print(f"Batch size: {BATCH_SIZE}")
     
-    tasks = []
+    # Initialize output file
+    with open(output_file, 'w') as f:
+        json.dump([], f)
+    
+    # Split into batches
+    batches = [candidates[i:i + BATCH_SIZE] for i in range(0, len(candidates), BATCH_SIZE)]
+    total_processed = 0
     start_time = time.time()
     
-    # Process each candidate with rate limiting (following your example pattern)
-    for i, candidate in enumerate(candidates):
-        print(f"Processing {i+1}/{len(candidates)}: {candidate.get('fullName', 'Unknown')}")
+    for batch_num, batch_candidates in enumerate(batches, 1):
+        print(f"\n📦 Processing batch {batch_num}/{len(batches)} ({len(batch_candidates)} profiles)")
         
-        # Create task and add to list (stagger requests to maintain rate)
-        task = asyncio.create_task(extract_profile_data(candidate))
-        tasks.append(task)
-        await asyncio.sleep(RATE_LIMIT_INTERVAL)
+        # Create tasks for this batch
+        batch_tasks = []
+        for i, candidate in enumerate(batch_candidates):
+            print(f"  Launching {i+1}/{len(batch_candidates)}: {candidate.get('fullName', 'Unknown')}")
+            
+            task = asyncio.create_task(extract_profile_data(candidate))
+            batch_tasks.append(task)
+            await asyncio.sleep(RATE_LIMIT_INTERVAL)
+        
+        # Wait for this batch to complete
+        print(f"  ⏳ Waiting for batch {batch_num} to complete...")
+        batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+        
+        # Process batch results
+        successful_results = []
+        failed_count = 0
+        
+        for i, result in enumerate(batch_results):
+            if isinstance(result, Exception):
+                failed_count += 1
+                print(f"    ❌ Task {i+1} failed: {type(result).__name__}: {result}")
+            else:
+                successful_results.append(result)
+        
+        # Save batch results to file
+        if successful_results:
+            # Read existing results
+            with open(output_file, 'r') as f:
+                existing_results = json.load(f)
+            
+            # Add new batch results
+            existing_results.extend(successful_results)
+            
+            # Save back to file
+            with open(output_file, 'w') as f:
+                json.dump(existing_results, f, indent=2)
+        
+        total_processed += len(successful_results)
+        print(f"  ✅ Batch {batch_num} complete: {len(successful_results)} successful, {failed_count} failed")
+        print(f"  💾 Saved batch to file. Total processed: {total_processed}")
     
-    # Wait for all tasks to complete and collect results
-    print("Waiting for all tasks to complete...")
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    
-    # Save successful results to file and debug failures
-    successful_results = []
-    failed_count = 0
-    
-    for i, result in enumerate(results):
-        if isinstance(result, Exception):
-            failed_count += 1
-            print(f"❌ Task {i+1} failed: {type(result).__name__}: {result}")
-        else:
-            successful_results.append(result)
-    
-    with open(output_file, 'w') as f:
-        json.dump(successful_results, f, indent=2)
-    
-    print(f"Completed {len(candidates)} requests in {time.time() - start_time:.1f}s")
-    print(f"Successful: {len(successful_results)}, Failed: {failed_count}")
+    print(f"\nCompleted {len(candidates)} requests in {time.time() - start_time:.1f}s")
+    print(f"Final results: {total_processed} successful, {len(candidates) - total_processed} failed")
     print(f"Results saved to: {output_file}")
 
 async def main():
