@@ -23,11 +23,11 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 client = AsyncOpenAI()
 
 # Rate limiting configuration  
-# TPM limit is 200,000 tokens/min. Each profile uses ~4,000 tokens.
-# 200,000 ÷ 4,000 = 50 max requests/min, using 45 for safety buffer
-MAX_REQUESTS_PER_MIN = 50
-RATE_LIMIT_INTERVAL = 60 / MAX_REQUESTS_PER_MIN  # 1.33 seconds between requests
-BATCH_SIZE = 50
+# TPM limit is 200,000 tokens/min. Each profile uses 3,000-5,500 tokens (~4,000 avg).
+# Using 40 req/min = 160,000 TPM (80% of limit) for 40,000 token safety buffer
+MAX_REQUESTS_PER_MIN = 40
+RATE_LIMIT_INTERVAL = 60 / MAX_REQUESTS_PER_MIN  # 1.5 seconds between requests
+BATCH_SIZE = 40
 
 async def extract_profile_data(raw_data: dict) -> dict:
     """
@@ -95,6 +95,9 @@ async def extract_profile_data(raw_data: dict) -> dict:
     """
 
     # Should short summary be there if the summary is empty?
+    
+    # Rate limiting: wait before making API call
+    await asyncio.sleep(RATE_LIMIT_INTERVAL)
     
     response = await client.responses.parse(
         model="gpt-5-nano",
@@ -222,7 +225,6 @@ async def process_candidates(input_file: str, output_file: str):
             
             task = asyncio.create_task(extract_profile_data(candidate))
             batch_tasks.append(task)
-            await asyncio.sleep(RATE_LIMIT_INTERVAL)
         
         # Wait for this batch to complete
         print(f"  ⏳ Waiting for batch {batch_num} to complete...")
@@ -255,6 +257,11 @@ async def process_candidates(input_file: str, output_file: str):
         total_processed += len(successful_results) if successful_results else 0
         print(f"  ✅ Batch {batch_num} complete: {len(successful_results)} successful, {failed_count} failed")
         print(f"  💾 Saved {len(successful_results)} new entries. Total processed: {total_processed}")
+        
+        # Wait between batches to let TPM window reset
+        if batch_num < len(batches):  # Don't wait after the last batch
+            print(f"  ⏱️ Waiting 60s for TPM window to reset before next batch...")
+            await asyncio.sleep(60)
     
     print(f"\nCompleted {len(new_candidates) if 'batches_to_process' in locals() and batches_to_process > 0 else 0} requests in {time.time() - start_time:.1f}s")
     print(f"Final results: {total_processed} successful")
