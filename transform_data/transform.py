@@ -55,7 +55,7 @@ async def extract_profile_data(raw_data: dict) -> dict:
         "educations": raw_data.get("educations", [])
     }
     
-    print(f"Sending to GPT for {raw_data.get('fullName', 'Unknown')}: {json.dumps(relevant_data, indent=2)}")
+  #  print(f"Sending to GPT for {raw_data.get('fullName', 'Unknown')}: {json.dumps(relevant_data, indent=2)}")
     
     prompt = f"""
     Based on the following candidate data, extract and infer the remaining profile information.
@@ -148,12 +148,33 @@ async def process_candidates(input_file: str, output_file: str):
     print(f"Rate limit: {MAX_REQUESTS_PER_MIN} requests/min ({RATE_LIMIT_INTERVAL:.1f}s between requests)")
     print(f"Batch size: {BATCH_SIZE}")
     
-    # Initialize output file
-    with open(output_file, 'w') as f:
-        json.dump([], f)
+    # Initialize output file if it doesn't exist, otherwise keep existing data
+    try:
+        with open(output_file, 'r') as f:
+            existing_data = json.load(f)
+        print(f"Found existing output file with {len(existing_data)} entries")
+        # Create set of existing LinkedIn URLs for duplicate detection
+        existing_urls = {result.get('linkedinUrl') for result in existing_data if result.get('linkedinUrl')}
+    except FileNotFoundError:
+        with open(output_file, 'w') as f:
+            json.dump([], f)
+        print("Created new output file")
+        existing_urls = set()
     
-    # Split into batches
-    batches = [candidates[i:i + BATCH_SIZE] for i in range(0, len(candidates), BATCH_SIZE)]
+    # Filter out candidates that already exist before processing
+    new_candidates = [c for c in candidates if c.get('linkedinUrl') not in existing_urls]
+    duplicates_filtered = len(candidates) - len(new_candidates)
+    
+    print(f"Input candidates: {len(candidates)}")
+    print(f"New candidates to process: {len(new_candidates)}")
+    print(f"Duplicates filtered out: {duplicates_filtered}")
+    
+    if not new_candidates:
+        print("✅ All candidates already processed! No new work to do.")
+        return
+    
+    # Split NEW candidates into batches
+    batches = [new_candidates[i:i + BATCH_SIZE] for i in range(0, len(new_candidates), BATCH_SIZE)]
     total_processed = 0
     start_time = time.time()
     
@@ -184,22 +205,22 @@ async def process_candidates(input_file: str, output_file: str):
             else:
                 successful_results.append(result)
         
-        # Save batch results to file
+        # Save batch results to file (no need for duplicate checking since we pre-filtered)
         if successful_results:
             # Read existing results
             with open(output_file, 'r') as f:
                 existing_results = json.load(f)
             
-            # Add new batch results
+            # Add all successful results (they're guaranteed to be new)
             existing_results.extend(successful_results)
             
             # Save back to file
             with open(output_file, 'w') as f:
                 json.dump(existing_results, f, indent=2)
         
-        total_processed += len(successful_results)
+        total_processed += len(successful_results) if successful_results else 0
         print(f"  ✅ Batch {batch_num} complete: {len(successful_results)} successful, {failed_count} failed")
-        print(f"  💾 Saved batch to file. Total processed: {total_processed}")
+        print(f"  💾 Saved {len(successful_results)} new entries. Total processed: {total_processed}")
     
     print(f"\nCompleted {len(candidates)} requests in {time.time() - start_time:.1f}s")
     print(f"Final results: {total_processed} successful, {len(candidates) - total_processed} failed")
