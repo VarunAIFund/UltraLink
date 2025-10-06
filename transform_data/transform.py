@@ -22,10 +22,12 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 client = AsyncOpenAI()
 
-# Rate limiting configuration
-MAX_REQUESTS_PER_MIN = 500
-RATE_LIMIT_INTERVAL = 60 / MAX_REQUESTS_PER_MIN  # 0.6 seconds between requests
-BATCH_SIZE = 100
+# Rate limiting configuration  
+# TPM limit is 200,000 tokens/min. Each profile uses ~4,000 tokens.
+# 200,000 ÷ 4,000 = 50 max requests/min, using 45 for safety buffer
+MAX_REQUESTS_PER_MIN = 50
+RATE_LIMIT_INTERVAL = 60 / MAX_REQUESTS_PER_MIN  # 1.33 seconds between requests
+BATCH_SIZE = 50
 
 async def extract_profile_data(raw_data: dict) -> dict:
     """
@@ -175,6 +177,38 @@ async def process_candidates(input_file: str, output_file: str):
     
     # Split NEW candidates into batches
     batches = [new_candidates[i:i + BATCH_SIZE] for i in range(0, len(new_candidates), BATCH_SIZE)]
+    total_batches_available = len(batches)
+    
+    print(f"Total batches available: {total_batches_available}")
+    
+    # Ask user how many batches to process
+    if total_batches_available > 0:
+        while True:
+            try:
+                user_input = input(f"\nHow many batches do you want to process? (1-{total_batches_available}, or 'all'): ").strip().lower()
+                
+                if user_input == 'all':
+                    batches_to_process = total_batches_available
+                    break
+                else:
+                    batches_to_process = int(user_input)
+                    if 1 <= batches_to_process <= total_batches_available:
+                        break
+                    else:
+                        print(f"Please enter a number between 1 and {total_batches_available}, or 'all'")
+            except ValueError:
+                print("Please enter a valid number or 'all'")
+        
+        # Only process the requested number of batches
+        batches = batches[:batches_to_process]
+        remaining_candidates = len(new_candidates) - (batches_to_process * BATCH_SIZE)
+        
+        print(f"\n🚀 Processing {batches_to_process} out of {total_batches_available} available batches")
+        if remaining_candidates > 0:
+            print(f"📋 {remaining_candidates} candidates will remain for future processing")
+    else:
+        batches_to_process = 0
+    
     total_processed = 0
     start_time = time.time()
     
@@ -222,15 +256,23 @@ async def process_candidates(input_file: str, output_file: str):
         print(f"  ✅ Batch {batch_num} complete: {len(successful_results)} successful, {failed_count} failed")
         print(f"  💾 Saved {len(successful_results)} new entries. Total processed: {total_processed}")
     
-    print(f"\nCompleted {len(candidates)} requests in {time.time() - start_time:.1f}s")
-    print(f"Final results: {total_processed} successful, {len(candidates) - total_processed} failed")
+    print(f"\nCompleted {len(new_candidates) if 'batches_to_process' in locals() and batches_to_process > 0 else 0} requests in {time.time() - start_time:.1f}s")
+    print(f"Final results: {total_processed} successful")
     print(f"Results saved to: {output_file}")
+    
+    # Show remaining work if applicable
+    if 'batches_to_process' in locals() and batches_to_process < total_batches_available:
+        remaining_batches = total_batches_available - batches_to_process
+        remaining_candidates = len(new_candidates) - (batches_to_process * BATCH_SIZE)
+        print(f"\n📋 REMAINING WORK:")
+        print(f"   - {remaining_batches} batches remaining ({remaining_candidates} candidates)")
+        print(f"   - Run the script again to continue processing")
 
 async def main():
     """Main async function"""
     # Process the Apify LinkedIn data
-    #input_file = "../get_data/results/connections.json"
-    input_file = "test_set_new.json"
+    input_file = "../get_data/results/connections.json"
+    #input_file = "test_set_new.json"
     output_file = "structured_profiles_test.json"
     
     script_start_time = time.time()
