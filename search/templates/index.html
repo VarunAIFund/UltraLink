@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UltraLink - Candidate Search</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .stats-bar {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 10px 20px;
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .search-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .search-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            border: none;
+            background: #f0f0f0;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        .tab-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .tab-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .search-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .search-btn {
+            padding: 15px 40px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .search-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .search-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .results-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .results-count {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .pagination {
+            display: flex;
+            gap: 10px;
+        }
+
+        .page-btn {
+            padding: 8px 16px;
+            border: 1px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .page-btn:hover:not(:disabled) {
+            background: #667eea;
+            color: white;
+        }
+
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .candidate-card {
+            background: #f9f9f9;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+            border-left: 4px solid #667eea;
+        }
+
+        .candidate-card:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transform: translateX(5px);
+        }
+
+        .candidate-name {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .candidate-headline {
+            color: #666;
+            margin-bottom: 12px;
+            font-style: italic;
+        }
+
+        .candidate-meta {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #555;
+        }
+
+        .meta-label {
+            font-weight: 600;
+        }
+
+        .skills-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .skill-badge {
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+        }
+
+        .connections-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .connection-badge {
+            background: #34d399;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+        }
+
+        .linkedin-link {
+            color: #0077b5;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .linkedin-link:hover {
+            text-decoration: underline;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+
+        .error {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .helper-text {
+            color: #999;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .stats-bar {
+                flex-direction: column;
+            }
+
+            .search-input-group {
+                flex-direction: column;
+            }
+
+            .candidate-meta {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 UltraLink</h1>
+            <p>Candidate Search & Discovery Platform</p>
+        </div>
+
+        <div class="stats-bar" id="statsBar">
+            <div class="stat-item">
+                <div class="stat-number" id="totalCandidates">-</div>
+                <div class="stat-label">Total Candidates</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="seniorityCount">-</div>
+                <div class="stat-label">Seniority Levels</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="startupCount">-</div>
+                <div class="stat-label">Startup Experience</div>
+            </div>
+        </div>
+
+        <div class="search-panel">
+            <h2 style="margin-bottom: 15px; color: #333;">🤖 AI-Powered Natural Language Search</h2>
+            <div class="search-input-group" id="searchInputGroup">
+                <input type="text" class="search-input" id="searchInput" placeholder="Find Python developers in San Francisco..." autofocus>
+                <button class="search-btn" id="searchBtn" onclick="performSearch()">Search</button>
+            </div>
+            <div class="helper-text" id="helperText">
+                Examples: "AI developers with RAG experience" • "Senior engineers in San Francisco" • "Directors who worked at startups" • "Find someone with VC experience"
+            </div>
+            <div id="sqlDisplay" style="display: none; margin-top: 15px; padding: 15px; background: #f0f0f0; border-radius: 8px; font-family: monospace; font-size: 0.9em; color: #666;">
+                <strong>Generated SQL:</strong><br>
+                <code id="sqlCode"></code>
+            </div>
+        </div>
+
+        <div class="results-section">
+            <div class="results-header">
+                <div class="results-count" id="resultsCount">0 candidates found</div>
+                <div class="pagination" id="pagination"></div>
+            </div>
+            <div id="resultsContainer">
+                <div class="loading">Enter a search query above to find candidates using AI</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load stats on page load
+        loadStats();
+
+        function loadStats() {
+            fetch('/api/stats')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('totalCandidates').textContent = data.total.toLocaleString();
+                        document.getElementById('seniorityCount').textContent = Object.keys(data.seniority).length;
+                        document.getElementById('startupCount').textContent = data.startup_experience[true] || 0;
+                    }
+                });
+        }
+
+        function performSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+
+            if (!query) {
+                alert('Please enter a search query');
+                return;
+            }
+
+            const btn = document.getElementById('searchBtn');
+            btn.disabled = true;
+            btn.textContent = 'Searching...';
+
+            document.getElementById('resultsContainer').innerHTML = '<div class="loading">🔍 Using AI to understand your query and search database...</div>';
+            document.getElementById('sqlDisplay').style.display = 'none';
+
+            const payload = {
+                query: query
+            };
+
+            fetch('/api/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.textContent = 'Search';
+
+                if (data.success) {
+                    // Show generated SQL
+                    if (data.sql) {
+                        document.getElementById('sqlCode').textContent = data.sql;
+                        document.getElementById('sqlDisplay').style.display = 'block';
+                    }
+
+                    displayResults(data.results, data.total);
+                } else {
+                    let errorMsg = `<div class="error">Error: ${data.error}`;
+                    if (data.sql) {
+                        errorMsg += `<br><br><strong>Generated SQL:</strong><br><code style="font-size: 0.9em;">${data.sql}</code>`;
+                    }
+                    errorMsg += `</div>`;
+                    document.getElementById('resultsContainer').innerHTML = errorMsg;
+                }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btn.textContent = 'Search';
+                document.getElementById('resultsContainer').innerHTML = `<div class="error">Error: ${err.message}</div>`;
+            });
+        }
+
+        function displayResults(results, total) {
+            document.getElementById('resultsCount').textContent = `${total.toLocaleString()} candidates found`;
+            document.getElementById('pagination').innerHTML = '';
+
+            if (results.length === 0) {
+                document.getElementById('resultsContainer').innerHTML = '<div class="loading">No candidates found matching your query</div>';
+                return;
+            }
+
+            let html = '';
+            results.forEach(candidate => {
+                const skills = candidate.skills || [];
+                const skillsHtml = skills.slice(0, 10).map(skill =>
+                    `<span class="skill-badge">${skill}</span>`
+                ).join('');
+
+                const connections = candidate.connected_to || [];
+                const connectionsHtml = connections.length > 0
+                    ? connections.slice(0, 5).map(conn => `<span class="connection-badge">${conn}</span>`).join('')
+                    : '';
+
+                html += `
+                    <div class="candidate-card">
+                        <div class="candidate-name">${candidate.name || 'N/A'}</div>
+                        <div class="candidate-headline">${candidate.headline || 'No headline'}</div>
+                        <div class="candidate-meta">
+                            <div class="meta-item">
+                                <span class="meta-label">📍</span>
+                                ${candidate.location || 'N/A'}
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">💼</span>
+                                ${candidate.seniority || 'N/A'}
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">📅</span>
+                                ${candidate.years_experience || 'N/A'} years
+                            </div>
+                            ${candidate.worked_at_startup ? '<div class="meta-item">🚀 Startup Experience</div>' : ''}
+                        </div>
+                        ${skills.length > 0 ? `
+                            <div class="skills-container">
+                                ${skillsHtml}
+                                ${skills.length > 10 ? `<span class="skill-badge">+${skills.length - 10} more</span>` : ''}
+                            </div>
+                        ` : ''}
+                        ${connections.length > 0 ? `
+                            <div style="margin-top: 12px;">
+                                <div style="font-weight: 600; color: #555; margin-bottom: 5px;">🤝 Connected to:</div>
+                                <div class="connections-container">
+                                    ${connectionsHtml}
+                                    ${connections.length > 5 ? `<span class="connection-badge">+${connections.length - 5} more</span>` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+                        <a href="${candidate.linkedin_url}" target="_blank" class="linkedin-link">🔗 View LinkedIn Profile</a>
+                    </div>
+                `;
+            });
+
+            document.getElementById('resultsContainer').innerHTML = html;
+        }
+
+        // Allow Enter key to search
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+    </script>
+</body>
+</html>
