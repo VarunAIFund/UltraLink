@@ -34,7 +34,6 @@ class AIInferredProfile(BaseModel):
     headline: str
     location: str
     seniority: Literal["Intern", "Entry", "Junior", "Mid", "Senior", "Lead", "Manager", "Director", "VP", "C-Level"]
-    skills: List[str]
     years_experience: int
     worked_at_startup: bool
     education: List[Education]

@@ -23,7 +23,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 client = AsyncOpenAI()
 
 # Rate limiting configuration
-MAX_REQUESTS_PER_MIN = 100
+MAX_REQUESTS_PER_MIN = 500
 RATE_LIMIT_INTERVAL = 60 / MAX_REQUESTS_PER_MIN  # 0.6 seconds between requests
 BATCH_SIZE = 100
 
@@ -34,13 +34,9 @@ async def extract_profile_data(raw_data: dict) -> dict:
     
     # Get current date
     current_date = datetime.now().strftime("%B %d, %Y")
-    
-    # Extract LinkedIn username from URL for ID
-    candidate_id = f"{raw_data.get('fullName', 'candidate').replace(' ', '_')}"
-    
+        
     # Extract fields directly from JSON data
     direct_fields = {
-        "id": candidate_id,
         "connected_to": raw_data.get("connected_to", []),
         "phone": raw_data.get("mobileNumber", ""),
         "email": raw_data.get("email", ""),
@@ -73,7 +69,6 @@ async def extract_profile_data(raw_data: dict) -> dict:
     - headline: Professional headline or current role
     - location: Location information standardized to "City, State/Province, Country" format. If any component is missing, include what's available. If remote work, use "Remote". If completely blank, leave blank.
     - seniority: Seniority level (choose from: Intern, Entry, Junior, Mid, Senior, Lead, Manager, Director, VP, C-Level) based on titles and experience
-    - skills: List of all skills including programming languages inferred from experience descriptions
     - years_experience: Total years of experience calculated from earliest date in work history up to {current_date}
     - worked_at_startup: Boolean indicating if they worked at startups. IMPORTANT: Consider the company's status at the TIME they worked there, not current status. Examples:
       * Google (founded 1998, IPO 2004): Anyone who worked there 1998-2004 = startup
@@ -114,20 +109,27 @@ async def extract_profile_data(raw_data: dict) -> dict:
     num_experiences = len(ai_profile.experiences) if ai_profile.experiences else 1  # Avoid division by zero
     average_tenure = ai_profile.years_experience / num_experiences if ai_profile.years_experience else 0.0
     
+    # Combine company skills from all experiences to get overall skills
+    all_company_skills = []
+    for exp in ai_profile.experiences:
+        all_company_skills.extend(exp.company_skills)
+    
+    # Remove duplicates while preserving order
+    skills = list(dict.fromkeys(all_company_skills))
+    
     # Combine direct extraction with AI inference
     return {
-        "id": direct_fields["id"],
         "name": ai_profile.name,
+        "linkedinUrl": direct_fields["linkedinUrl"],
         "headline": ai_profile.headline,
         "location": ai_profile.location,
         "phone": direct_fields["phone"],
         "email": direct_fields["email"],
         "connected_to": direct_fields["connected_to"],
-        "linkedinUrl": direct_fields["linkedinUrl"],
         "profilePic": direct_fields["profilePic"],
         "profilePicHighQuality": direct_fields["profilePicHighQuality"],
         "seniority": ai_profile.seniority,
-        "skills": ai_profile.skills,
+        "skills": skills,
         "years_experience": ai_profile.years_experience,
         "average_tenure": average_tenure,
         "worked_at_startup": ai_profile.worked_at_startup,
