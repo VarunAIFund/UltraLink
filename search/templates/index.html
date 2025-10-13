@@ -263,6 +263,46 @@
             font-size: 0.85em;
         }
 
+        .relevance-score {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .ranking-insight {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            color: #1e3a8a;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        .ranking-insight strong {
+            color: #1e40af;
+        }
+
+        .fit-description {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 12px 15px;
+            margin-bottom: 12px;
+            border-radius: 5px;
+            color: #78350f;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        .fit-description strong {
+            color: #92400e;
+        }
+
         .linkedin-link {
             color: #0077b5;
             text-decoration: none;
@@ -391,7 +431,7 @@
             btn.disabled = true;
             btn.textContent = 'Searching...';
 
-            document.getElementById('resultsContainer').innerHTML = '<div class="loading">🔍 Using AI to understand your query and search database...</div>';
+            document.getElementById('resultsContainer').innerHTML = '<div class="loading">🔍 Using AI to search database and rank candidates by relevance...</div>';
             document.getElementById('sqlDisplay').style.display = 'none';
 
             const payload = {
@@ -457,7 +497,20 @@
 
                 html += `
                     <div class="candidate-card">
-                        <div class="candidate-name">${candidate.name || 'N/A'}</div>
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                            <div class="candidate-name">${candidate.name || 'N/A'}</div>
+                            ${candidate.relevance_score ? `<div class="relevance-score">${candidate.relevance_score}% Match</div>` : ''}
+                        </div>
+                        ${candidate.ranking_insight ? `
+                            <div class="ranking-insight">
+                                <strong>🎯 AI Ranking Insight:</strong> ${candidate.ranking_insight}
+                            </div>
+                        ` : ''}
+                        ${candidate.fit_description ? `
+                            <div class="fit-description">
+                                <strong>✨ Why they're a good fit:</strong> ${candidate.fit_description}
+                            </div>
+                        ` : ''}
                         <div class="candidate-headline">${candidate.headline || 'No headline'}</div>
                         <div class="candidate-meta">
                             <div class="meta-item">

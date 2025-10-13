@@ -11,6 +11,7 @@ from flask import Flask, render_template, request, jsonify
 import sys
 import os
 import re
+import json
 
 # Add transform_data directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'transform_data'))
@@ -166,6 +167,100 @@ def index():
     """Main search page"""
     return render_template('index.html')
 
+def rerank_and_explain_candidates(query: str, candidates: list) -> list:
+    """Use GPT to rerank candidates by relevance and generate fit descriptions"""
+    if not candidates or len(candidates) == 0:
+        return candidates
+
+    # Limit to top 30 candidates to avoid token limits
+    # GPT-4o can't process and rank 100+ full profiles without hitting output limits
+    candidates_to_rank = candidates[:30] if len(candidates) > 30 else candidates
+    remaining_candidates = candidates[30:] if len(candidates) > 30 else []
+
+    # Prepare complete candidate data for GPT
+    candidate_summaries = []
+    for i, candidate in enumerate(candidates_to_rank):
+        summary = {
+            'index': i,
+            'name': candidate.get('name'),
+            'headline': candidate.get('headline'),
+            'seniority': candidate.get('seniority'),
+            'location': candidate.get('location'),
+            'skills': candidate.get('skills', []),  # All skills
+            'years_experience': candidate.get('years_experience'),
+            'worked_at_startup': candidate.get('worked_at_startup'),
+            'connected_to': candidate.get('connected_to', []),
+            'experiences': candidate.get('experiences'),  # Full work history
+            'education': candidate.get('education')  # Full education
+        }
+        candidate_summaries.append(summary)
+
+    prompt = f"""Given this search query: "{query}"
+
+Analyze these {len(candidate_summaries)} candidates and:
+1. Rank them by relevance to the query (most relevant first)
+2. For each candidate, provide:
+   - A relevance score (0-100)
+   - A concise 1-2 sentence explanation of why they're a good fit
+   - A ranking insight explaining what factors contributed to their score
+
+Candidates:
+{json.dumps(candidate_summaries, indent=2)}
+
+Respond ONLY with valid JSON in this exact format:
+{{
+  "ranked_candidates": [
+    {{
+      "index": 0,
+      "relevance_score": 95,
+      "fit_description": "Strong match because...",
+      "ranking_insight": "Ranked #1 due to exact skill matches and relevant experience in..."
+    }},
+    ...
+  ]
+}}"""
+
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a recruiting expert who analyzes candidate profiles and explains their fit for roles. Always respond with valid JSON only."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3
+        )
+
+        response_text = completion.choices[0].message.content.strip()
+
+        # Extract JSON from response (handle code blocks)
+        if response_text.startswith('```'):
+            response_text = response_text.split('```')[1]
+            if response_text.startswith('json'):
+                response_text = response_text[4:]
+
+        ranking_data = json.loads(response_text)
+
+        # Reorder candidates based on ranking
+        ranked_results = []
+        for ranked_item in ranking_data['ranked_candidates']:
+            original_index = ranked_item['index']
+            if 0 <= original_index < len(candidates_to_rank):
+                candidate = candidates_to_rank[original_index].copy()
+                candidate['relevance_score'] = ranked_item.get('relevance_score', 50)
+                candidate['fit_description'] = ranked_item.get('fit_description', '')
+                candidate['ranking_insight'] = ranked_item.get('ranking_insight', '')
+                ranked_results.append(candidate)
+
+        # Append remaining unranked candidates at the end (without AI descriptions)
+        ranked_results.extend(remaining_candidates)
+
+        return ranked_results
+
+    except Exception as e:
+        print(f"Reranking error: {e}")
+        # If reranking fails, return original results
+        return candidates
+
 @app.route('/api/search', methods=['POST'])
 def api_search():
     """API endpoint for AI-powered natural language search"""
@@ -185,10 +280,13 @@ def api_search():
         # Execute the query
         results = execute_search_query(sql_query)
 
+        # Rerank and explain candidates using GPT
+        ranked_results = rerank_and_explain_candidates(query, results)
+
         return jsonify({
             'success': True,
-            'results': results,
-            'total': len(results),
+            'results': ranked_results,
+            'total': len(ranked_results),
             'sql': sql_query,
             'expanded_query': expand_abbreviations(query)
         })
