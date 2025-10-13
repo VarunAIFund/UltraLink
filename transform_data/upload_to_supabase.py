@@ -11,6 +11,7 @@ Usage:
 
 import json
 import os
+import re
 from typing import List, Dict, Any
 from supabase_config import get_supabase_client
 
@@ -19,6 +20,22 @@ JSON_FILE_PATH = os.path.join(
     os.path.dirname(__file__),
     'structured_profiles_test.json'
 )
+
+def sanitize_string(value: Any) -> Any:
+    """
+    Remove null bytes and other problematic Unicode characters from strings.
+    PostgreSQL cannot store null bytes (\u0000) in text fields.
+    """
+    if isinstance(value, str):
+        # Remove null bytes and other control characters except newlines/tabs
+        value = re.sub(r'[\x00-\x08\x0b-\x0c\x0e-\x1f]', '', value)
+        return value
+    elif isinstance(value, dict):
+        return {k: sanitize_string(v) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [sanitize_string(item) for item in value]
+    else:
+        return value
 
 def load_profiles() -> List[Dict[str, Any]]:
     """
@@ -38,25 +55,28 @@ def load_profiles() -> List[Dict[str, Any]]:
 
 def transform_profile_for_db(profile: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Transform profile to match database schema
+    Transform profile to match database schema and sanitize data
     """
+    # Sanitize the entire profile to remove null bytes and problematic characters
+    sanitized_profile = sanitize_string(profile)
+
     return {
-        'linkedin_url': profile.get('linkedinUrl'),
-        'name': profile.get('name'),
-        'headline': profile.get('headline'),
-        'location': profile.get('location'),
-        'phone': profile.get('phone'),
-        'email': profile.get('email'),
-        'profile_pic': profile.get('profilePic'),
-        'profile_pic_high_quality': profile.get('profilePicHighQuality'),
-        'connected_to': profile.get('connected_to', []),
-        'seniority': profile.get('seniority'),
-        'skills': profile.get('skills', []),
-        'years_experience': profile.get('years_experience'),
-        'average_tenure': profile.get('average_tenure'),
-        'worked_at_startup': profile.get('worked_at_startup', False),
-        'experiences': json.dumps(profile.get('experiences', [])),  # Convert to JSON string
-        'education': json.dumps(profile.get('education', []))  # Convert to JSON string
+        'linkedin_url': sanitized_profile.get('linkedinUrl'),
+        'name': sanitized_profile.get('name'),
+        'headline': sanitized_profile.get('headline'),
+        'location': sanitized_profile.get('location'),
+        'phone': sanitized_profile.get('phone'),
+        'email': sanitized_profile.get('email'),
+        'profile_pic': sanitized_profile.get('profilePic'),
+        'profile_pic_high_quality': sanitized_profile.get('profilePicHighQuality'),
+        'connected_to': sanitized_profile.get('connected_to', []),
+        'seniority': sanitized_profile.get('seniority'),
+        'skills': sanitized_profile.get('skills', []),
+        'years_experience': sanitized_profile.get('years_experience'),
+        'average_tenure': sanitized_profile.get('average_tenure'),
+        'worked_at_startup': sanitized_profile.get('worked_at_startup', False),
+        'experiences': sanitized_profile.get('experiences', []),  # Pass as Python object, Supabase handles JSONB conversion
+        'education': sanitized_profile.get('education', [])  # Pass as Python object, Supabase handles JSONB conversion
     }
 
 def create_table_if_not_exists():

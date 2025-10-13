@@ -37,15 +37,17 @@ TABLE: candidates (987 records)
 
 IMPORTANT QUERY RULES:
 1. ALWAYS include these core fields in SELECT: linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup
-2. For skills array searches: 'Python' = ANY(skills) OR skills @> ARRAY['Python']
-3. For simple text searches in experiences: experiences::text ~* '\\mTERM\\M' (word boundary regex)
+2. For skills array searches: Use case-insensitive text search: array_to_string(skills, ',') ~* '\\mpython\\M'
+3. For simple text searches in experiences: experiences::text ~* '\\mTERM\\M' (word boundary regex, case-insensitive)
 4. For searching in education JSONB: education::text ~* '\\mTERM\\M'
 5. For CEOs/Executives/Founders: use seniority = 'C-Level' (NOT 'CEO' or 'Executive')
 6. Location searches: use ILIKE for flexible matching (e.g., location ILIKE '%San Francisco%')
 7. Connected to searches: 'Person Name' = ANY(connected_to)
 8. Abbreviation expansion: When you see abbreviations (AI, ML, NLP, RAG, LLM, VC), search for BOTH the abbreviated and expanded forms
-9. ALWAYS use LIMIT 100 to cap results
-10. Output ONLY the SQL query without markdown code blocks
+9. For industry_tags searches: Use case-insensitive regex: exp->>'industry_tags' ~* '\\mhealthcare\\M' (NOT @> operator)
+10. For company_skills searches: Use case-insensitive regex: exp->>'company_skills' ~* '\\mpython\\M'
+11. ALWAYS use LIMIT 100 to cap results
+12. Output ONLY the SQL query without markdown code blocks
 """
 
 EXAMPLE_QUERIES = """
@@ -54,14 +56,14 @@ EXAMPLE QUERIES:
 Natural: "Find Python developers in San Francisco"
 SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup
      FROM candidates
-     WHERE 'Python' = ANY(skills) AND location ILIKE '%San Francisco%'
+     WHERE array_to_string(skills, ',') ~* '\\mpython\\M' AND location ILIKE '%San Francisco%'
      LIMIT 100;
 
 Natural: "AI engineers with 5+ years experience"
 SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup
      FROM candidates
      WHERE years_experience >= 5
-     AND (skills @> ARRAY['AI'] OR skills @> ARRAY['Artificial Intelligence'] OR experiences::text ~* '\\mAI\\M')
+     AND (array_to_string(skills, ',') ~* '\\m(ai|artificial intelligence)\\M' OR experiences::text ~* '\\mAI\\M')
      LIMIT 100;
 
 Natural: "Senior engineers who worked at Google"
@@ -74,7 +76,7 @@ Natural: "Startup founders with ML experience"
 SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup
      FROM candidates
      WHERE (seniority = 'C-Level' OR experiences::text ~* '\\mfounder\\M')
-     AND (skills @> ARRAY['Machine Learning'] OR skills @> ARRAY['ML'])
+     AND array_to_string(skills, ',') ~* '\\m(ml|machine learning)\\M'
      LIMIT 100;
 
 Natural: "People connected to John Smith"
@@ -94,14 +96,14 @@ SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, 
      FROM candidates c, jsonb_array_elements(c.experiences) AS exp
      WHERE c.seniority = 'C-Level'
      AND exp->>'title' ~* '\\m(CEO|Chief Executive|Founder|Co-Founder)\\M'
-     AND exp->'industry_tags' @> '["Healthcare"]'::jsonb
+     AND exp->>'industry_tags' ~* '\\mhealthcare\\M'
      LIMIT 100;
 
 Natural: "CTO who worked at AI startups"
 SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup
      FROM candidates c, jsonb_array_elements(c.experiences) AS exp
      WHERE exp->>'title' ~* '\\m(CTO|Chief Technology Officer)\\M'
-     AND exp->'industry_tags' @> '["AI/ML"]'::jsonb
+     AND exp->>'industry_tags' ~* '\\mai/ml\\M'
      LIMIT 100;
 """
 
