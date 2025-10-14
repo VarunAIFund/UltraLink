@@ -9,8 +9,8 @@ from dotenv import load_dotenv, dotenv_values
 from openai import OpenAI
 from db_schema import get_schema_prompt
 
-# Load environment
-env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+# Load environment - .env is at project root (UltraLink/)
+env_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env')
 load_dotenv(env_path)
 
 client = OpenAI()
