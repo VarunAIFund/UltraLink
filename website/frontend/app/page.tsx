@@ -93,10 +93,23 @@ export default function Home() {
             {results.map((candidate, index) => (
               <Card key={index}>
                 <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <CardTitle>{candidate.name}</CardTitle>
-                      <CardDescription>{candidate.headline}</CardDescription>
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex gap-4 flex-1">
+                      {candidate.profile_pic ? (
+                        <img
+                          src={candidate.profile_pic}
+                          alt={candidate.name}
+                          className="w-16 h-16 rounded-full object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                          <HiUser className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <CardTitle>{candidate.name}</CardTitle>
+                        <CardDescription>{candidate.headline}</CardDescription>
+                      </div>
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-primary">

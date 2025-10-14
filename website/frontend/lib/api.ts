@@ -15,6 +15,7 @@ export interface CandidateResult {
   years_experience?: number;
   skills?: string[];
   connected_to?: string[];
+  profile_pic?: string;
 }
 
 export interface SearchResponse {
