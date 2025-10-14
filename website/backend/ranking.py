@@ -41,26 +41,26 @@ def rank_candidates(query: str, candidates: list):
 
     prompt = f"""Given this search query: "{query}"
 
-Analyze these {len(summaries)} candidates and:
-1. Rank them by relevance (most relevant first)
-2. IMPORTANT: You MUST rank ALL {len(summaries)} candidates - do not skip any
-3. For each candidate, provide:
-   - relevance_score (0-100)
-   - fit_description (1-2 sentences why they're a good fit)
+    Analyze these {len(summaries)} candidates and:
+    1. Rank them by relevance (most relevant first)
+    2. IMPORTANT: You MUST rank ALL {len(summaries)} candidates - do not skip any
+    3. For each candidate, provide:
+    - relevance_score (0-100)
+    - fit_description (1-2 sentences why they're a good fit)
 
-Candidates:
-{json.dumps(summaries, indent=2)}
+    Candidates:
+    {json.dumps(summaries, indent=2)}
 
-Respond ONLY with valid JSON:
-{{
-  "ranked_candidates": [
+    Respond ONLY with valid JSON:
     {{
-      "index": 0,
-      "relevance_score": 95,
-      "fit_description": "...",
-    }}
-  ]
-}}"""
+    "ranked_candidates": [
+        {{
+        "index": 0,
+        "relevance_score": 95,
+        "fit_description": "...",
+        }}
+    ]
+    }}"""
 
     try:
         response = client.chat.completions.create(
