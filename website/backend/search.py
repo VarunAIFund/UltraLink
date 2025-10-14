@@ -16,14 +16,15 @@ load_dotenv(env_path)
 client = OpenAI()
 
 def get_db_connection():
-    """Get Supabase database connection"""
+    """Get Supabase database connection via connection pooler"""
     env_vars = dotenv_values(env_path)
     supabase_url = env_vars.get('SUPABASE_URL', '')
     project_id = supabase_url.replace('https://', '').replace('.supabase.co', '')
     db_password = env_vars.get('SUPABASE_DB_PASSWORD')
     encoded_password = quote_plus(db_password)
 
-    conn_string = f"postgresql://postgres:{encoded_password}@db.{project_id}.supabase.co:5432/postgres"
+    # Use connection pooler for better reliability and to avoid IP restrictions
+    conn_string = f"postgresql://postgres.{project_id}:{encoded_password}@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
     return psycopg2.connect(conn_string)
 
 def generate_sql(query: str) -> str:
@@ -78,6 +79,9 @@ def execute_search(query: str):
     # Validate
     if not is_safe_query(sql):
         raise ValueError(f"Unsafe SQL query generated:\n{sql}")
+
+    # Debug: print SQL
+    print(f"Generated SQL:\n{sql}\n")
 
     # Execute
     conn = get_db_connection()

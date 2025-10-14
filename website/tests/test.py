@@ -4,7 +4,7 @@ Test script for search.py
 import json
 from search import execute_search
 
-query = "CEO in healthcare comapny"
+query = "CEO in healthcare comapny with startup experience"
 result = execute_search(query)
 
 # Write to file
