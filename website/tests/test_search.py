@@ -13,7 +13,7 @@ query = "CEO in healthcare comapny with startup experience"
 result = execute_search(query)
 
 # Write to file in tests directory
-output_path = os.path.join(os.path.dirname(__file__), 'test_results.json')
+output_path = os.path.join(os.path.dirname(__file__), 'test_search.json')
 with open(output_path, 'w') as f:
     json.dump(result, f, indent=2, default=str)
 

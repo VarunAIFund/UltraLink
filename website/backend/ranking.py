@@ -2,7 +2,13 @@
 Ranking module - GPT-4o powered candidate ranking
 """
 import json
+import os
+from dotenv import load_dotenv
 from openai import OpenAI
+
+# Load environment - .env is at project root (UltraLink/)
+env_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env')
+load_dotenv(env_path)
 
 client = OpenAI()
 
@@ -27,19 +33,20 @@ def rank_candidates(query: str, candidates: list):
             'skills': candidate.get('skills', []),
             'years_experience': candidate.get('years_experience'),
             'worked_at_startup': candidate.get('worked_at_startup'),
-            'connected_to': candidate.get('connected_to', []),
             'experiences': candidate.get('experiences'),
             'education': candidate.get('education')
         })
+
+    print(f"Summaries: {len(summaries)}")
 
     prompt = f"""Given this search query: "{query}"
 
 Analyze these {len(summaries)} candidates and:
 1. Rank them by relevance (most relevant first)
-2. For each, provide:
+2. IMPORTANT: You MUST rank ALL {len(summaries)} candidates - do not skip any
+3. For each candidate, provide:
    - relevance_score (0-100)
    - fit_description (1-2 sentences why they're a good fit)
-   - ranking_insight (why they got this score/rank)
 
 Candidates:
 {json.dumps(summaries, indent=2)}
@@ -51,7 +58,6 @@ Respond ONLY with valid JSON:
       "index": 0,
       "relevance_score": 95,
       "fit_description": "...",
-      "ranking_insight": "..."
     }}
   ]
 }}"""
@@ -87,8 +93,8 @@ Respond ONLY with valid JSON:
                 candidate['ranking_insight'] = ranked_item.get('ranking_insight', '')
                 ranked_results.append(candidate)
 
-        # Append unranked candidates
-        ranked_results.extend(remaining)
+        # Don't include unranked candidates - only return the top 30 that were actually ranked
+        # If you want more, increase the limit on line 21
 
         return ranked_results
 
