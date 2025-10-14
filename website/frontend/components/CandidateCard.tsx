@@ -1,6 +1,17 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { HiLocationMarker, HiUser, HiBriefcase, HiUserGroup } from 'react-icons/hi';
-import type { CandidateResult } from '@/lib/api';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  HiLocationMarker,
+  HiUser,
+  HiBriefcase,
+  HiUserGroup,
+} from "react-icons/hi";
+import type { CandidateResult } from "@/lib/api";
 
 interface CandidateCardProps {
   candidate: CandidateResult;
@@ -11,7 +22,7 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
     <Card>
       <CardHeader>
         <div className="flex justify-between items-start gap-4">
-          <div className="flex gap-4 flex-1">
+          <div className="flex gap-4 flex-1 items-center">
             {candidate.profile_pic ? (
               <img
                 src={candidate.profile_pic}
