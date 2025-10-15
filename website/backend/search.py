@@ -17,10 +17,12 @@ client = OpenAI()
 
 def get_db_connection():
     """Get Supabase database connection via connection pooler"""
-    env_vars = dotenv_values(env_path)
-    supabase_url = env_vars.get('SUPABASE_URL', '')
-    project_id = supabase_url.replace('https://', '').replace('.supabase.co', '')
-    db_password = env_vars.get('SUPABASE_DB_PASSWORD')
+    # Use os.getenv() which works for both Railway (env vars) and local (.env file loaded by load_dotenv)
+    db_password = os.getenv('SUPABASE_DB_PASSWORD')
+
+    if not db_password:
+        raise ValueError("SUPABASE_DB_PASSWORD environment variable is not set")
+
     encoded_password = quote_plus(db_password)
 
     # Use connection pooler for better reliability and to avoid IP restrictions
