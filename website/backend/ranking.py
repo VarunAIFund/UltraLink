@@ -6,8 +6,8 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# Load environment - .env is at project root (UltraLink/)
-env_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env')
+# Load environment - .env is in website directory
+env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 load_dotenv(env_path)
 
 client = OpenAI()

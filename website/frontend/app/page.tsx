@@ -12,6 +12,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [sql, setSql] = useState('');
+  const [hasSearched, setHasSearched] = useState(false);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -20,11 +21,13 @@ export default function Home() {
     setError('');
     setResults([]);
     setSql('');
+    setHasSearched(false);
 
     try {
       const response = await searchAndRank(query);
       setResults(response.results);
       setSql(response.sql);
+      setHasSearched(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Search failed');
     } finally {
@@ -54,7 +57,7 @@ export default function Home() {
 
       <SqlDisplay sql={sql} />
 
-      <CandidateList results={results} />
+      <CandidateList results={results} hasSearched={hasSearched} />
     </div>
   );
 }
