@@ -54,13 +54,14 @@ def search_and_rank():
     """Combined endpoint - search then rank"""
     data = request.json
     query = data.get('query', '').strip()
+    connected_to = data.get('connected_to', 'all')
 
     if not query:
         return jsonify({'error': 'Query required'}), 400
 
     try:
-        # Search
-        search_result = execute_search(query)
+        # Search with connection filter
+        search_result = execute_search(query, connected_to)
 
         # Rank
         ranked = rank_candidates(query, search_result['results'])

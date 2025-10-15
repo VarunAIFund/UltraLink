@@ -14,6 +14,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [sql, setSql] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
+  const [connectedTo, setConnectedTo] = useState('all');
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -25,7 +26,7 @@ export default function Home() {
     setHasSearched(false);
 
     try {
-      const response = await searchAndRank(query);
+      const response = await searchAndRank(query, connectedTo);
       setResults(response.results);
       setSql(response.sql);
       setHasSearched(true);
@@ -42,7 +43,7 @@ export default function Home() {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="mb-8"
+        className="mb-8 text-center"
       >
         <h1 className="text-4xl font-bold mb-2">UltraLink Search</h1>
         <p className="text-muted-foreground">AI-powered candidate search and ranking</p>
@@ -58,6 +59,8 @@ export default function Home() {
           setQuery={setQuery}
           onSearch={handleSearch}
           loading={loading}
+          connectedTo={connectedTo}
+          setConnectedTo={setConnectedTo}
         />
       </motion.div>
 

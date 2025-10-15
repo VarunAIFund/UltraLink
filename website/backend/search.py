@@ -27,17 +27,22 @@ def get_db_connection():
     conn_string = f"postgresql://postgres.{project_id}:{encoded_password}@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
     return psycopg2.connect(conn_string)
 
-def generate_sql(query: str) -> str:
+def generate_sql(query: str, connected_to: str = None) -> str:
     """Use GPT to convert natural language to SQL"""
 
     system_prompt = f"""You are a SQL generator for Supabase PostgreSQL. Output ONLY valid PostgreSQL SQL queries.
     {get_schema_prompt()}"""
 
+    # Add connection filter if specified
+    user_query = query
+    if connected_to and connected_to.lower() != 'all':
+        user_query = f"{query}\n\nIMPORTANT: Also filter for people connected to '{connected_to}' using: array_to_string(connected_to, ',') ~* '\\m{connected_to}\\M'"
+
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"{query}\n\nSQL:"}
+            {"role": "user", "content": f"{user_query}\n\nSQL:"}
         ],
         temperature=0.1
     )
@@ -71,10 +76,10 @@ def is_safe_query(sql: str) -> bool:
 
     return True
 
-def execute_search(query: str):
+def execute_search(query: str, connected_to: str = None):
     """Main search function"""
     # Generate SQL
-    sql = generate_sql(query)
+    sql = generate_sql(query, connected_to)
 
     # Validate
     if not is_safe_query(sql):

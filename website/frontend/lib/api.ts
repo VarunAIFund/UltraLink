@@ -26,13 +26,16 @@ export interface SearchResponse {
   error?: string;
 }
 
-export async function searchAndRank(query: string): Promise<SearchResponse> {
+export async function searchAndRank(query: string, connectedTo?: string): Promise<SearchResponse> {
   const response = await fetch(`${API_BASE_URL}/search-and-rank`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({
+      query,
+      connected_to: connectedTo || 'all'
+    }),
   });
 
   if (!response.ok) {
