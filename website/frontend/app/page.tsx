@@ -1,28 +1,28 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { searchAndRank, type CandidateResult } from '@/lib/api';
-import { SearchBar } from '@/components/SearchBar';
-import { SqlDisplay } from '@/components/SqlDisplay';
-import { CandidateList } from '@/components/CandidateList';
-import { motion } from 'framer-motion';
+import { useState } from "react";
+import { searchAndRank, type CandidateResult } from "@/lib/api";
+import { SearchBar } from "@/components/SearchBar";
+import { SqlDisplay } from "@/components/SqlDisplay";
+import { CandidateList } from "@/components/CandidateList";
+import { motion } from "framer-motion";
 
 export default function Home() {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [results, setResults] = useState<CandidateResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [sql, setSql] = useState('');
+  const [error, setError] = useState("");
+  const [sql, setSql] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
-  const [connectedTo, setConnectedTo] = useState('all');
+  const [connectedTo, setConnectedTo] = useState("all");
 
   const handleSearch = async () => {
     if (!query.trim()) return;
 
     setLoading(true);
-    setError('');
+    setError("");
     setResults([]);
-    setSql('');
+    setSql("");
     setHasSearched(false);
 
     try {
@@ -31,7 +31,7 @@ export default function Home() {
       setSql(response.sql);
       setHasSearched(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Search failed');
+      setError(err instanceof Error ? err.message : "Search failed");
     } finally {
       setLoading(false);
     }
@@ -45,8 +45,10 @@ export default function Home() {
         transition={{ duration: 0.5 }}
         className="mb-8 text-center"
       >
-        <h1 className="text-4xl font-bold mb-2">UltraLink Search</h1>
-        <p className="text-muted-foreground">AI-powered candidate search and ranking</p>
+        <h1 className="text-4xl font-bold mb-2">UltraLink</h1>
+        <p className="text-muted-foreground">
+          AI-powered candidate search and ranking
+        </p>
       </motion.div>
 
       <motion.div
@@ -76,7 +78,11 @@ export default function Home() {
 
       <SqlDisplay sql={sql} />
 
-      <CandidateList results={results} hasSearched={hasSearched} loading={loading} />
+      <CandidateList
+        results={results}
+        hasSearched={hasSearched}
+        loading={loading}
+      />
     </div>
   );
 }
