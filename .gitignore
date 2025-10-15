@@ -1,6 +1,28 @@
 *.csv
-*.json
 *.backup
+
+# Ignore large data JSON files, but keep config files
+transform_data/*.json
+transform_data/data/*.json
+
+linkedin_scraper/*.json
+get_data/*.json
+get_data/results/*.json
+bright_data/*.json
+apify/*.json
+
+linda317lee-brightdata.json
+.mcp.json
+coresignal.json
+
+website/tests/*.json
+
+search/*.json
+tests/*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!components.json
 
 # Environment variables
 .env
