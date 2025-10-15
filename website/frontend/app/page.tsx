@@ -38,12 +38,12 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen p-8 max-w-7xl mx-auto">
+    <div className="min-h-screen p-8 max-w-5xl mx-auto">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="mb-8 text-center"
+        className="mb-8 mt-12 text-center"
       >
         <h1 className="text-4xl font-bold mb-2">UltraLink</h1>
         <p className="text-muted-foreground">
