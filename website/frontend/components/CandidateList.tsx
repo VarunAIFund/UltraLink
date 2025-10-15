@@ -1,6 +1,7 @@
 import type { CandidateResult } from '@/lib/api';
 import { CandidateCard } from './CandidateCard';
 import { CandidateCardSkeleton } from './CandidateCardSkeleton';
+import { EmptyState } from './EmptyState';
 
 interface CandidateListProps {
   results: CandidateResult[];
@@ -9,7 +10,10 @@ interface CandidateListProps {
 }
 
 export function CandidateList({ results, hasSearched, loading }: CandidateListProps) {
-  if (!hasSearched && !loading) return null;
+  // Show empty state before first search
+  if (!hasSearched && !loading) {
+    return <EmptyState />;
+  }
 
   return (
     <div>
