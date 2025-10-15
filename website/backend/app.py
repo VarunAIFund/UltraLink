@@ -60,11 +60,16 @@ def search_and_rank():
         return jsonify({'error': 'Query required'}), 400
 
     try:
+        print(f"[DEBUG] Starting search for query: {query}")
+
         # Search with connection filter
         search_result = execute_search(query, connected_to)
+        print(f"[DEBUG] Search completed. Found {len(search_result['results'])} results")
 
         # Rank
+        print(f"[DEBUG] Starting ranking...")
         ranked = rank_candidates(query, search_result['results'])
+        print(f"[DEBUG] Ranking completed. Ranked {len(ranked)} candidates")
 
         return jsonify({
             'success': True,
@@ -73,6 +78,9 @@ def search_and_rank():
             'total': len(ranked)
         })
     except Exception as e:
+        print(f"[ERROR] Exception occurred: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/health', methods=['GET'])
