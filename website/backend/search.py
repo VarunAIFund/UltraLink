@@ -25,9 +25,8 @@ def get_db_connection():
 
     encoded_password = quote_plus(db_password)
 
-    # Use connection pooler for better reliability and to avoid IP restrictions
-    conn_string = f"postgresql://postgres:{encoded_password}@db.tsrmqaegsxglfmicyzxb.supabase.co:5432/postgres"
-    # for on campus use: f"postgresql://postgres.{project_id}:{encoded_password}@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
+    # Use connection pooler (port 6543) for better reliability and to avoid IP restrictions
+    conn_string = f"postgresql://postgres:{encoded_password}@db.tsrmqaegsxglfmicyzxb.supabase.co:6543/postgres"
     return psycopg2.connect(conn_string)
 
 def generate_sql(query: str, connected_to: str = None) -> str:
