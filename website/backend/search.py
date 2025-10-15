@@ -19,14 +19,20 @@ def get_db_connection():
     """Get Supabase database connection via connection pooler"""
     # Use os.getenv() which works for both Railway (env vars) and local (.env file loaded by load_dotenv)
     db_password = os.getenv('SUPABASE_DB_PASSWORD')
+    supabase_url = os.getenv('SUPABASE_URL', '')
 
     if not db_password:
         raise ValueError("SUPABASE_DB_PASSWORD environment variable is not set")
+    if not supabase_url:
+        raise ValueError("SUPABASE_URL environment variable is not set")
 
+    # Extract project ID from Supabase URL
+    project_id = supabase_url.replace('https://', '').replace('.supabase.co', '')
     encoded_password = quote_plus(db_password)
 
-    # Use connection pooler (port 6543) for better reliability and to avoid IP restrictions
-    conn_string = f"postgresql://postgres:{encoded_password}@db.tsrmqaegsxglfmicyzxb.supabase.co:6543/postgres"
+    # Use connection pooler for better reliability and to avoid IP restrictions
+    conn_string = f"postgresql://postgres.{project_id}:{encoded_password}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+    print(f"[DEBUG] Connecting to: postgresql://postgres.{project_id}:****@aws-0-us-east-1.pooler.supabase.com:6543/postgres")
     return psycopg2.connect(conn_string)
 
 def generate_sql(query: str, connected_to: str = None) -> str:
