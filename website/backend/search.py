@@ -31,8 +31,8 @@ def get_db_connection():
     encoded_password = quote_plus(db_password)
 
     # Use connection pooler for better reliability and to avoid IP restrictions
-    conn_string = f"postgresql://postgres.{project_id}:{encoded_password}@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
-    print(f"[DEBUG] Connecting to: postgresql://postgres.{project_id}:****@aws-0-us-east-1.pooler.supabase.com:6543/postgres")
+    conn_string = f"postgresql://postgres.{project_id}:{encoded_password}@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
+    print(f"[DEBUG] Connecting to: postgresql://postgres.{project_id}:****@aws-1-us-east-2.pooler.supabase.com:6543/postgres")
     return psycopg2.connect(conn_string)
 
 def generate_sql(query: str, connected_to: str = None) -> str:
