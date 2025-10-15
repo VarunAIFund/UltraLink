@@ -12,6 +12,7 @@ import {
   HiUserGroup,
 } from "react-icons/hi";
 import type { CandidateResult } from "@/lib/api";
+import { motion } from "framer-motion";
 
 interface CandidateCardProps {
   candidate: CandidateResult;
@@ -19,7 +20,13 @@ interface CandidateCardProps {
 
 export function CandidateCard({ candidate }: CandidateCardProps) {
   return (
-    <Card>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      whileHover={{ y: -4, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)" }}
+    >
+      <Card className="h-full transition-all duration-200">
       <CardHeader>
         <div className="flex justify-between items-start gap-4">
           <div className="flex gap-4 flex-1 items-center">
@@ -111,5 +118,6 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
         </a>
       </CardContent>
     </Card>
+    </motion.div>
   );
 }
