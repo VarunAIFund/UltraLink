@@ -13,6 +13,9 @@ This guide will help you deploy both the Flask backend and Next.js frontend to R
 ```
 website/
 ├── backend/          # Flask API
+│   ├── app.py
+│   ├── requirements.txt
+│   └── runtime.txt   # Specifies Python 3.12
 ├── frontend/         # Next.js app
 └── .env             # Environment variables (DO NOT commit)
 ```
@@ -111,6 +114,7 @@ git push origin main
 - Check logs in Railway dashboard
 - Verify all environment variables are set
 - Ensure `requirements.txt` has all dependencies
+- **Python 3.13 Issue:** If you see `ImportError: undefined symbol: _PyInterpreterState_Get`, ensure `runtime.txt` exists in `/backend` with `python-3.12`
 
 ### Frontend Can't Connect to Backend
 - Verify `NEXT_PUBLIC_API_URL` points to correct backend URL
