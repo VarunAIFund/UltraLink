@@ -14,6 +14,7 @@ def search():
     """Search candidates - returns raw results"""
     data = request.json
     query = data.get('query', '').strip()
+    print(f"[DEBUG] Search request received for query: {query}")
 
     if not query:
         return jsonify({'error': 'Query required'}), 400
