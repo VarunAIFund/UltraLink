@@ -16,10 +16,19 @@ load_dotenv(env_path)
 client = OpenAI()
 
 def get_db_connection():
-    """Get Supabase database connection via connection pooler"""
-    # Use os.getenv() which works for both Railway (env vars) and local (.env file loaded by load_dotenv)
-    db_password = os.getenv('SUPABASE_DB_PASSWORD')
-    supabase_url = os.getenv('SUPABASE_URL', '')
+    """Get Supabase database connection - uses different URLs for local vs Railway"""
+    # Detect if running on Railway (Railway sets RAILWAY_ENVIRONMENT_NAME)
+    is_railway = os.getenv('RAILWAY_ENVIRONMENT_NAME') is not None
+
+    if is_railway:
+        # Railway: Use os.getenv() which reads from Railway environment variables
+        db_password = os.getenv('SUPABASE_DB_PASSWORD')
+        supabase_url = os.getenv('SUPABASE_URL', '')
+    else:
+        # Local: Use dotenv_values() to read directly from .env file
+        env_vars = dotenv_values(env_path)
+        db_password = env_vars.get('SUPABASE_DB_PASSWORD')
+        supabase_url = env_vars.get('SUPABASE_URL', '')
 
     if not db_password:
         raise ValueError("SUPABASE_DB_PASSWORD environment variable is not set")
@@ -30,9 +39,15 @@ def get_db_connection():
     project_id = supabase_url.replace('https://', '').replace('.supabase.co', '')
     encoded_password = quote_plus(db_password)
 
-    # Use connection pooler for better reliability and to avoid IP restrictions
-    conn_string = f"postgresql://postgres.{project_id}:{encoded_password}@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
-    print(f"[DEBUG] Connecting to: postgresql://postgres.{project_id}:****@aws-1-us-east-2.pooler.supabase.com:6543/postgres")
+    if is_railway:
+        # Railway: Use connection pooler (port 6543)
+        conn_string = f"postgresql://postgres.{project_id}:{encoded_password}@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
+        print(f"[DEBUG] Railway detected - Using pooler: postgresql://postgres.{project_id}:****@aws-1-us-east-2.pooler.supabase.com:6543/postgres")
+    else:
+        # Local: Use direct connection (port 5432)
+        conn_string = f"postgresql://postgres:{encoded_password}@db.{project_id}.supabase.co:5432/postgres"
+        print(f"[DEBUG] Local detected - Using direct: postgresql://postgres:****@db.{project_id}.supabase.co:5432/postgres")
+
     return psycopg2.connect(conn_string)
 
 def generate_sql(query: str, connected_to: str = None) -> str:

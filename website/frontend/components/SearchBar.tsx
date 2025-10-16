@@ -26,29 +26,31 @@ export function SearchBar({
   setConnectedTo
 }: SearchBarProps) {
   return (
-    <div className="flex gap-4 mb-8">
+    <div className="flex flex-col md:flex-row gap-3 mb-8">
       <Input
         type="text"
         placeholder="Search for candidates (e.g., CEO in healthcare with startup experience)"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && onSearch()}
-        className="flex-1"
+        className="flex-1 w-full"
       />
-      <Select value={connectedTo} onValueChange={setConnectedTo}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Connected to" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All</SelectItem>
-          <SelectItem value="Dan">Dan</SelectItem>
-          <SelectItem value="Linda">Linda</SelectItem>
-          <SelectItem value="Jon">Jon</SelectItem>
-        </SelectContent>
-      </Select>
-      <Button onClick={onSearch} disabled={loading}>
-        {loading ? 'Searching...' : 'Search'}
-      </Button>
+      <div className="flex gap-3">
+        <Select value={connectedTo} onValueChange={setConnectedTo}>
+          <SelectTrigger className="w-[140px] md:w-[180px]">
+            <SelectValue placeholder="Connected to" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="Dan">Dan</SelectItem>
+            <SelectItem value="Linda">Linda</SelectItem>
+            <SelectItem value="Jon">Jon</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button onClick={onSearch} disabled={loading} className="flex-1 md:flex-none">
+          {loading ? 'Searching...' : 'Search'}
+        </Button>
+      </div>
     </div>
   );
 }
