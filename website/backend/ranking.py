@@ -17,9 +17,11 @@ def rank_candidates(query: str, candidates: list):
     if not candidates or len(candidates) == 0:
         return candidates
 
+    BATCH_SIZE = 30
     # Limit to top 30 to avoid token limits
-    candidates_to_rank = candidates[:30]
-    remaining = candidates[30:]
+    candidates_to_rank = candidates[:BATCH_SIZE]
+    remaining = candidates[BATCH_SIZE:]
+
 
     # Prepare summaries
     summaries = []
@@ -64,12 +66,11 @@ def rank_candidates(query: str, candidates: list):
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-5-mini",
             messages=[
                 {"role": "system", "content": "You are a recruiting expert. Respond with valid JSON only."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.3
         )
 
         response_text = response.choices[0].message.content.strip()
