@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -5,20 +6,58 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   HiLocationMarker,
   HiUser,
   HiBriefcase,
   HiUserGroup,
+  HiSparkles,
 } from "react-icons/hi";
-import type { CandidateResult } from "@/lib/api";
+import type { CandidateResult, Highlight } from "@/lib/api";
+import { generateHighlights } from "@/lib/api";
 import { motion } from "framer-motion";
+import { CandidateHighlights } from "./CandidateHighlights";
 
 interface CandidateCardProps {
   candidate: CandidateResult;
 }
 
 export function CandidateCard({ candidate }: CandidateCardProps) {
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const [showHighlights, setShowHighlights] = useState(false);
+  const [loadingHighlights, setLoadingHighlights] = useState(false);
+  const [highlightsError, setHighlightsError] = useState<string | null>(null);
+
+  const handleToggleHighlights = async () => {
+    // If already showing, just hide
+    if (showHighlights) {
+      setShowHighlights(false);
+      return;
+    }
+
+    // If we already have highlights cached, just show them
+    if (highlights.length > 0) {
+      setShowHighlights(true);
+      return;
+    }
+
+    // Otherwise, fetch highlights
+    setLoadingHighlights(true);
+    setHighlightsError(null);
+    setShowHighlights(true);
+
+    try {
+      const response = await generateHighlights(candidate);
+      setHighlights(response.highlights);
+    } catch (error) {
+      console.error('Error generating highlights:', error);
+      setHighlightsError('Failed to generate insights. Please try again.');
+      setShowHighlights(false);
+    } finally {
+      setLoadingHighlights(false);
+    }
+  };
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -108,14 +147,41 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
             </div>
           </div>
         )}
-        <a
-          href={candidate.linkedin_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block mt-4 text-sm text-primary hover:underline"
-        >
-          View LinkedIn Profile →
-        </a>
+        <div className="flex items-center gap-3 mt-4">
+          <a
+            href={candidate.linkedin_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-primary hover:underline"
+          >
+            View LinkedIn Profile →
+          </a>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleToggleHighlights}
+            disabled={loadingHighlights}
+            className="ml-auto"
+          >
+            <HiSparkles className="w-4 h-4 mr-2" />
+            {loadingHighlights
+              ? 'Loading...'
+              : showHighlights
+              ? 'Hide AI Insights'
+              : 'Show AI Insights'}
+          </Button>
+        </div>
+
+        {highlightsError && (
+          <p className="text-sm text-destructive mt-2">{highlightsError}</p>
+        )}
+
+        {showHighlights && (
+          <CandidateHighlights
+            highlights={highlights}
+            loading={loadingHighlights}
+          />
+        )}
       </CardContent>
     </Card>
     </motion.div>

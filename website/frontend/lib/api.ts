@@ -16,6 +16,21 @@ export interface CandidateResult {
   skills?: string[];
   connected_to?: string[];
   profile_pic?: string;
+  experiences?: any[];
+  education?: any[];
+}
+
+export interface Highlight {
+  text: string;
+  source: string;
+  url: string;
+}
+
+export interface HighlightsResponse {
+  success: boolean;
+  highlights: Highlight[];
+  total_sources: number;
+  error?: string;
 }
 
 export interface SearchResponse {
@@ -36,6 +51,22 @@ export async function searchAndRank(query: string, connectedTo?: string): Promis
       query,
       connected_to: connectedTo || 'all'
     }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function generateHighlights(candidate: CandidateResult): Promise<HighlightsResponse> {
+  const response = await fetch(`${API_BASE_URL}/generate-highlights`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ candidate }),
   });
 
   if (!response.ok) {

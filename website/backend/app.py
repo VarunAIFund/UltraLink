@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from search import execute_search
 from ranking import rank_candidates
+from highlights import generate_highlights
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend
@@ -80,6 +81,31 @@ def search_and_rank():
         })
     except Exception as e:
         print(f"[ERROR] Exception occurred: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/generate-highlights', methods=['POST'])
+def generate_highlights_endpoint():
+    """Generate detailed highlights with sources for a candidate"""
+    data = request.json
+    candidate = data.get('candidate')
+
+    if not candidate:
+        return jsonify({'error': 'Candidate data required'}), 400
+
+    try:
+        print(f"[DEBUG] Generating highlights for: {candidate.get('name')}")
+        result = generate_highlights(candidate)
+        print(f"[DEBUG] Generated {len(result['highlights'])} highlights from {result['total_sources']} sources")
+
+        return jsonify({
+            'success': True,
+            'highlights': result['highlights'],
+            'total_sources': result['total_sources']
+        })
+    except Exception as e:
+        print(f"[ERROR] Highlights generation failed: {type(e).__name__}: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
