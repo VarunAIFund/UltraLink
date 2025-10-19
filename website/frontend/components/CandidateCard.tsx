@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Image from 'next/image';
 import {
   Card,
   CardContent,
@@ -70,9 +71,11 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
         <div className="flex justify-between items-start gap-4">
           <div className="flex gap-4 flex-1 items-center">
             {candidate.profile_pic ? (
-              <img
+              <Image
                 src={candidate.profile_pic}
                 alt={candidate.name}
+                width={64}
+                height={64}
                 className="w-16 h-16 rounded-full object-cover flex-shrink-0"
               />
             ) : (

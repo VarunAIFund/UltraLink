@@ -4,6 +4,25 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
+export interface Experience {
+  org: string;
+  company_url?: string;
+  title: string;
+  summary?: string;
+  short_summary?: string;
+  location?: string;
+  company_skills?: string[];
+  business_model?: string;
+  product_type?: string;
+  industry_tags?: string[];
+}
+
+export interface Education {
+  school: string;
+  degree?: string;
+  field?: string;
+}
+
 export interface CandidateResult {
   name: string;
   linkedin_url: string;
@@ -16,8 +35,8 @@ export interface CandidateResult {
   skills?: string[];
   connected_to?: string[];
   profile_pic?: string;
-  experiences?: any[];
-  education?: any[];
+  experiences?: Experience[];
+  education?: Education[];
 }
 
 export interface Highlight {
