@@ -52,7 +52,7 @@ export function CandidateHighlights({ highlights, loading }: CandidateHighlights
           <span className="text-sm font-medium">AI-Generated Professional Insights</span>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
           {highlights.map((highlight, index) => (
             <motion.a
               key={index}

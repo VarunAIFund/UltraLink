@@ -83,7 +83,7 @@ def analyze_with_gpt(name, current_title, current_company, location, search_resu
         messages=[
             {
                 "role": "system",
-                "content": "You are a professional recruiter. Analyze each source and create 2-3 sentence summaries about the candidate's professional background. Rank sources by importance, prioritizing major publications, media features, awards, and impressive articles over company websites or generic profiles."
+                "content": "You are a professional recruiter analyzing articles about a candidate. For each source, extract the SPECIFIC facts, details, and information from that article. Do not write generic summaries - focus on what makes each source unique and what specific information it provides."
             },
             {
                 "role": "user",
@@ -93,9 +93,17 @@ def analyze_with_gpt(name, current_title, current_company, location, search_resu
 
 Profile: {current_title} at {current_company}, {location}
 
-Create a summary for each source with specific details about their career, achievements, or expertise.
+For each source, create a summary that extracts SPECIFIC information from that article.
 
-IMPORTANT: Rank the summaries by importance, putting the most impressive sources first (major publications, awards, media features, funding announcements). Include all sources."""
+CRITICAL RANKING ORDER (most important first):
+1. Major awards and recognitions (TIME100, Forbes, CNBC Changemaker, etc.)
+2. Major media publications (Business Insider, Oprah Daily, major news outlets)
+3. Funding announcements and investor news
+4. Podcast interviews and speaking engagements
+5. Institutional profiles (universities, research institutes)
+6. Company websites and generic profiles (lowest priority)
+
+Include all sources."""
             }
         ],
         response_format={
