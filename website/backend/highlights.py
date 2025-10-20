@@ -95,15 +95,20 @@ Profile: {current_title} at {current_company}, {location}
 
 For each source, create a summary that extracts SPECIFIC information from that article.
 
+EXCLUDE sources that:
+- Have no specific information or content
+- Are contact databases or aggregators (contactout.com, signalhire.com, clay.earth, rocketreach, etc.)
+- Are primarily about other people (not {name})
+- Contain only speculation, "likely", "possibly", or indirect connections
+- Are about a different person with the same name
+
 CRITICAL RANKING ORDER (most important first):
 1. Major awards and recognitions (TIME100, Forbes, CNBC Changemaker, etc.)
 2. Major media publications (Business Insider, Oprah Daily, major news outlets)
 3. Funding announcements and investor news
 4. Podcast interviews and speaking engagements
 5. Institutional profiles (universities, research institutes)
-6. Company websites and generic profiles (lowest priority)
-
-Include all sources."""
+6. Company websites and generic profiles (lowest priority)"""
             }
         ],
         response_format={
