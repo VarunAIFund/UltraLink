@@ -1,20 +1,20 @@
 """
-Highlights module - Perplexity-powered professional insights generation
+Highlights module - Two-stage: Perplexity search + GPT analysis
 """
 import os
 import re
+import json
 from dotenv import load_dotenv
 from openai import OpenAI
+from perplexity import Perplexity
 
 # Load environment - .env is in website directory
 env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 load_dotenv(env_path)
 
-# Initialize Perplexity client
-perplexity = OpenAI(
-    api_key=os.getenv('PERPLEXITY_API_KEY'),
-    base_url="https://api.perplexity.ai"
-)
+# Initialize clients
+perplexity = Perplexity(api_key=os.getenv('PERPLEXITY_API_KEY'))
+openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
 def extract_domain(url):
     """Extract clean domain from URL for display"""
@@ -30,9 +30,89 @@ def extract_domain(url):
 
     return domain
 
+def search_perplexity(name, current_title, current_company, location, headline):
+    """Search Perplexity for sources about the candidate"""
+    print(f"[DEBUG] Searching Perplexity for {name}...")
+
+    search_query = f"Research {name}'s professional background. Current role: {current_title} at {current_company}. Location: {location}. Headline: {headline}"
+
+    search = perplexity.search.create(
+        query=search_query,
+        max_results=20,
+        max_tokens_per_page=2048
+    )
+
+    # Collect search results
+    search_results = []
+    for result in search.results:
+        search_results.append(result.__dict__)
+
+    print(f"[DEBUG] Found {len(search_results)} sources from Perplexity")
+    return search_results
+
+def analyze_with_gpt(name, current_title, current_company, location, search_results):
+    """Analyze search results with GPT to create summaries"""
+    print(f"[DEBUG] Analyzing with GPT-4o...")
+
+    urls_list = "\n".join([f"- {r.get('title', 'No title')}: {r.get('url', '')}" for r in search_results])
+
+    json_schema = {
+        "name": "professional_highlights",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "summaries": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "source": {"type": "string"},
+                            "url": {"type": "string"},
+                            "summary": {"type": "string"}
+                        },
+                        "required": ["source", "url", "summary"]
+                    }
+                }
+            },
+            "required": ["summaries"]
+        }
+    }
+
+    response = openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a professional recruiter. Analyze each source and create 2-3 sentence summaries about the candidate's professional background. Rank sources by importance, prioritizing major publications, media features, awards, and impressive articles over company websites or generic profiles."
+            },
+            {
+                "role": "user",
+                "content": f"""Analyze these sources about {name}:
+
+{urls_list}
+
+Profile: {current_title} at {current_company}, {location}
+
+Create a summary for each source with specific details about their career, achievements, or expertise.
+
+IMPORTANT: Rank the summaries by importance, putting the most impressive sources first (major publications, awards, media features, funding announcements). Include all sources."""
+            }
+        ],
+        response_format={
+            "type": "json_schema",
+            "json_schema": json_schema
+        }
+    )
+
+    data = json.loads(response.choices[0].message.content)
+    summaries = data.get('summaries', [])
+    print(f"[DEBUG] Generated {len(summaries)} summaries from GPT")
+
+    return summaries
+
 def generate_highlights(candidate):
     """
-    Generate detailed professional highlights with source citations using Perplexity
+    Generate detailed professional highlights with source citations
 
     Args:
         candidate: Dict with candidate data (name, headline, location, linkedin_url, experiences, skills)
@@ -42,7 +122,6 @@ def generate_highlights(candidate):
     """
     name = candidate.get('name')
     headline = candidate.get('headline', '')
-    linkedin_url = candidate.get('linkedin_url')
     location = candidate.get('location', '')
 
     # Extract current role from first experience
@@ -51,72 +130,28 @@ def generate_highlights(candidate):
     current_company = current_exp.get('org', '')
     current_title = current_exp.get('title', '')
 
-    # Get top skills
-    skills = candidate.get('skills', [])[:5]
-    skills_str = ', '.join(skills) if skills else 'various technical skills'
-
-    prompt = f"""Search the web for professional information about {name}.
-
-Profile context:
-- Current role: {current_title} at {current_company}
-- Location: {location}
-- Headline: {headline}
-- Key skills: {skills_str}
-- LinkedIn: {linkedin_url}
-
-Provide 5-7 detailed insights about their professional background. Each insight should:
-- Be 2-3 sentences describing a specific aspect (current role, tech stack, projects, education, achievements, speaking engagements, publications)
-- Include specific technical details, companies, technologies, or accomplishments
-- Be based on verifiable web sources
-- Focus on different aspects of their career
-
-Write each insight as a separate paragraph. Write in third person."""
-
     try:
-        response = perplexity.chat.completions.create(
-            model="sonar-pro",
-            messages=[
-                {"role": "system", "content": "You are a professional recruiter. Provide detailed, factual insights with specific examples."},
-                {"role": "user", "content": prompt}
-            ]
-        )
+        # Step 1: Search Perplexity
+        search_results = search_perplexity(name, current_title, current_company, location, headline)
 
-        content = response.choices[0].message.content
+        # Step 2: Analyze with GPT
+        summaries = analyze_with_gpt(name, current_title, current_company, location, search_results)
 
-        # Perplexity returns citations in the response object
-        citations = []
-        if hasattr(response, 'citations') and response.citations:
-            citations = response.citations
-        # Check message for citations as well
-        elif hasattr(response.choices[0].message, 'citations'):
-            citations = response.choices[0].message.citations
-
-        print(f"[DEBUG] Generated {len(content.split(chr(10)+chr(10)))} paragraphs")
-        print(f"[DEBUG] Found {len(citations)} citations")
-
-        # Split content into paragraphs
-        paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
-
-        # Create highlight blocks - map each paragraph to a citation
+        # Transform to frontend format
         highlights = []
-        for i, paragraph in enumerate(paragraphs):
-            # Cycle through citations if we have fewer citations than paragraphs
-            citation_url = citations[i % len(citations)] if citations else None
-
-            # Extract domain for display
-            source_display = extract_domain(citation_url) if citation_url else "Unknown source"
-
+        for summary in summaries:
+            url = summary.get('url', '')
             highlights.append({
-                'text': paragraph,
-                'source': source_display,
-                'url': citation_url
+                'text': summary.get('summary', ''),
+                'source': extract_domain(url),
+                'url': url
             })
 
         return {
             'highlights': highlights,
-            'total_sources': len(set(citations)) if citations else 0
+            'total_sources': len(highlights)
         }
 
     except Exception as e:
-        print(f"[ERROR] Perplexity API error: {e}")
+        print(f"[ERROR] API error: {e}")
         raise
