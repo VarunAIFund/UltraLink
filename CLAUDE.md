@@ -29,6 +29,8 @@ UltraLink is a comprehensive LinkedIn data processing and candidate search platf
 - **3,123 raw profiles** collected via Apify
 - **AI-enhanced profiles** with inferred seniority, skills, and company insights
 - **Web + CLI interfaces** for natural language candidate search
+- **Shareable search links** with UUID-based persistent search sessions
+- **AI-generated highlights** via Perplexity search + GPT-4o analysis
 
 ---
 
@@ -36,38 +38,51 @@ UltraLink is a comprehensive LinkedIn data processing and candidate search platf
 
 ```
 UltraLink/
+├── website/                     # Main web application
+│   ├── backend/                 # Flask API backend
+│   │   ├── app.py              # Main Flask app with all endpoints
+│   │   ├── search.py           # Natural language to SQL generation
+│   │   ├── ranking.py          # GPT-4o candidate reranking
+│   │   ├── highlights.py       # Perplexity + GPT-4o highlights
+│   │   ├── save_search.py      # Search session persistence
+│   │   ├── db_schema.py        # Database schema for AI context
+│   │   └── requirements.txt    # Python dependencies
+│   │
+│   ├── frontend/                # Next.js frontend
+│   │   ├── app/
+│   │   │   ├── page.tsx        # Main search page (handles both new & saved)
+│   │   │   ├── globals.css     # Global styles & theme
+│   │   │   └── search/[[...id]]/page.tsx  # Catch-all for /search/[uuid]
+│   │   ├── components/
+│   │   │   ├── SearchBar.tsx
+│   │   │   ├── CandidateList.tsx
+│   │   │   ├── CandidateHighlights.tsx
+│   │   │   └── SqlDisplay.tsx
+│   │   ├── lib/
+│   │   │   └── api.ts          # API client functions
+│   │   └── next.config.ts      # Next.js configuration
+│   │
+│   ├── tests/                   # Test files
+│   │   ├── test_highlights.py
+│   │   ├── test_save_search.py
+│   │   └── test_prompt_experiments.py
+│   │
+│   └── .env                     # API keys and environment variables
+│
 ├── get_data/                    # LinkedIn scraping and data collection
 │   ├── get_data.py             # Main Apify scraper with batch processing
 │   ├── evaluate_data_quality.py
 │   ├── filter_profiles.py
-│   ├── add_connection_source.py
 │   ├── connections_data/       # CSV files with LinkedIn URLs
 │   └── results/                # Scraped JSON profiles
 │
 ├── transform_data/              # AI transformation and database import
 │   ├── transform.py            # GPT-5-nano AI transformation engine
 │   ├── models.py               # Pydantic data models
-│   ├── clean_profiles.py       # Profile data cleaning
 │   ├── upload_to_supabase.py   # Supabase database upload
-│   ├── import_to_db.py         # PostgreSQL import (legacy)
-│   ├── db_config.py            # PostgreSQL configuration
 │   ├── supabase_config.py      # Supabase client setup
-│   ├── analyze_data_stats.py   # Data quality analysis
-│   ├── main.py                 # Sequential pipeline runner
-│   ├── create_candidates_table.sql
-│   └── data/                   # Cleaned datasets
+│   └── create_candidates_table.sql
 │
-├── search/                      # Candidate search platform
-│   ├── app.py                  # Flask web application
-│   ├── candidate_search.py     # CLI search interface
-│   ├── db_schema_info.py       # Database schema context for AI
-│   └── templates/index.html    # Web UI
-│
-├── linkedin_scraper/            # Manual scraping tools
-│   ├── manual_login_scraper.py # Browser-assisted scraper
-│   └── linkedin_profile_scraper.py
-│
-├── .env                         # API keys and credentials
 └── CLAUDE.md                    # This file
 ```
 
@@ -403,33 +418,65 @@ Seniority Distribution:
 
 **API Endpoints:**
 
-1. **`GET /`** - Main search page
-   - Renders index.html with search interface
-
-2. **`POST /api/search`** - AI-powered search
-   - **Input:** `{"query": "Find Python developers in SF"}`
+1. **`POST /search-and-rank`** - Combined search and rank with auto-save
+   - **Input:** `{"query": "Find Python developers in SF", "connected_to": "all"}`
    - **Process:**
      1. Expand abbreviations (VC → venture capital, AI → artificial intelligence)
      2. Generate SQL with GPT-4o-mini
      3. Execute query on Supabase
      4. Rerank top 30 results with GPT-4o
      5. Generate fit descriptions and ranking insights
+     6. **Auto-save search session to database**
    - **Output:**
      ```json
      {
        "success": true,
+       "id": "abc-123-uuid",
        "results": [...],
        "total": 47,
-       "sql": "SELECT ...",
-       "expanded_query": "Find Python developers in San Francisco OR SF"
+       "sql": "SELECT ..."
      }
      ```
 
-3. **`GET /api/stats`** - Database statistics
-   - Total candidates
-   - Seniority distribution
-   - Top skills (top 20)
-   - Startup experience breakdown
+2. **`GET /search/<uuid>`** - Retrieve saved search session
+   - **Input:** UUID in URL path
+   - **Output:** Same format as POST /search-and-rank with additional metadata:
+     ```json
+     {
+       "success": true,
+       "id": "abc-123-uuid",
+       "query": "Find Python developers in SF",
+       "connected_to": "all",
+       "sql": "SELECT ...",
+       "results": [...],
+       "total": 47,
+       "created_at": "2025-10-24T10:30:00Z"
+     }
+     ```
+
+3. **`POST /generate-highlights`** - AI-generated candidate insights
+   - **Input:** `{"candidate": {...}}`
+   - **Process:**
+     1. Search Perplexity for professional background (20 sources)
+     2. Analyze with GPT-4o to extract specific facts
+     3. Filter irrelevant sources (contact databases, wrong person, etc.)
+     4. Rank by importance (awards, major publications, funding, etc.)
+   - **Output:**
+     ```json
+     {
+       "success": true,
+       "highlights": [
+         {
+           "text": "Named to TIME100 AI list in 2024",
+           "source": "time.com",
+           "url": "https://..."
+         }
+       ],
+       "total_sources": 8
+     }
+     ```
+
+4. **`GET /health`** - Health check endpoint
 
 **Key Features:**
 
@@ -453,13 +500,54 @@ Seniority Distribution:
 - Dangerous keyword blocking (DROP, DELETE, UPDATE, etc.)
 
 **Web UI Features:**
-- Gradient purple design
-- Real-time stats dashboard
-- Search type tabs
-- Candidate cards with skill badges
-- Pagination controls
+- Modern Next.js 15 App Router with TypeScript
+- Framer Motion animations
+- shadcn/ui components with Tailwind CSS
+- AI-generated highlights per candidate (click to expand)
+- Candidate cards with skill badges and relevance scores
 - LinkedIn profile links
 - Responsive mobile design
+- **Shareable search links** (auto-generated UUID URLs)
+
+#### Shareable Search Links Feature
+
+**Purpose:** Allow users to save and share exact search results via unique URLs
+
+**How It Works:**
+
+1. **Auto-Save on Search**
+   - Every search is automatically saved to `search_sessions` table
+   - Returns UUID in response: `{"id": "abc-123-uuid", ...}`
+   - Frontend updates URL to `/search/[uuid]` without page reload
+
+2. **URL Format**
+   - New search: `ultralink.com/` → Search → `ultralink.com/search/abc-123-uuid`
+   - Shared link: Anyone visiting `/search/abc-123-uuid` sees exact results
+
+3. **Frontend Implementation** (`page.tsx`)
+   - Single page handles both new searches and saved searches
+   - On mount: Checks URL for UUID pattern
+   - If UUID found: Loads saved search via `GET /search/<uuid>`
+   - If no UUID: Normal search page
+   - Search bar populated with original query
+   - All features work: AI highlights, edit search, new search
+
+4. **Backend Implementation** (`save_search.py`)
+   - `save_search_session()` - Saves to database, returns UUID
+   - `get_search_session()` - Retrieves by UUID
+   - Handles Railway connection pooler vs local direct connection
+   - Results stored as JSONB for fast retrieval
+
+5. **Database Storage**
+   - Query text, SQL, results, filters, timestamp
+   - No authentication required (public sharing)
+   - UUID provides security through obscurity
+
+**Use Cases:**
+- Share candidate shortlists with team
+- Bookmark searches for later reference
+- Send specific search results to hiring managers
+- Track search history via created_at timestamp
 
 #### CLI Search: `candidate_search.py`
 
@@ -610,6 +698,26 @@ CREATE INDEX idx_candidates_education ON candidates USING GIN(education);
   "field": "Computer Science"
 }
 ```
+
+**Search Sessions Table: `search_sessions`** (Shareable search links)
+
+```sql
+CREATE TABLE search_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    query TEXT NOT NULL,
+    connected_to TEXT[],
+    sql_query TEXT NOT NULL,
+    results JSONB NOT NULL,
+    total_results INTEGER NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+**Purpose:** Stores search sessions for shareable links
+- Each search is automatically saved with a UUID
+- URL pattern: `ultralink.com/search/[uuid]`
+- Results stored as JSONB for fast retrieval
+- No user authentication required - public sharing
 
 ### Database Configuration
 
@@ -780,6 +888,9 @@ completion = client.chat.completions.create(
 # OpenAI Configuration
 OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxx
 
+# Perplexity Configuration (for AI highlights)
+PERPLEXITY_API_KEY=pplx-xxxxxxxxxxxxxxxxx
+
 # Apify Configuration
 APIFY_KEY=apify_api_xxxxxxxxxxxxxxxxx
 
@@ -789,6 +900,9 @@ SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIs...
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIs...
 SUPABASE_DB_PASSWORD=your_secure_password
 
+# Frontend Configuration (Next.js)
+NEXT_PUBLIC_API_URL=http://localhost:5000  # Local: http://localhost:5000, Railway: https://your-backend.railway.app
+
 # Optional: Additional AI APIs
 ANTHROPIC_API_KEY=sk-ant-api03-...
 VOYAGE_API_KEY=pa-...
@@ -797,16 +911,14 @@ COHERE_API_KEY=...
 
 ### Python Dependencies
 
-**Core Requirements:**
+**Backend Requirements (website/backend/requirements.txt):**
 ```bash
-pip install openai==1.12.0
-pip install apify-client==1.7.0
-pip install supabase==2.4.0
-pip install flask==3.0.0
-pip install pydantic==2.6.0
-pip install psycopg2-binary==2.9.9
-pip install python-dotenv==1.0.0
-pip install sqlalchemy==2.0.27
+flask==3.1.2
+flask-cors==6.0.1
+psycopg2-binary==2.9.10
+openai==1.102.0
+python-dotenv==1.0.0
+perplexityai==0.17.0
 ```
 
 **Full Installation:**
@@ -830,6 +942,48 @@ cp .env.example .env  # If example exists
 ```
 
 **3. Set Up Supabase Database:**
+```bash
+# Run SQL migrations in Supabase SQL Editor
+# 1. Create candidates table
+cat transform_data/create_candidates_table.sql
+
+# 2. Create search_sessions table (for shareable links)
+CREATE TABLE search_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    query TEXT NOT NULL,
+    connected_to TEXT[],
+    sql_query TEXT NOT NULL,
+    results JSONB NOT NULL,
+    total_results INTEGER NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+**4. Railway Deployment:**
+
+**Backend Service:**
+```bash
+# Environment Variables to set in Railway:
+OPENAI_API_KEY=sk-proj-...
+PERPLEXITY_API_KEY=pplx-...
+SUPABASE_URL=https://[project-id].supabase.co
+SUPABASE_DB_PASSWORD=your_password
+RAILWAY_ENVIRONMENT_NAME=production  # Automatically set by Railway
+```
+
+**Frontend Service:**
+```bash
+# Environment Variables to set in Railway:
+NEXT_PUBLIC_API_URL=https://ultralink-production.up.railway.app  # Your backend URL (NO SPACES!)
+```
+
+**Important Railway Notes:**
+- Backend uses **connection pooler (port 6543)** on Railway, **direct connection (port 5432)** locally
+- Frontend `NEXT_PUBLIC_API_URL` must have NO leading/trailing spaces
+- The `next.config.ts` uses `.trim()` to handle whitespace
+- Deploy backend first, then set `NEXT_PUBLIC_API_URL` to backend URL before deploying frontend
+
+**5. Local Development:**
 ```bash
 # Run SQL migration in Supabase SQL Editor
 cat transform_data/create_candidates_table.sql
