@@ -54,9 +54,22 @@ export interface HighlightsResponse {
 
 export interface SearchResponse {
   success: boolean;
+  id?: string;
   sql: string;
   results: CandidateResult[];
   total: number;
+  error?: string;
+}
+
+export interface SavedSearchResponse {
+  success: boolean;
+  id: string;
+  query: string;
+  connected_to: string;
+  sql: string;
+  results: CandidateResult[];
+  total: number;
+  created_at: string;
   error?: string;
 }
 
@@ -90,6 +103,21 @@ export async function generateHighlights(candidate: CandidateResult): Promise<Hi
 
   if (!response.ok) {
     throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function getSearchSession(searchId: string): Promise<SavedSearchResponse> {
+  const response = await fetch(`${API_BASE_URL}/search/${searchId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Search not found: ${response.statusText}`);
   }
 
   return response.json();

@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { searchAndRank, type CandidateResult } from "@/lib/api";
+import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { searchAndRank, getSearchSession, type CandidateResult } from "@/lib/api";
 import { SearchBar } from "@/components/SearchBar";
 import { SqlDisplay } from "@/components/SqlDisplay";
 import { CandidateList } from "@/components/CandidateList";
 import { motion } from "framer-motion";
 
 export default function Home() {
+  const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<CandidateResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -15,6 +17,31 @@ export default function Home() {
   const [sql, setSql] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
   const [connectedTo, setConnectedTo] = useState("all");
+
+  // Load saved search if URL contains /search/[id]
+  useEffect(() => {
+    const loadSavedSearch = async () => {
+      const searchIdMatch = pathname.match(/^\/search\/([a-f0-9-]+)$/);
+      if (searchIdMatch) {
+        const searchId = searchIdMatch[1];
+        setLoading(true);
+        try {
+          const response = await getSearchSession(searchId);
+          setQuery(response.query);
+          setResults(response.results);
+          setSql(response.sql);
+          setHasSearched(true);
+          setConnectedTo(response.connected_to);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Failed to load search");
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadSavedSearch();
+  }, [pathname]);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -30,6 +57,11 @@ export default function Home() {
       setResults(response.results);
       setSql(response.sql);
       setHasSearched(true);
+
+      // Update URL with search ID without page reload
+      if (response.id) {
+        window.history.pushState({}, "", `/search/${response.id}`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Search failed");
     } finally {
