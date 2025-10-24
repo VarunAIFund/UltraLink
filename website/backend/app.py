@@ -6,6 +6,7 @@ from flask_cors import CORS
 from search import execute_search
 from ranking import rank_candidates
 from highlights import generate_highlights
+from save_search import save_search_session, get_search_session
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend
@@ -73,11 +74,35 @@ def search_and_rank():
         ranked = rank_candidates(query, search_result['results'])
         print(f"[DEBUG] Ranking completed. Ranked {len(ranked)} candidates")
 
+        # Save search session
+        search_id = save_search_session(query, connected_to, search_result['sql'], ranked)
+        print(f"[DEBUG] Saved search session with ID: {search_id}")
+
         return jsonify({
             'success': True,
+            'id': search_id,
             'sql': search_result['sql'],
             'results': ranked,
             'total': len(ranked)
+        })
+    except Exception as e:
+        print(f"[ERROR] Exception occurred: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/search/<search_id>', methods=['GET'])
+def get_search(search_id):
+    """Retrieve saved search by UUID"""
+    try:
+        result = get_search_session(search_id)
+
+        if not result:
+            return jsonify({'error': 'Search not found'}), 404
+
+        return jsonify({
+            'success': True,
+            **result
         })
     except Exception as e:
         print(f"[ERROR] Exception occurred: {type(e).__name__}: {str(e)}")
