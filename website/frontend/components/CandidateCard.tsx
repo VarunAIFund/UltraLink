@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import Image from 'next/image';
+import { useState } from "react";
+import Image from "next/image";
 import {
   Card,
   CardContent,
@@ -8,15 +8,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   HiLocationMarker,
   HiUser,
   HiBriefcase,
   HiUserGroup,
   HiSparkles,
+  HiPencil,
 } from "react-icons/hi";
 import type { CandidateResult, Highlight } from "@/lib/api";
-import { generateHighlights } from "@/lib/api";
+import {
+  generateHighlights,
+  getNoteForCandidate,
+  updateNoteForCandidate,
+} from "@/lib/api";
 import { motion } from "framer-motion";
 import { CandidateHighlights } from "./CandidateHighlights";
 
@@ -29,6 +35,15 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
   const [showHighlights, setShowHighlights] = useState(false);
   const [loadingHighlights, setLoadingHighlights] = useState(false);
   const [highlightsError, setHighlightsError] = useState<string | null>(null);
+
+  // Notes state
+  const [note, setNote] = useState<string>("");
+  const [showNotes, setShowNotes] = useState(false);
+  const [loadingNote, setLoadingNote] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [noteLoaded, setNoteLoaded] = useState(false);
+  const [isEditingNote, setIsEditingNote] = useState(false);
 
   const handleToggleHighlights = async () => {
     // If already showing, just hide
@@ -52,141 +67,268 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
       const response = await generateHighlights(candidate);
       setHighlights(response.highlights);
     } catch (error) {
-      console.error('Error generating highlights:', error);
-      setHighlightsError('Failed to generate insights. Please try again.');
+      console.error("Error generating highlights:", error);
+      setHighlightsError("Failed to generate insights. Please try again.");
       setShowHighlights(false);
     } finally {
       setLoadingHighlights(false);
     }
+  };
+
+  const handleToggleNotes = async () => {
+    // If already showing, just hide
+    if (showNotes) {
+      setShowNotes(false);
+      return;
+    }
+
+    // If we already loaded the note, just show it
+    if (noteLoaded) {
+      setShowNotes(true);
+      return;
+    }
+
+    // Otherwise, fetch the note first, then show
+    setLoadingNote(true);
+    setNoteError(null);
+
+    try {
+      const response = await getNoteForCandidate(candidate.linkedin_url);
+      const loadedNote = response.note || "";
+      setNote(loadedNote);
+      setNoteLoaded(true);
+      // If note is empty, start in edit mode; otherwise start in view mode
+      setIsEditingNote(loadedNote === "");
+      // Only show notes after data is loaded
+      setShowNotes(true);
+    } catch (error) {
+      console.error("Error loading note:", error);
+      setNoteError("Failed to load note. Please try again.");
+    } finally {
+      setLoadingNote(false);
+    }
+  };
+
+  const handleSaveNote = async () => {
+    setSavingNote(true);
+    setNoteError(null);
+
+    try {
+      await updateNoteForCandidate(candidate.linkedin_url, note);
+      setIsEditingNote(false); // Switch to view mode after saving
+    } catch (error) {
+      console.error("Error saving note:", error);
+      setNoteError("Failed to save note. Please try again.");
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const handleEditNote = () => {
+    setIsEditingNote(true);
+    setNoteError(null);
+  };
+
+  const handleCancelNote = () => {
+    setShowNotes(false);
+    setNoteError(null);
   };
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      whileHover={{ y: -4, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)" }}
+      whileHover={{
+        y: -4,
+        boxShadow:
+          "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+      }}
     >
       <Card className="h-full transition-all duration-200">
-      <CardHeader>
-        <div className="flex justify-between items-start gap-4">
-          <div className="flex gap-4 flex-1 items-center">
-            {candidate.profile_pic ? (
-              <Image
-                src={candidate.profile_pic}
-                alt={candidate.name}
-                width={64}
-                height={64}
-                className="w-16 h-16 rounded-full object-cover flex-shrink-0"
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                <HiUser className="w-8 h-8 text-muted-foreground" />
+        <CardHeader>
+          <div className="flex justify-between items-start gap-4">
+            <div className="flex gap-4 flex-1 items-center">
+              {candidate.profile_pic ? (
+                <Image
+                  src={candidate.profile_pic}
+                  alt={candidate.name}
+                  width={64}
+                  height={64}
+                  className="w-16 h-16 rounded-full object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                  <HiUser className="w-8 h-8 text-muted-foreground" />
+                </div>
+              )}
+              <div className="flex-1">
+                <CardTitle>{candidate.name}</CardTitle>
+                <CardDescription>{candidate.headline}</CardDescription>
               </div>
-            )}
-            <div className="flex-1">
-              <CardTitle>{candidate.name}</CardTitle>
-              <CardDescription>{candidate.headline}</CardDescription>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-primary">
+                {candidate.relevance_score}
+              </div>
+              <div className="text-xs text-muted-foreground">Score</div>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-primary">
-              {candidate.relevance_score}
-            </div>
-            <div className="text-xs text-muted-foreground">Score</div>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm mb-4">{candidate.fit_description}</p>
-        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-          {candidate.location && (
-            <span className="flex items-center gap-1">
-              <HiLocationMarker /> {candidate.location}
-            </span>
-          )}
-          {candidate.seniority && (
-            <span className="flex items-center gap-1">
-              <HiUser /> {candidate.seniority}
-            </span>
-          )}
-          {candidate.years_experience && (
-            <span className="flex items-center gap-1">
-              <HiBriefcase /> {candidate.years_experience} years
-            </span>
-          )}
-        </div>
-        {candidate.skills && candidate.skills.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-4">
-            {candidate.skills.slice(0, 5).map((skill, i) => (
-              <span
-                key={i}
-                className="bg-secondary text-secondary-foreground px-2 py-1 rounded text-xs"
-              >
-                {skill}
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm mb-4">{candidate.fit_description}</p>
+          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+            {candidate.location && (
+              <span className="flex items-center gap-1">
+                <HiLocationMarker /> {candidate.location}
               </span>
-            ))}
+            )}
+            {candidate.seniority && (
+              <span className="flex items-center gap-1">
+                <HiUser /> {candidate.seniority}
+              </span>
+            )}
+            {candidate.years_experience && (
+              <span className="flex items-center gap-1">
+                <HiBriefcase /> {candidate.years_experience} years
+              </span>
+            )}
           </div>
-        )}
-        {candidate.connected_to && candidate.connected_to.length > 0 && (
-          <div className="mt-4 border-t pt-4">
-            <div className="flex items-center gap-2 text-sm font-medium mb-2">
-              <HiUserGroup className="text-muted-foreground" />
-              <span>Mutual Connections ({candidate.connected_to.length})</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {candidate.connected_to.slice(0, 10).map((connection, i) => (
+          {candidate.skills && candidate.skills.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-4">
+              {candidate.skills.slice(0, 5).map((skill, i) => (
                 <span
                   key={i}
-                  className="bg-muted text-muted-foreground px-2 py-1 rounded text-xs"
+                  className="bg-secondary text-secondary-foreground px-2 py-1 rounded text-xs"
                 >
-                  {connection}
+                  {skill}
                 </span>
               ))}
-              {candidate.connected_to.length > 10 && (
-                <span className="text-xs text-muted-foreground px-2 py-1">
-                  +{candidate.connected_to.length - 10} more
+            </div>
+          )}
+          {candidate.connected_to && candidate.connected_to.length > 0 && (
+            <div className="mt-4 border-t pt-4">
+              <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                <HiUserGroup className="text-muted-foreground" />
+                <span>
+                  Mutual Connections ({candidate.connected_to.length})
                 </span>
-              )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {candidate.connected_to.slice(0, 10).map((connection, i) => (
+                  <span
+                    key={i}
+                    className="bg-muted text-muted-foreground px-2 py-1 rounded text-xs"
+                  >
+                    {connection}
+                  </span>
+                ))}
+                {candidate.connected_to.length > 10 && (
+                  <span className="text-xs text-muted-foreground px-2 py-1">
+                    +{candidate.connected_to.length - 10} more
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          <div className="flex items-center gap-3 mt-4 flex-wrap">
+            <a
+              href={candidate.linkedin_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-primary hover:underline"
+            >
+              View LinkedIn Profile →
+            </a>
+            <div className="ml-auto flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleToggleNotes}
+                disabled={loadingNote}
+              >
+                <HiPencil className="w-4 h-4 mr-2" />
+                {loadingNote
+                  ? "Loading..."
+                  : showNotes
+                  ? "Hide Notes"
+                  : "Notes"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleToggleHighlights}
+                disabled={loadingHighlights}
+              >
+                <HiSparkles className="w-4 h-4 mr-2" />
+                {loadingHighlights
+                  ? "Loading..."
+                  : showHighlights
+                  ? "Hide AI Insights"
+                  : "AI Insights"}
+              </Button>
             </div>
           </div>
-        )}
-        <div className="flex items-center gap-3 mt-4">
-          <a
-            href={candidate.linkedin_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-primary hover:underline"
-          >
-            View LinkedIn Profile →
-          </a>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleToggleHighlights}
-            disabled={loadingHighlights}
-            className="ml-auto"
-          >
-            <HiSparkles className="w-4 h-4 mr-2" />
-            {loadingHighlights
-              ? 'Loading...'
-              : showHighlights
-              ? 'Hide AI Insights'
-              : 'Show AI Insights'}
-          </Button>
-        </div>
 
-        {highlightsError && (
-          <p className="text-sm text-destructive mt-2">{highlightsError}</p>
-        )}
+          {highlightsError && (
+            <p className="text-sm text-destructive mt-2">{highlightsError}</p>
+          )}
 
-        {showHighlights && (
-          <CandidateHighlights
-            highlights={highlights}
-            loading={loadingHighlights}
-          />
-        )}
-      </CardContent>
-    </Card>
+          {showHighlights && (
+            <CandidateHighlights
+              highlights={highlights}
+              loading={loadingHighlights}
+            />
+          )}
+
+          {showNotes && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-4 border-t pt-4"
+            >
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium">Notes</h4>
+                <Textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Add notes about this candidate..."
+                  className="min-h-[100px] resize-y"
+                  disabled={savingNote || !isEditingNote}
+                />
+                <div className="flex items-center gap-2">
+                  {isEditingNote ? (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={handleSaveNote}
+                        disabled={savingNote}
+                      >
+                        {savingNote ? "Saving..." : "Save Note"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleCancelNote}
+                        disabled={savingNote}
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <Button size="sm" onClick={handleEditNote}>
+                      Edit Note
+                    </Button>
+                  )}
+                </div>
+                {noteError && (
+                  <p className="text-sm text-destructive">{noteError}</p>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </CardContent>
+      </Card>
     </motion.div>
   );
 }

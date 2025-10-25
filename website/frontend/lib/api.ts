@@ -37,6 +37,7 @@ export interface CandidateResult {
   profile_pic?: string;
   experiences?: Experience[];
   education?: Education[];
+  notes?: string;
 }
 
 export interface Highlight {
@@ -125,5 +126,55 @@ export async function getSearchSession(searchId: string): Promise<SavedSearchRes
 
 export async function healthCheck(): Promise<{ status: string }> {
   const response = await fetch(`${API_BASE_URL}/health`);
+  return response.json();
+}
+
+export interface NoteResponse {
+  success: boolean;
+  linkedin_url: string;
+  note: string | null;
+  error?: string;
+}
+
+export interface UpdateNoteResponse {
+  success: boolean;
+  message: string;
+  linkedin_url: string;
+  note: string;
+  error?: string;
+}
+
+export async function getNoteForCandidate(linkedinUrl: string): Promise<NoteResponse> {
+  const encodedUrl = encodeURIComponent(linkedinUrl);
+  const response = await fetch(`${API_BASE_URL}/notes/${encodedUrl}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function updateNoteForCandidate(linkedinUrl: string, note: string): Promise<UpdateNoteResponse> {
+  const response = await fetch(`${API_BASE_URL}/notes`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      linkedin_url: linkedinUrl,
+      note: note
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
   return response.json();
 }
