@@ -7,6 +7,7 @@ from search import execute_search
 from ranking import rank_candidates
 from highlights import generate_highlights
 from save_search import save_search_session, get_search_session
+from add_note import update_candidate_note, get_candidate_note
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend
@@ -131,6 +132,51 @@ def generate_highlights_endpoint():
         })
     except Exception as e:
         print(f"[ERROR] Highlights generation failed: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/notes/<path:linkedin_url>', methods=['GET'])
+def get_note(linkedin_url):
+    """Get note for a candidate"""
+    try:
+        note = get_candidate_note(linkedin_url)
+        return jsonify({
+            'success': True,
+            'linkedin_url': linkedin_url,
+            'note': note
+        })
+    except Exception as e:
+        print(f"[ERROR] Failed to get note: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/notes', methods=['POST'])
+def add_note():
+    """Add or update note for a candidate"""
+    data = request.json
+    linkedin_url = data.get('linkedin_url', '').strip()
+    note = data.get('note', '').strip()
+
+    if not linkedin_url:
+        return jsonify({'error': 'LinkedIn URL required'}), 400
+
+    try:
+        success = update_candidate_note(linkedin_url, note)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Note updated successfully',
+                'linkedin_url': linkedin_url,
+                'note': note
+            })
+        else:
+            return jsonify({'error': 'Candidate not found'}), 404
+
+    except Exception as e:
+        print(f"[ERROR] Failed to update note: {type(e).__name__}: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
