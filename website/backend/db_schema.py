@@ -38,16 +38,19 @@ TABLE: candidates (987 records)
 IMPORTANT QUERY RULES:
 1. ALWAYS include these core fields in SELECT: linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup, profile_pic, experiences, education
 2. For skills array searches: Use case-insensitive text search: array_to_string(skills, ',') ~* '\\mpython\\M'
-3. For simple text searches in experiences: experiences::text ~* '\\mTERM\\M' (word boundary regex, case-insensitive)
-4. For searching in education JSONB: education::text ~* '\\mTERM\\M'
-5. For CEOs/Executives/Founders: use seniority = 'C-Level' (NOT 'CEO' or 'Executive')
-6. Location searches: use ILIKE for flexible matching (e.g., location ILIKE '%San Francisco%')
-7. Connected to searches: 'Person Name' = ANY(connected_to)
-8. Abbreviation expansion: When you see abbreviations (AI, ML, NLP, RAG, LLM, VC), search for BOTH the abbreviated and expanded forms
-9. For industry_tags searches: Use case-insensitive regex: exp->>'industry_tags' ~* '\\mhealthcare\\M' (NOT @> operator)
-10. For company_skills searches: Use case-insensitive regex: exp->>'company_skills' ~* '\\mpython\\M'
-11. ALWAYS use LIMIT 100 to cap results
-12. Output ONLY the SQL query without markdown code blocks
+3. For COMPANY searches ("worked at X", "engineers at X", "people from X"): ONLY search the org field using JSONB array traversal:
+   SELECT DISTINCT c.linkedin_url, c.name, ... FROM candidates c, jsonb_array_elements(c.experiences) AS exp
+   WHERE exp->>'org' ~* '\\mCOMPANY\\M'
+4. For job description/responsibility searches (NOT company employment): Use full text search: experiences::text ~* '\\mTERM\\M'
+5. For searching in education JSONB: education::text ~* '\\mTERM\\M'
+6. For CEOs/Executives/Founders: use seniority = 'C-Level' (NOT 'CEO' or 'Executive')
+7. Location searches: use ILIKE for flexible matching (e.g., location ILIKE '%San Francisco%')
+8. Connected to searches: 'Person Name' = ANY(connected_to)
+9. Abbreviation expansion: When you see abbreviations (AI, ML, NLP, RAG, LLM, VC), search for BOTH the abbreviated and expanded forms
+10. For industry_tags searches: Use case-insensitive regex: exp->>'industry_tags' ~* '\\mhealthcare\\M' (NOT @> operator)
+11. For company_skills searches: Use case-insensitive regex: exp->>'company_skills' ~* '\\mpython\\M'
+12. ALWAYS use LIMIT 100 to cap results
+13. Output ONLY the SQL query without markdown code blocks
 """
 
 EXAMPLE_QUERIES = """
@@ -67,16 +70,22 @@ SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected
      LIMIT 100;
 
 Natural: "Senior engineers who worked at Google"
-SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup, profile_pic, experiences, education
-     FROM candidates
-     WHERE seniority = 'Senior' AND experiences::text ~* '\\mGoogle\\M'
+SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education
+     FROM candidates c, jsonb_array_elements(c.experiences) AS exp
+     WHERE c.seniority = 'Senior' AND exp->>'org' ~* '\\mGoogle\\M'
      LIMIT 100;
 
 Natural: "Startup founders with ML experience"
-SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup, profile_pic, experiences, education
-     FROM candidates
-     WHERE (seniority = 'C-Level' OR experiences::text ~* '\\mfounder\\M')
-     AND array_to_string(skills, ',') ~* '\\m(ml|machine learning)\\M'
+SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education
+     FROM candidates c, jsonb_array_elements(c.experiences) AS exp
+     WHERE (c.seniority = 'C-Level' OR exp->>'title' ~* '\\mfounder\\M')
+     AND array_to_string(c.skills, ',') ~* '\\m(ml|machine learning)\\M'
+     LIMIT 100;
+
+Natural: "People who worked at Stripe"
+SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education
+     FROM candidates c, jsonb_array_elements(c.experiences) AS exp
+     WHERE exp->>'org' ~* '\\mStripe\\M'
      LIMIT 100;
 
 Natural: "People connected to John Smith"
