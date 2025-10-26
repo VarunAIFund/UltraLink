@@ -31,6 +31,7 @@ UltraLink is a comprehensive LinkedIn data processing and candidate search platf
 - **Web + CLI interfaces** for natural language candidate search
 - **Shareable search links** with UUID-based persistent search sessions
 - **AI-generated highlights** via Perplexity search + GPT-4o analysis
+- **HR Notes feature** for candidate annotations with edit/view modes
 
 ---
 
@@ -45,6 +46,7 @@ UltraLink/
 │   │   ├── ranking.py          # GPT-4o candidate reranking
 │   │   ├── highlights.py       # Perplexity + GPT-4o highlights
 │   │   ├── save_search.py      # Search session persistence
+│   │   ├── add_note.py         # HR notes for candidates
 │   │   ├── db_schema.py        # Database schema for AI context
 │   │   └── requirements.txt    # Python dependencies
 │   │
@@ -53,11 +55,14 @@ UltraLink/
 │   │   │   ├── page.tsx        # Main search page (handles both new & saved)
 │   │   │   ├── globals.css     # Global styles & theme
 │   │   │   └── search/[[...id]]/page.tsx  # Catch-all for /search/[uuid]
-│   │   ├── components/
+│   │   │   ├── components/
 │   │   │   ├── SearchBar.tsx
 │   │   │   ├── CandidateList.tsx
+│   │   │   ├── CandidateCard.tsx
 │   │   │   ├── CandidateHighlights.tsx
-│   │   │   └── SqlDisplay.tsx
+│   │   │   ├── SqlDisplay.tsx
+│   │   │   └── ui/
+│   │   │       └── textarea.tsx    # Textarea component for notes
 │   │   ├── lib/
 │   │   │   └── api.ts          # API client functions
 │   │   └── next.config.ts      # Next.js configuration
@@ -65,6 +70,7 @@ UltraLink/
 │   ├── tests/                   # Test files
 │   │   ├── test_highlights.py
 │   │   ├── test_save_search.py
+│   │   ├── test_notes.py
 │   │   └── test_prompt_experiments.py
 │   │
 │   └── .env                     # API keys and environment variables
@@ -478,6 +484,32 @@ Seniority Distribution:
 
 4. **`GET /health`** - Health check endpoint
 
+5. **`POST /notes`** - Add or update HR note for a candidate
+   - **Input:** `{"linkedin_url": "...", "note": "..."}`
+   - **Process:**
+     1. Update notes field in candidates table
+     2. Return success/error status
+   - **Output:**
+     ```json
+     {
+       "success": true,
+       "message": "Note updated successfully",
+       "linkedin_url": "https://...",
+       "note": "Great candidate! Follow up next week."
+     }
+     ```
+
+6. **`GET /notes/<linkedin_url>`** - Get HR note for a candidate
+   - **Input:** LinkedIn URL in path (URL-encoded)
+   - **Output:**
+     ```json
+     {
+       "success": true,
+       "linkedin_url": "https://...",
+       "note": "Great candidate! Follow up next week."
+     }
+     ```
+
 **Key Features:**
 
 **Abbreviation Expansion:**
@@ -508,6 +540,7 @@ Seniority Distribution:
 - LinkedIn profile links
 - Responsive mobile design
 - **Shareable search links** (auto-generated UUID URLs)
+- **HR Notes** - Collapsible notes section on each candidate card with edit/view modes
 
 #### Shareable Search Links Feature
 
@@ -548,6 +581,53 @@ Seniority Distribution:
 - Bookmark searches for later reference
 - Send specific search results to hiring managers
 - Track search history via created_at timestamp
+
+#### HR Notes Feature
+
+**Purpose:** Allow HR team to add private notes about candidates during recruitment process
+
+**How It Works:**
+
+1. **Collapsible Notes Section**
+   - Each candidate card has a "Notes" button next to "AI Insights"
+   - Click to expand notes section (lazy loads from database)
+   - Notes are fetched on-demand, not with initial search results
+
+2. **Edit/View Mode**
+   - **View Mode (default for existing notes)**: Textarea is read-only, shows "Edit Note" button
+   - **Edit Mode (default for empty notes)**: Textarea is editable, shows "Save Note" + "Cancel" buttons
+   - After saving, automatically switches to view mode to prevent accidental edits
+
+3. **Frontend Implementation** (`CandidateCard.tsx`)
+   - State management: `note`, `isEditingNote`, `loadingNote`, `savingNote`
+   - `handleToggleNotes()` - Fetches note from backend, waits for data before showing UI
+   - `handleSaveNote()` - Saves to database, switches to view mode
+   - `handleEditNote()` - Enables editing
+   - Uses Framer Motion for smooth expand/collapse animations
+
+4. **Backend Implementation** (`add_note.py`)
+   - `update_candidate_note(linkedin_url, note)` - Updates notes field in database
+   - `get_candidate_note(linkedin_url)` - Retrieves note for a candidate
+   - Uses same connection logic as other endpoints (Railway pooler vs local direct)
+
+5. **Database Storage**
+   - `notes TEXT` column in `candidates` table
+   - Defaults to `NULL` for all candidates
+   - No length limit - can store long-form notes
+
+**Features:**
+- Lazy loading - Notes only fetched when user clicks "Notes" button
+- Caching - Once loaded, notes aren't refetched when toggling visibility
+- Read-only protection - Saved notes require clicking "Edit Note" to modify
+- Error handling - Shows error messages if save/load fails
+- Disabled states - UI is disabled during save/load operations
+
+**Use Cases:**
+- Record interview feedback
+- Track recruitment pipeline status
+- Share internal assessments with hiring team
+- Document concerns or red flags
+- Add follow-up reminders
 
 #### CLI Search: `candidate_search.py`
 
@@ -652,6 +732,9 @@ CREATE TABLE candidates (
     -- Nested Data (JSONB)
     experiences JSONB,  -- Array of work experiences
     education JSONB,    -- Array of educational background
+
+    -- HR Team Notes
+    notes TEXT,  -- HR notes for recruitment process (added 2025-10-25)
 
     -- Metadata
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -957,6 +1040,9 @@ CREATE TABLE search_sessions (
     total_results INTEGER NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+# 3. Add notes column to candidates table (for HR notes feature)
+ALTER TABLE candidates ADD COLUMN notes TEXT;
 ```
 
 **4. Railway Deployment:**
@@ -1004,8 +1090,26 @@ python get_data.py  # Scrape profiles
 cd ../transform_data
 python main.py  # Transform and upload
 
-cd ../search
-python app.py  # Start web interface
+cd ../website/backend
+python app.py  # Start backend API
+
+cd ../website/frontend
+npm run dev  # Start frontend
+```
+
+**6. Test Features:**
+```bash
+# Test HR notes API
+cd website/tests
+python test_notes.py
+
+# Test search functionality
+cd website/tests
+python test_save_search.py
+
+# Test highlights generation
+cd website/tests
+python test_highlights.py
 ```
 
 ---

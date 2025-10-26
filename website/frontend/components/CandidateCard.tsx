@@ -38,12 +38,14 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
 
   // Notes state
   const [note, setNote] = useState<string>("");
+  const [originalNote, setOriginalNote] = useState<string>("");
   const [showNotes, setShowNotes] = useState(false);
   const [loadingNote, setLoadingNote] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [noteError, setNoteError] = useState<string | null>(null);
   const [noteLoaded, setNoteLoaded] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
+  const [isHoveringNote, setIsHoveringNote] = useState(false);
 
   const handleToggleHighlights = async () => {
     // If already showing, just hide
@@ -96,9 +98,10 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
       const response = await getNoteForCandidate(candidate.linkedin_url);
       const loadedNote = response.note || "";
       setNote(loadedNote);
+      setOriginalNote(loadedNote);
       setNoteLoaded(true);
-      // If note is empty, start in edit mode; otherwise start in view mode
-      setIsEditingNote(loadedNote === "");
+      // Always start in view mode
+      setIsEditingNote(false);
       // Only show notes after data is loaded
       setShowNotes(true);
     } catch (error) {
@@ -109,22 +112,30 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
     }
   };
 
-  const handleSaveNote = async () => {
-    setSavingNote(true);
-    setNoteError(null);
+  const handleNoteBlur = async () => {
+    // Only save if content has changed
+    if (note !== originalNote) {
+      setSavingNote(true);
+      setNoteError(null);
 
-    try {
-      await updateNoteForCandidate(candidate.linkedin_url, note);
-      setIsEditingNote(false); // Switch to view mode after saving
-    } catch (error) {
-      console.error("Error saving note:", error);
-      setNoteError("Failed to save note. Please try again.");
-    } finally {
-      setSavingNote(false);
+      try {
+        await updateNoteForCandidate(candidate.linkedin_url, note);
+        setOriginalNote(note); // Update original to new saved value
+      } catch (error) {
+        console.error("Error saving note:", error);
+        setNoteError("Failed to save note. Please try again.");
+        // Revert to original note on error
+        setNote(originalNote);
+      } finally {
+        setSavingNote(false);
+      }
     }
+
+    // Always exit edit mode on blur
+    setIsEditingNote(false);
   };
 
-  const handleEditNote = () => {
+  const handleNoteFocus = () => {
     setIsEditingNote(true);
     setNoteError(null);
   };
@@ -288,37 +299,35 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
               className="mt-4 border-t pt-4"
             >
               <div className="space-y-3">
-                <h4 className="text-sm font-medium">Notes</h4>
-                <Textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Add notes about this candidate..."
-                  className="min-h-[100px] resize-y"
-                  disabled={savingNote || !isEditingNote}
-                />
-                <div className="flex items-center gap-2">
-                  {isEditingNote ? (
-                    <>
-                      <Button
-                        size="sm"
-                        onClick={handleSaveNote}
-                        disabled={savingNote}
-                      >
-                        {savingNote ? "Saving..." : "Save Note"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleCancelNote}
-                        disabled={savingNote}
-                      >
-                        Cancel
-                      </Button>
-                    </>
-                  ) : (
-                    <Button size="sm" onClick={handleEditNote}>
-                      Edit Note
-                    </Button>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium">Notes</h4>
+                  {savingNote && (
+                    <span className="text-sm text-muted-foreground">
+                      Saving...
+                    </span>
+                  )}
+                </div>
+                <div
+                  className="relative"
+                  onMouseEnter={() => !isEditingNote && setIsHoveringNote(true)}
+                  onMouseLeave={() => setIsHoveringNote(false)}
+                >
+                  <Textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    onFocus={handleNoteFocus}
+                    onBlur={handleNoteBlur}
+                    placeholder="Click to add notes about this candidate..."
+                    className="min-h-[100px] resize-y"
+                    disabled={savingNote}
+                    readOnly={!isEditingNote}
+                  />
+                  {!isEditingNote && isHoveringNote && (
+                    <div className="absolute inset-0 bg-black/5 rounded-md flex items-center justify-center cursor-text pointer-events-none">
+                      <span className="text-sm text-muted-foreground font-medium">
+                        Click to edit
+                      </span>
+                    </div>
                   )}
                 </div>
                 {noteError && (
