@@ -18,7 +18,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 # Initialize the ApifyClient with your API token
 client = ApifyClient(os.getenv('APIFY_KEY'))
-input_file = "connections_data/jon_connections.csv"
+input_file = "connections_data/mary_connections.csv"
 name = input_file.split("/")[-1].replace("_connections.csv", "").replace("connections_data/", "")
 csv_size = 0
 # Check for existing results in the master connections file

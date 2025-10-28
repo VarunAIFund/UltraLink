@@ -148,8 +148,14 @@ async def process_candidates(input_file: str, output_file: str):
     """
     with open(input_file, 'r') as f:
         candidates = json.load(f)
-    
+
+    # Filter out profiles connected to "mary"
+    candidates_before_mary_filter = len(candidates)
+    candidates = [c for c in candidates if 'mary' not in c.get('connected_to', [])]
+    mary_filtered_count = candidates_before_mary_filter - len(candidates)
+
     print(f"Starting async processing of {len(candidates)} candidates")
+    print(f"Filtered out {mary_filtered_count} profiles connected to 'mary'")
     print(f"Rate limit: {MAX_REQUESTS_PER_MIN} requests/min ({RATE_LIMIT_INTERVAL:.1f}s between requests)")
     print(f"Batch size: {BATCH_SIZE}")
     

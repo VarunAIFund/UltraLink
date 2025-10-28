@@ -48,7 +48,7 @@ def reorder_profile_fields(profile):
     
     return dict(ordered_profile)
 
-def reorder_json_fields(input_file="results/linda_connections.json"):
+def reorder_json_fields(input_file="results/connections.json"):
     """Reorder fields in all profiles"""
     
     print(f"🔄 Reordering fields in: {input_file}")
