@@ -5,3 +5,4 @@ openai==1.102.0
 python-dotenv==1.0.0
 perplexityai==0.17.0
 google-generativeai
+packaging
