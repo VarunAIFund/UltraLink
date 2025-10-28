@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from search import execute_search
 from ranking import rank_candidates
+from ranking_gemini import rank_candidates_gemini
 from highlights import generate_highlights
 from save_search import save_search_session, get_search_session
 from add_note import update_candidate_note, get_candidate_note
@@ -35,7 +36,7 @@ def search():
 
 @app.route('/rank', methods=['POST'])
 def rank():
-    """Rank candidates - takes search results, returns ranked with AI insights"""
+    """Rank candidates - takes search results, returns ranked with AI insights (GPT-4o, top 30)"""
     data = request.json
     query = data.get('query', '').strip()
     candidates = data.get('candidates', [])
@@ -51,6 +52,31 @@ def rank():
             'total': len(ranked)
         })
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/rank-gemini', methods=['POST'])
+def rank_gemini():
+    """Rank candidates with Gemini - handles ALL candidates with large context window"""
+    data = request.json
+    query = data.get('query', '').strip()
+    candidates = data.get('candidates', [])
+
+    if not query or not candidates:
+        return jsonify({'error': 'Query and candidates required'}), 400
+
+    try:
+        print(f"[DEBUG] Gemini ranking {len(candidates)} candidates")
+        ranked = rank_candidates_gemini(query, candidates)
+        print(f"[DEBUG] Gemini ranked {len(ranked)} candidates")
+        return jsonify({
+            'success': True,
+            'ranked_candidates': ranked,
+            'total': len(ranked)
+        })
+    except Exception as e:
+        print(f"[ERROR] Gemini ranking failed: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/search-and-rank', methods=['POST'])
@@ -70,10 +96,10 @@ def search_and_rank():
         search_result = execute_search(query, connected_to)
         print(f"[DEBUG] Search completed. Found {len(search_result['results'])} results")
 
-        # Rank
-        print(f"[DEBUG] Starting ranking...")
-        ranked = rank_candidates(query, search_result['results'])
-        print(f"[DEBUG] Ranking completed. Ranked {len(ranked)} candidates")
+        # Rank with Gemini (handles all candidates)
+        print(f"[DEBUG] Starting Gemini ranking...")
+        ranked = rank_candidates_gemini(query, search_result['results'])
+        print(f"[DEBUG] Gemini ranking completed. Ranked {len(ranked)} candidates")
 
         # Save search session
         search_id = save_search_session(query, connected_to, search_result['sql'], ranked)
