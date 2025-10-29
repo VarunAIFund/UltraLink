@@ -42,13 +42,15 @@ UltraLink/
 ├── website/                     # Main web application
 │   ├── backend/                 # Flask API backend
 │   │   ├── app.py              # Main Flask app with all endpoints
-│   │   ├── search.py           # Natural language to SQL generation
-│   │   ├── ranking.py          # GPT-4o candidate reranking
+│   │   ├── search.py           # Natural language to SQL generation (supports multi-connection filtering)
+│   │   ├── ranking.py          # GPT-4o candidate reranking (top 30)
+│   │   ├── ranking_gemini.py   # Gemini 2.5 Pro ranking (ALL candidates)
+│   │   ├── ranking_stage_1.py  # Async parallel classification (strong vs partial matches)
 │   │   ├── highlights.py       # Perplexity + GPT-4o highlights
 │   │   ├── save_search.py      # Search session persistence
 │   │   ├── add_note.py         # HR notes for candidates
 │   │   ├── db_schema.py        # Database schema for AI context
-│   │   └── requirements.txt    # Python dependencies
+│   │   └── requirements.txt    # Python dependencies (includes google-generativeai)
 │   │
 │   ├── frontend/                # Next.js frontend
 │   │   ├── app/
@@ -56,13 +58,14 @@ UltraLink/
 │   │   │   ├── globals.css     # Global styles & theme
 │   │   │   └── search/[[...id]]/page.tsx  # Catch-all for /search/[uuid]
 │   │   │   ├── components/
-│   │   │   ├── SearchBar.tsx
+│   │   │   ├── SearchBar.tsx           # Multi-select connection filter
 │   │   │   ├── CandidateList.tsx
-│   │   │   ├── CandidateCard.tsx
+│   │   │   ├── CandidateCard.tsx       # With HR notes hover-to-edit
 │   │   │   ├── CandidateHighlights.tsx
 │   │   │   ├── SqlDisplay.tsx
 │   │   │   └── ui/
-│   │   │       └── textarea.tsx    # Textarea component for notes
+│   │   │       ├── textarea.tsx        # Textarea component for notes
+│   │   │       └── multi-select.tsx    # Custom multi-select dropdown
 │   │   ├── lib/
 │   │   │   └── api.ts          # API client functions
 │   │   └── next.config.ts      # Next.js configuration
@@ -71,6 +74,8 @@ UltraLink/
 │   │   ├── test_highlights.py
 │   │   ├── test_save_search.py
 │   │   ├── test_notes.py
+│   │   ├── test_ranking_stage_1.py   # Test classification pipeline
+│   │   ├── test_ranking_gemini.py    # Test Gemini ranking
 │   │   └── test_prompt_experiments.py
 │   │
 │   └── .env                     # API keys and environment variables
@@ -83,7 +88,7 @@ UltraLink/
 │   └── results/                # Scraped JSON profiles
 │
 ├── transform_data/              # AI transformation and database import
-│   ├── transform.py            # GPT-5-nano AI transformation engine
+│   ├── transform.py            # GPT-5-nano AI transformation engine (filters out "mary" connections)
 │   ├── models.py               # Pydantic data models
 │   ├── upload_to_supabase.py   # Supabase database upload
 │   ├── supabase_config.py      # Supabase client setup
@@ -425,12 +430,12 @@ Seniority Distribution:
 **API Endpoints:**
 
 1. **`POST /search-and-rank`** - Combined search and rank with auto-save
-   - **Input:** `{"query": "Find Python developers in SF", "connected_to": "all"}`
+   - **Input:** `{"query": "Find Python developers in SF", "connected_to": "all"}` or `{"query": "...", "connected_to": "dan,linda"}`
    - **Process:**
      1. Expand abbreviations (VC → venture capital, AI → artificial intelligence)
-     2. Generate SQL with GPT-4o-mini
+     2. Generate SQL with GPT-4o-mini (supports multi-connection OR filtering)
      3. Execute query on Supabase
-     4. Rerank top 30 results with GPT-4o
+     4. Rank ALL results with Gemini 2.5 Pro (no 30 limit)
      5. Generate fit descriptions and ranking insights
      6. **Auto-save search session to database**
    - **Output:**
@@ -439,10 +444,18 @@ Seniority Distribution:
        "success": true,
        "id": "abc-123-uuid",
        "results": [...],
-       "total": 47,
+       "total": 100,
        "sql": "SELECT ..."
      }
      ```
+
+1a. **`POST /rank`** - Rank candidates with GPT-4o (legacy, top 30 only)
+   - **Input:** `{"query": "...", "candidates": [...]}`
+   - **Output:** Ranked top 30 candidates with relevance scores
+
+1b. **`POST /rank-gemini`** - Rank candidates with Gemini 2.5 Pro (ALL candidates)
+   - **Input:** `{"query": "...", "candidates": [...]}`
+   - **Output:** All candidates ranked with relevance scores
 
 2. **`GET /search/<uuid>`** - Retrieve saved search session
    - **Input:** UUID in URL path
@@ -509,6 +522,36 @@ Seniority Distribution:
        "note": "Great candidate! Follow up next week."
      }
      ```
+
+#### Ranking Pipelines
+
+**Three ranking approaches available:**
+
+1. **Gemini 2.5 Pro Ranking** (`ranking_gemini.py`) - **DEFAULT in /search-and-rank**
+   - Ranks ALL candidates (no limit)
+   - Uses Gemini's 2M token context window
+   - Single API call for entire result set
+   - Returns relevance scores + fit descriptions
+   - Best for: Large result sets (50-100+ candidates)
+
+2. **GPT-4o Ranking** (`ranking.py`) - Legacy approach
+   - Ranks top 30 candidates only
+   - More expensive per candidate
+   - Higher quality fit descriptions
+   - Best for: Small result sets where quality > quantity
+
+3. **Stage 1 Classification** (`ranking_stage_1.py`) - Experimental
+   - Async parallel classification (one GPT call per candidate)
+   - Classifies as "strong" or "partial" match
+   - Returns fit descriptions explaining gaps for partial matches
+   - Use case: Pre-filter before expensive Stage 2 ranking
+   - Test with: `python tests/test_ranking_stage_1.py`
+
+**Multi-Connection Filtering:**
+- Frontend: Multi-select dropdown for dan, linda, jon
+- Backend: Converts to comma-separated string ("dan,linda")
+- SQL: Generates OR conditions for multiple connections
+- Example SQL: `WHERE (array_to_string(connected_to, ',') ~* '\mdan\M' OR array_to_string(connected_to, ',') ~* '\mlinda\M')`
 
 **Key Features:**
 
@@ -971,6 +1014,9 @@ completion = client.chat.completions.create(
 # OpenAI Configuration
 OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxx
 
+# Google Gemini Configuration (for ranking)
+GOOGLE_API_KEY=your_gemini_api_key
+
 # Perplexity Configuration (for AI highlights)
 PERPLEXITY_API_KEY=pplx-xxxxxxxxxxxxxxxxx
 
@@ -1002,6 +1048,8 @@ psycopg2-binary==2.9.10
 openai==1.102.0
 python-dotenv==1.0.0
 perplexityai==0.17.0
+google-generativeai
+packaging
 ```
 
 **Full Installation:**
@@ -1051,6 +1099,7 @@ ALTER TABLE candidates ADD COLUMN notes TEXT;
 ```bash
 # Environment Variables to set in Railway:
 OPENAI_API_KEY=sk-proj-...
+GOOGLE_API_KEY=your_gemini_api_key
 PERPLEXITY_API_KEY=pplx-...
 SUPABASE_URL=https://[project-id].supabase.co
 SUPABASE_DB_PASSWORD=your_password
@@ -1110,6 +1159,14 @@ python test_save_search.py
 # Test highlights generation
 cd website/tests
 python test_highlights.py
+
+# Test ranking stage 1 classification
+cd website/tests
+python test_ranking_stage_1.py
+
+# Test Gemini ranking
+cd website/tests
+python test_ranking_gemini.py
 ```
 
 ---
@@ -1355,6 +1412,6 @@ python test_set.py  # Create test datasets
 
 ---
 
-**Built with:** OpenAI GPT-5-nano, GPT-4o, Apify, Supabase, Flask, Pydantic
+**Built with:** OpenAI GPT-5-nano, GPT-4o, Google Gemini 2.5 Pro, Apify, Supabase, Flask, Next.js, Pydantic
 
-**Last Updated:** 2025-10-10
+**Last Updated:** 2025-10-29
