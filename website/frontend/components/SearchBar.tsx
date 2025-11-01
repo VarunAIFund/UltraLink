@@ -45,6 +45,7 @@ export function SearchBar({
             <SelectItem value="Dan">Dan</SelectItem>
             <SelectItem value="Linda">Linda</SelectItem>
             <SelectItem value="Jon">Jon</SelectItem>
+            <SelectItem value="Mary">Mary</SelectItem>
           </SelectContent>
         </Select>
         <Button onClick={onSearch} disabled={loading} className="flex-1 md:flex-none">
