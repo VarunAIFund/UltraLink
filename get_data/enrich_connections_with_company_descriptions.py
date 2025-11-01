@@ -62,9 +62,50 @@ def load_company_descriptions(companies_file="results/companies.json"):
     
     return company_lookup
 
+def analyze_enrichment_needs(connections, company_lookup):
+    """Analyze how many experiences need enrichment without modifying data"""
+
+    stats = {
+        'total_people': len(connections),
+        'total_experiences': 0,
+        'experiences_with_company_links': 0,
+        'experiences_needing_enrichment': 0,
+        'companies_not_found': 0,
+        'companies_without_descriptions': 0,
+        'unique_companies_without_descriptions': set()  # Track unique companies
+    }
+
+    for person in connections:
+        for experience in person.get('experiences', []):
+            stats['total_experiences'] += 1
+
+            company_link = experience.get('companyLink1')
+            if company_link and company_link != "null":
+                stats['experiences_with_company_links'] += 1
+
+                normalized_company_link = normalize_company_url(company_link)
+
+                if normalized_company_link and normalized_company_link in company_lookup:
+                    company_data = company_lookup[normalized_company_link]
+                    description = company_data['description']
+
+                    if description and description.strip():
+                        # Check if needs enrichment
+                        if 'companyDescription' not in experience or not experience.get('companyDescription'):
+                            stats['experiences_needing_enrichment'] += 1
+                    else:
+                        stats['companies_without_descriptions'] += 1
+                        # Track unique company
+                        company_name = experience.get('subtitle', 'Unknown').split(' ·')[0].strip()
+                        stats['unique_companies_without_descriptions'].add((normalized_company_link, company_name))
+                else:
+                    stats['companies_not_found'] += 1
+
+    return stats
+
 def enrich_connections(connections_file="results/connections.json"):
     """Main function to enrich connections with company descriptions"""
-    
+
     print("🔗 LinkedIn Connections Company Description Enrichment")
     print("=" * 60)
     
@@ -86,7 +127,49 @@ def enrich_connections(connections_file="results/connections.json"):
         return
     
     print(f"✅ Loaded {len(connections)} connections")
-    
+
+    # Analyze enrichment needs
+    print(f"\n📊 Analyzing enrichment needs...")
+    analysis = analyze_enrichment_needs(connections, company_lookup)
+
+    print(f"\n📈 ANALYSIS RESULTS")
+    print("=" * 40)
+    print(f"Total people: {analysis['total_people']}")
+    print(f"Total experiences: {analysis['total_experiences']}")
+    print(f"Experiences with company links: {analysis['experiences_with_company_links']}")
+    print(f"Experiences needing enrichment: {analysis['experiences_needing_enrichment']}")
+    print(f"Companies not found: {analysis['companies_not_found']}")
+    print(f"Experiences with companies without descriptions: {analysis['companies_without_descriptions']}")
+    print(f"Unique companies without descriptions: {len(analysis['unique_companies_without_descriptions'])}")
+
+    # Show unique companies without descriptions
+    if analysis['unique_companies_without_descriptions']:
+        print(f"\n❓ COMPANIES WITHOUT DESCRIPTIONS:")
+        for i, (url, name) in enumerate(sorted(analysis['unique_companies_without_descriptions'], key=lambda x: x[1]), 1):
+            print(f"  {i}. {name}")
+            print(f"     {url}")
+            if i >= 20:  # Limit to first 20
+                remaining = len(analysis['unique_companies_without_descriptions']) - 20
+                if remaining > 0:
+                    print(f"  ... and {remaining} more")
+                break
+
+    # Check if enrichment is needed
+    if analysis['experiences_needing_enrichment'] == 0:
+        print("\n✅ No enrichment needed - all experiences already have descriptions!")
+        return
+
+    # Ask for confirmation
+    print(f"\n⚠️  This will add company descriptions to {analysis['experiences_needing_enrichment']} experiences")
+    print(f"A backup will be created at: {connections_file}.backup")
+    confirm = input("\nContinue with enrichment? (yes/no): ").strip().lower()
+
+    if confirm not in ['yes', 'y']:
+        print("❌ Enrichment cancelled by user")
+        return
+
+    print("\n✅ Starting enrichment...")
+
     # Statistics tracking
     stats = {
         'total_people': len(connections),
@@ -120,9 +203,10 @@ def enrich_connections(connections_file="results/connections.json"):
                     description = company_data['description']
                     
                     if description and description.strip():
-                        # Add company description after caption field
-                        experience['companyDescription'] = description
-                        stats['experiences_enriched'] += 1
+                        # Only add company description if it doesn't already exist
+                        if 'companyDescription' not in experience or not experience.get('companyDescription'):
+                            experience['companyDescription'] = description
+                            stats['experiences_enriched'] += 1
                         
                         # Collect examples for reporting
                         if len(enriched_examples) < 3:
