@@ -25,13 +25,14 @@ UltraLink is a comprehensive LinkedIn data processing and candidate search platf
 3. **Search Platform** (`search/`) - Flask web app + CLI with AI-powered natural language search and GPT-4o reranking
 
 ### Current System Status
-- **987 candidates** in Supabase PostgreSQL database
-- **3,123 raw profiles** collected via Apify
+- **13,432 candidates** being processed (including Mary's connections)
 - **AI-enhanced profiles** with inferred seniority, skills, and company insights
 - **Web + CLI interfaces** for natural language candidate search
+- **Connection filtering** by Dan, Linda, Jon, and Mary
 - **Shareable search links** with UUID-based persistent search sessions
 - **AI-generated highlights** via Perplexity search + GPT-4o analysis
 - **HR Notes feature** for candidate annotations with edit/view modes
+- **Local profile picture storage** with automatic fallback for expired LinkedIn URLs
 
 ---
 
@@ -88,10 +89,14 @@ UltraLink/
 │   └── results/                # Scraped JSON profiles
 │
 ├── transform_data/              # AI transformation and database import
-│   ├── transform.py            # GPT-5-nano AI transformation engine (filters out "mary" connections)
+│   ├── transform.py            # GPT-5-nano AI transformation engine (Tier 2: 250 req/min)
 │   ├── models.py               # Pydantic data models
 │   ├── upload_to_supabase.py   # Supabase database upload
 │   ├── supabase_config.py      # Supabase client setup
+│   ├── count_unique_linkedin_urls.py   # Validate LinkedIn URL uniqueness
+│   ├── download_profile_pictures.py    # Download profile pictures locally
+│   ├── profile_pictures/       # Local profile picture storage
+│   ├── profile_picture_mapping.json    # LinkedIn URL → local path mapping
 │   └── create_candidates_table.sql
 │
 └── CLAUDE.md                    # This file
@@ -289,11 +294,12 @@ John,Doe,https://www.linkedin.com/in/johndoe/,john@email.com,Company,Engineer,Oc
 
 **Model:** `gpt-5-nano` with structured outputs via Pydantic schemas
 
-**Rate Limiting:**
-- **TPM Limit:** 200,000 tokens/minute
-- **Batch Size:** 40 requests (160,000 TPM = 80% utilization)
-- **Request Interval:** 1.5 seconds between requests
+**Rate Limiting (OpenAI Usage Tier 2):**
+- **TPM Limit:** 2,000,000 tokens/minute (10x increase from Tier 1)
+- **Batch Size:** 250 requests (1,000,000 TPM = 50% utilization)
+- **Request Interval:** 0.24 seconds between requests
 - **Batch Wait:** 60 seconds between batches for TPM reset
+- **Performance:** ~250 profiles/minute (6.25x faster than Tier 1)
 
 **AI Capabilities:**
 
@@ -409,6 +415,52 @@ Seniority Distribution:
   - Director: 15%
   - Manager: 12%
   - C-Level: 10%
+```
+
+#### Profile Picture Management: `download_profile_pictures.py`
+
+**Purpose:** Download LinkedIn profile pictures locally to prevent URL expiration
+
+**Key Features:**
+- **Batch Downloads:** 50 concurrent downloads for speed
+- **Expiration Handling:** LinkedIn profile picture URLs expire (contain `e=timestamp`)
+- **Default Fallback:** Automatically uses default.jpg for expired/invalid URLs
+- **Mapping File:** Creates profile_picture_mapping.json for URL → local path lookup
+- **No JSON Modification:** Keeps original LinkedIn URLs in data files
+
+**Directory Structure:**
+```
+transform_data/
+├── profile_pictures/
+│   ├── shalinmantri.jpg
+│   ├── josephleblanc.jpg
+│   ├── default.jpg          # Fallback image
+│   └── ...
+└── profile_picture_mapping.json
+```
+
+**Usage:**
+```bash
+cd transform_data
+python download_profile_pictures.py
+# Downloads 100x100 profile pictures for all candidates
+# Creates mapping file for local path lookup
+```
+
+**Statistics:**
+- Average image size: 10-20KB
+- Total storage for 13K profiles: ~130-260MB
+- Success rate: ~90% (rest use default)
+
+#### LinkedIn URL Validation: `count_unique_linkedin_urls.py`
+
+**Purpose:** Validate LinkedIn URL uniqueness and detect duplicates
+
+**Usage:**
+```bash
+cd transform_data
+python count_unique_linkedin_urls.py
+# Analyzes structured_profiles_test.json for duplicate URLs
 ```
 
 ---
@@ -548,10 +600,10 @@ Seniority Distribution:
    - Test with: `python tests/test_ranking_stage_1.py`
 
 **Multi-Connection Filtering:**
-- Frontend: Multi-select dropdown for dan, linda, jon
-- Backend: Converts to comma-separated string ("dan,linda")
+- Frontend: Multi-select dropdown for Dan, Linda, Jon, and Mary
+- Backend: Converts to comma-separated string ("dan,linda,mary")
 - SQL: Generates OR conditions for multiple connections
-- Example SQL: `WHERE (array_to_string(connected_to, ',') ~* '\mdan\M' OR array_to_string(connected_to, ',') ~* '\mlinda\M')`
+- Example SQL: `WHERE (array_to_string(connected_to, ',') ~* '\mdan\M' OR array_to_string(connected_to, ',') ~* '\mlinda\M' OR array_to_string(connected_to, ',') ~* '\mmary\M')`
 
 **Key Features:**
 

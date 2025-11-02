@@ -31,6 +31,10 @@ The `transform_data` directory contains the AI-powered LinkedIn profile transfor
 - `clean_companies.py` - Cleans and standardizes company data from Apify scraping
 - `manual_login_scraper.py` - Browser-assisted manual company data collection tool
 
+### **Utility Scripts**
+- `count_unique_linkedin_urls.py` - Validates LinkedIn URL uniqueness and detects duplicates
+- `download_profile_pictures.py` - Downloads profile pictures locally with expiration handling
+
 ### **Data Files**
 - `test_cleaned.json` - Clean profile data ready for AI transformation
 - `structured_profiles.json` - AI-enhanced profiles with inferred insights
@@ -38,6 +42,8 @@ The `transform_data` directory contains the AI-powered LinkedIn profile transfor
 - `unique_company_linkedin_urls.txt` - Extracted company URLs for scraping
 - `linkedin_redirects.csv` - Company URL redirect mappings
 - `more_companies_cleaned.json` - Additional cleaned company data
+- `profile_pictures/` - Directory containing downloaded LinkedIn profile pictures
+- `profile_picture_mapping.json` - LinkedIn URL to local profile picture path mapping
 
 ## Commands
 
@@ -68,6 +74,15 @@ python analyze_data_stats.py          # Field completeness, data quality metrics
 python extract_company_urls.py        # Extract LinkedIn company URLs from experiences
 python clean_companies.py             # Clean Apify-scraped company data
 python manual_login_scraper.py        # Manual browser-assisted data collection
+```
+
+### **Utility Scripts**
+```bash
+# LinkedIn URL validation
+python count_unique_linkedin_urls.py  # Check for duplicate LinkedIn URLs
+
+# Profile picture management
+python download_profile_pictures.py   # Download profile pictures locally (prevents expiration)
 ```
 
 ### **Development & Testing**
@@ -106,6 +121,13 @@ test_cleaned.json + structured.json → AI comparison → 0-100 scores → actio
 
 ### **AI-Powered Profile Enhancement (`transform.py`)**
 - **Model**: OpenAI GPT-5-nano with structured outputs
+- **Rate Limiting (OpenAI Usage Tier 2)**:
+  - **TPM Limit**: 2,000,000 tokens/minute (10x increase from Tier 1)
+  - **Batch Size**: 250 requests (1,000,000 TPM = 50% utilization)
+  - **Request Interval**: 0.24 seconds between requests
+  - **Performance**: ~250 profiles/minute (6.25x faster than Tier 1's 40 profiles/min)
+  - **Processing Time**: 13,432 profiles in ~54 minutes (vs 5.6 hours with Tier 1)
+- **Connection Filtering**: Processes all connections including Dan, Linda, Jon, and Mary (Mary filter removed)
 - **Inference Capabilities**:
   - **Seniority Level**: Intern → Entry → Junior → Mid → Senior → Lead → Manager → Director → VP → C-Level
   - **Skills Extraction**: Technical and domain skills from experience descriptions
@@ -296,6 +318,93 @@ pip install openai pydantic psycopg2-binary sqlalchemy python-dotenv pandas
 7. **Apify Integration**: Process company data from automated scraping
 8. **Data Standardization**: Clean company names, descriptions, metadata
 9. **Output Formatting**: Generate cleaned JSON for database import
+
+## Utility Scripts
+
+### **LinkedIn URL Validation (`count_unique_linkedin_urls.py`)**
+
+**Purpose:** Validate uniqueness of LinkedIn URLs and detect duplicate profiles
+
+**Features:**
+- Counts total profiles vs unique LinkedIn URLs
+- Detects and reports duplicate LinkedIn URLs
+- Shows which profiles share the same URL
+- Identifies profiles with null/missing LinkedIn URLs
+
+**Usage:**
+```bash
+python count_unique_linkedin_urls.py
+# Analyzes structured_profiles_test.json
+```
+
+**Output:**
+```
+📊 LinkedIn URL Analysis
+Total profiles: 6,305
+Unique LinkedIn URLs: 6,305
+Duplicates found: 0
+✅ All LinkedIn URLs are unique!
+```
+
+### **Profile Picture Management (`download_profile_pictures.py`)**
+
+**Purpose:** Download LinkedIn profile pictures locally to prevent URL expiration
+
+**Problem:** LinkedIn profile picture URLs expire after a certain time (contain `e=timestamp` parameter)
+
+**Solution:**
+- Downloads 100x100 profile pictures to local storage
+- Creates default.jpg fallback for expired/invalid URLs
+- Generates mapping file (profile_picture_mapping.json) for URL → local path lookup
+- Does NOT modify original JSON files
+
+**Features:**
+- **Batch Downloads**: 50 concurrent downloads for performance
+- **Automatic Retries**: 2 retry attempts before using default image
+- **Timeout Handling**: 10-second timeout per image
+- **Default Fallback**: Creates gray placeholder using PIL or ui-avatars.com
+- **Storage Efficient**: Saves as compressed JPEG (~10-20KB per image)
+
+**Directory Structure:**
+```
+transform_data/
+├── profile_pictures/
+│   ├── shalinmantri.jpg       # Downloaded from LinkedIn
+│   ├── josephleblanc.jpg
+│   ├── default.jpg            # Fallback for expired URLs
+│   └── ...
+└── profile_picture_mapping.json
+```
+
+**Mapping File Format:**
+```json
+{
+  "https://linkedin.com/in/shalinmantri": {
+    "local_path": "profile_pictures/shalinmantri.jpg",
+    "status": "success",
+    "name": "Shalin Mantri",
+    "downloaded_at": "2025-01-15T10:30:00Z"
+  },
+  "https://linkedin.com/in/expireduser": {
+    "local_path": "profile_pictures/expireduser.jpg",
+    "status": "default",
+    "name": "Expired User",
+    "error": "404 Not Found"
+  }
+}
+```
+
+**Usage:**
+```bash
+python download_profile_pictures.py
+# Downloads profile pictures for all profiles in structured_profiles_test.json
+```
+
+**Statistics:**
+- Average image size: 10-20KB
+- Total storage for 13,432 profiles: ~130-260MB
+- Expected success rate: ~90% (expired/invalid URLs use default)
+- Processing time: ~5-10 minutes for 13K profiles
 
 ## Troubleshooting
 
