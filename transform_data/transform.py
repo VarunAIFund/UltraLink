@@ -22,12 +22,12 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 client = AsyncOpenAI()
 
-# Rate limiting configuration  
-# TPM limit is 200,000 tokens/min. Each profile uses 3,000-5,500 tokens (~4,000 avg).
-# Using 40 req/min = 160,000 TPM (80% of limit) for 40,000 token safety buffer
-MAX_REQUESTS_PER_MIN = 40
-RATE_LIMIT_INTERVAL = 60 / MAX_REQUESTS_PER_MIN  # 1.5 seconds between requests
-BATCH_SIZE = 40
+# Rate limiting configuration (OpenAI Usage Tier 2)
+# TPM limit is 2,000,000 tokens/min. Each profile uses 3,000-5,500 tokens (~4,000 avg).
+# Using 400 req/min = 1,600,000 TPM (80% of limit) for 400,000 token safety buffer
+MAX_REQUESTS_PER_MIN = 250
+RATE_LIMIT_INTERVAL = 60 / MAX_REQUESTS_PER_MIN  # 0.15 seconds between requests
+BATCH_SIZE = 250
 
 async def extract_profile_data(raw_data: dict) -> dict:
     """
