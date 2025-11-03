@@ -19,11 +19,20 @@ export function CandidateList({ results, hasSearched, loading }: CandidateListPr
   const [partialExpanded, setPartialExpanded] = useState(true);
   const [noMatchExpanded, setNoMatchExpanded] = useState(false);
 
-  // Group candidates by match type
+  // Group candidates by match type and sort by relevance_score (descending)
   const groupedCandidates = useMemo(() => {
-    const strong = results.filter(c => c.match === 'strong');
-    const partial = results.filter(c => c.match === 'partial');
-    const noMatch = results.filter(c => c.match === 'no_match');
+    const strong = results
+      .filter(c => c.match === 'strong')
+      .sort((a, b) => b.relevance_score - a.relevance_score);
+
+    const partial = results
+      .filter(c => c.match === 'partial')
+      .sort((a, b) => b.relevance_score - a.relevance_score);
+
+    const noMatch = results
+      .filter(c => c.match === 'no_match')
+      .sort((a, b) => b.relevance_score - a.relevance_score);
+
     return { strong, partial, noMatch };
   }, [results]);
 
