@@ -86,6 +86,55 @@ async def test_two_stage_pipeline(query: str, connected_to: str = 'all', limit: 
     print(f"\n   Time: {stage_1_time:.2f}s")
     print(f"   Rate: {len(candidates)/stage_1_time:.1f} candidates/second\n")
 
+    # Save Stage 1 results immediately (before Stage 2)
+    stage_1_file = f"stage_1_results_{len(candidates)}_candidates.json"
+    stage_1_data = {
+        'query': query,
+        'total_candidates': len(candidates),
+        'stage': 'Stage 1: GPT-5-nano Classification',
+        'time': stage_1_time,
+        'distribution': {
+            'strong': num_strong,
+            'partial': num_partial,
+            'no_match': num_no_match
+        },
+        'strong_matches': [
+            {
+                'index': m['index'],
+                'name': m['candidate'].get('name'),
+                'headline': m['candidate'].get('headline'),
+                'match_type': m['match_type'],
+                'analysis': m['analysis'],
+                'confidence': m['confidence']
+            }
+            for m in stage_1_results['strong_matches']
+        ],
+        'partial_matches': [
+            {
+                'index': m['index'],
+                'name': m['candidate'].get('name'),
+                'headline': m['candidate'].get('headline'),
+                'match_type': m['match_type'],
+                'analysis': m['analysis'],
+                'confidence': m['confidence']
+            }
+            for m in stage_1_results['partial_matches']
+        ],
+        'no_matches': [
+            {
+                'index': m['index'],
+                'name': m['candidate'].get('name'),
+                'match_type': m['match_type']
+            }
+            for m in stage_1_results['no_matches']
+        ]
+    }
+
+    with open(stage_1_file, 'w') as f:
+        json.dump(stage_1_data, f, indent=2)
+
+    print(f"💾 Stage 1 results saved to: {stage_1_file}\n")
+
     # Step 3: Stage 2 - Gemini Ranking + Rule Scoring
     print("STEP 3: Stage 2 Ranking & Scoring...")
     start_stage_2 = time.time()
@@ -162,55 +211,6 @@ async def test_two_stage_pipeline(query: str, connected_to: str = 'all', limit: 
         print(f"⚠️  WARNING: Missing candidates!")
         print(f"   Input: {len(candidates)}, Output: {len(final_results)}")
         print(f"   Missing: {len(candidates) - len(final_results)}\n")
-
-    # Save Stage 1 results
-    stage_1_file = f"stage_1_results_{len(candidates)}_candidates.json"
-    stage_1_data = {
-        'query': query,
-        'total_candidates': len(candidates),
-        'stage': 'Stage 1: GPT-5-nano Classification',
-        'time': stage_1_time,
-        'distribution': {
-            'strong': num_strong,
-            'partial': num_partial,
-            'no_match': num_no_match
-        },
-        'strong_matches': [
-            {
-                'index': m['index'],
-                'name': m['candidate'].get('name'),
-                'headline': m['candidate'].get('headline'),
-                'match_type': m['match_type'],
-                'analysis': m['analysis'],
-                'confidence': m['confidence']
-            }
-            for m in stage_1_results['strong_matches']
-        ],
-        'partial_matches': [
-            {
-                'index': m['index'],
-                'name': m['candidate'].get('name'),
-                'headline': m['candidate'].get('headline'),
-                'match_type': m['match_type'],
-                'analysis': m['analysis'],
-                'confidence': m['confidence']
-            }
-            for m in stage_1_results['partial_matches']
-        ],
-        'no_matches': [
-            {
-                'index': m['index'],
-                'name': m['candidate'].get('name'),
-                'match_type': m['match_type']
-            }
-            for m in stage_1_results['no_matches']
-        ]
-    }
-
-    with open(stage_1_file, 'w') as f:
-        json.dump(stage_1_data, f, indent=2)
-
-    print(f"💾 Stage 1 results saved to: {stage_1_file}")
 
     # Save Stage 2 results (ONLY Gemini-ranked strong matches)
     stage_2_file = f"stage_2_results_{len(candidates)}_candidates.json"

@@ -16,6 +16,12 @@ load_dotenv(env_path)
 
 client = AsyncOpenAI()
 
+# Rate limiting configuration (OpenAI Usage Tier 3)
+# Tier 3 limits: 5,000 RPM, 4,000,000 TPM
+# Using 1,000 RPM (20% of limit) for safe buffer
+MAX_REQUESTS_PER_MIN = 1000
+RATE_LIMIT_INTERVAL = 60 / MAX_REQUESTS_PER_MIN  # 0.06 seconds between requests
+
 class CandidateClassification(BaseModel):
     """Classification result with detailed analysis"""
     match_type: Literal["strong", "partial", "no_match"] = Field(
@@ -89,6 +95,9 @@ Classify based on:
 - Are there any notable achievements or companies?"""
 
     try:
+        # Rate limiting: wait before making API call (spaces out requests)
+        await asyncio.sleep(RATE_LIMIT_INTERVAL)
+
         response = await client.responses.parse(
             model="gpt-5-nano",
             input=[
@@ -139,8 +148,11 @@ async def classify_all_candidates(query: str, candidates: list):
         }
 
     print(f"\n🔍 Stage 1: Classifying {len(candidates)} candidates with GPT-5-nano...")
+    print(f"   Rate limit: {MAX_REQUESTS_PER_MIN} requests/min ({RATE_LIMIT_INTERVAL:.2f}s interval)")
+    estimated_time = len(candidates) * RATE_LIMIT_INTERVAL
+    print(f"   Estimated time: ~{estimated_time:.1f} seconds")
 
-    # Create async tasks for all candidates (parallel processing - ALL AT ONCE)
+    # Create async tasks for all candidates (rate-limited via sleep in each task)
     tasks = []
     for i, candidate in enumerate(candidates):
         task = asyncio.create_task(classify_single_candidate_nano(query, candidate, i))
