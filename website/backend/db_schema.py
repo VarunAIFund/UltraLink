@@ -4,7 +4,7 @@ This helps GPT understand the database structure and generate accurate queries.
 """
 
 # Query result limit - change this to adjust all queries at once
-LIMIT_NUMBER = 400
+LIMIT_NUMBER = 500
 
 DATABASE_SCHEMA = f"""
 DATABASE SCHEMA INFORMATION:

@@ -22,6 +22,9 @@ client = AsyncOpenAI()
 MAX_REQUESTS_PER_MIN = 250
 RATE_LIMIT_INTERVAL = 60 / MAX_REQUESTS_PER_MIN  # 0.06 seconds between requests
 
+# Batch processing to prevent connection pool exhaustion
+BATCH_SIZE = 250  # Process 200 candidates at a time
+
 class CandidateClassification(BaseModel):
     """Classification result with detailed analysis"""
     match_type: Literal["strong", "partial", "no_match"] = Field(
@@ -152,14 +155,35 @@ async def classify_all_candidates(query: str, candidates: list):
     estimated_time = len(candidates) * RATE_LIMIT_INTERVAL
     print(f"   Estimated time: ~{estimated_time:.1f} seconds")
 
-    # Create async tasks for all candidates (rate-limited via sleep in each task)
-    tasks = []
-    for i, candidate in enumerate(candidates):
-        task = asyncio.create_task(classify_single_candidate_nano(query, candidate, i))
-        tasks.append(task)
+    # Calculate number of batches
+    total_batches = (len(candidates) + BATCH_SIZE - 1) // BATCH_SIZE
+    print(f"   Processing in {total_batches} batch(es) of {BATCH_SIZE}")
 
-    # Wait for all classifications to complete
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    all_results = []
+
+    # Process each batch sequentially
+    for batch_num in range(total_batches):
+        start_idx = batch_num * BATCH_SIZE
+        end_idx = min(start_idx + BATCH_SIZE, len(candidates))
+        batch = candidates[start_idx:end_idx]
+
+        print(f"\n   📦 Batch {batch_num + 1}/{total_batches}: Processing {len(batch)} candidates (indices {start_idx}-{end_idx-1})...")
+
+        # Create async tasks for this batch only
+        tasks = []
+        for i, candidate in enumerate(batch):
+            global_index = start_idx + i
+            task = asyncio.create_task(classify_single_candidate_nano(query, candidate, global_index))
+            tasks.append(task)
+
+        # Wait for this batch to complete
+        batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+        all_results.extend(batch_results)
+
+        print(f"   ✓ Batch {batch_num + 1}/{total_batches} complete")
+
+    # Use all results from all batches
+    results = all_results
 
     # Separate into three tiers
     strong_matches = []
