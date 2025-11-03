@@ -28,8 +28,11 @@ export interface CandidateResult {
   linkedin_url: string;
   headline?: string;
   location?: string;
+  match?: 'strong' | 'partial' | 'no_match';
   relevance_score: number;
   fit_description: string;
+  ranking_rationale?: string;
+  stage_1_confidence?: number;
   seniority?: string;
   years_experience?: number;
   skills?: string[];

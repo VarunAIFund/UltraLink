@@ -36,7 +36,7 @@ def search():
 
 @app.route('/rank', methods=['POST'])
 def rank():
-    """Rank candidates - takes search results, returns ranked with AI insights (GPT-4o, top 30)"""
+    """Rank candidates - two-stage pipeline (GPT-5-nano classification → Gemini ranking)"""
     data = request.json
     query = data.get('query', '').strip()
     candidates = data.get('candidates', [])
@@ -81,7 +81,7 @@ def rank_gemini():
 
 @app.route('/search-and-rank', methods=['POST'])
 def search_and_rank():
-    """Combined endpoint - search then rank"""
+    """Combined endpoint - search then rank with two-stage pipeline (GPT-5-nano + Gemini)"""
     data = request.json
     query = data.get('query', '').strip()
     connected_to = data.get('connected_to', 'all')
@@ -96,10 +96,10 @@ def search_and_rank():
         search_result = execute_search(query, connected_to)
         print(f"[DEBUG] Search completed. Found {len(search_result['results'])} results")
 
-        # Rank with Gemini (handles all candidates)
-        print(f"[DEBUG] Starting Gemini ranking...")
-        ranked = rank_candidates_gemini(query, search_result['results'])
-        print(f"[DEBUG] Gemini ranking completed. Ranked {len(ranked)} candidates")
+        # Rank with two-stage pipeline (GPT-5-nano classification + Gemini ranking)
+        print(f"[DEBUG] Starting two-stage ranking pipeline...")
+        ranked = rank_candidates(query, search_result['results'])
+        print(f"[DEBUG] Two-stage ranking completed. Ranked {len(ranked)} candidates")
 
         # Save search session
         search_id = save_search_session(query, connected_to, search_result['sql'], ranked)

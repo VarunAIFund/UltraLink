@@ -19,7 +19,7 @@ client = AsyncOpenAI()
 # Rate limiting configuration (OpenAI Usage Tier 3)
 # Tier 3 limits: 5,000 RPM, 4,000,000 TPM
 # Using 1,000 RPM (20% of limit) for safe buffer
-MAX_REQUESTS_PER_MIN = 1000
+MAX_REQUESTS_PER_MIN = 250
 RATE_LIMIT_INTERVAL = 60 / MAX_REQUESTS_PER_MIN  # 0.06 seconds between requests
 
 class CandidateClassification(BaseModel):

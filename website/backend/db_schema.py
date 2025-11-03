@@ -3,7 +3,10 @@ Database schema information for GPT context when generating SQL queries.
 This helps GPT understand the database structure and generate accurate queries.
 """
 
-DATABASE_SCHEMA = """
+# Query result limit - change this to adjust all queries at once
+LIMIT_NUMBER = 400
+
+DATABASE_SCHEMA = f"""
 DATABASE SCHEMA INFORMATION:
 
 TABLE: candidates (987 records)
@@ -49,56 +52,56 @@ IMPORTANT QUERY RULES:
 9. Abbreviation expansion: When you see abbreviations (AI, ML, NLP, RAG, LLM, VC), search for BOTH the abbreviated and expanded forms
 10. For industry_tags searches: Use case-insensitive regex: exp->>'industry_tags' ~* '\\mhealthcare\\M' (NOT @> operator)
 11. For company_skills searches: Use case-insensitive regex: exp->>'company_skills' ~* '\\mpython\\M'
-12. ALWAYS use LIMIT 1000 to cap results
+12. ALWAYS use LIMIT {LIMIT_NUMBER} to cap results
 13. Output ONLY the SQL query without markdown code blocks
 """
 
-EXAMPLE_QUERIES = """
+EXAMPLE_QUERIES = f"""
 EXAMPLE QUERIES:
 
 Natural: "Find Python developers in San Francisco"
 SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup, profile_pic, experiences, education
      FROM candidates
      WHERE array_to_string(skills, ',') ~* '\\mpython\\M' AND location ILIKE '%San Francisco%'
-     LIMIT 1000;
+     LIMIT {LIMIT_NUMBER};
 
 Natural: "AI engineers with 5+ years experience"
 SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup, profile_pic, experiences, education
      FROM candidates
      WHERE years_experience >= 5
      AND (array_to_string(skills, ',') ~* '\\m(ai|artificial intelligence)\\M' OR experiences::text ~* '\\mAI\\M')
-     LIMIT 1000;
+     LIMIT {LIMIT_NUMBER};
 
 Natural: "Senior engineers who worked at Google"
 SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education
      FROM candidates c, jsonb_array_elements(c.experiences) AS exp
      WHERE c.seniority = 'Senior' AND exp->>'org' ~* '\\mGoogle\\M'
-     LIMIT 1000;
+     LIMIT {LIMIT_NUMBER};
 
 Natural: "Startup founders with ML experience"
 SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education
      FROM candidates c, jsonb_array_elements(c.experiences) AS exp
      WHERE (c.seniority = 'C-Level' OR exp->>'title' ~* '\\mfounder\\M')
      AND array_to_string(c.skills, ',') ~* '\\m(ml|machine learning)\\M'
-     LIMIT 1000;
+     LIMIT {LIMIT_NUMBER};
 
 Natural: "People who worked at Stripe"
 SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education
      FROM candidates c, jsonb_array_elements(c.experiences) AS exp
      WHERE exp->>'org' ~* '\\mStripe\\M'
-     LIMIT 1000;
+     LIMIT {LIMIT_NUMBER};
 
 Natural: "People connected to John Smith"
 SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup, profile_pic, experiences, education
      FROM candidates
      WHERE 'John Smith' = ANY(connected_to)
-     LIMIT 1000;
+     LIMIT {LIMIT_NUMBER};
 
 Natural: "Stanford CS graduates"
 SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup, profile_pic, experiences, education
      FROM candidates
      WHERE education::text ~* '\\mStanford\\M' AND education::text ~* '\\mComputer Science\\M'
-     LIMIT 1000;
+     LIMIT {LIMIT_NUMBER};
 
 Natural: "CEO at healthcare company"
 SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education
@@ -106,14 +109,14 @@ SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, 
      WHERE c.seniority = 'C-Level'
      AND exp->>'title' ~* '\\m(CEO|Chief Executive|Founder|Co-Founder)\\M'
      AND exp->>'industry_tags' ~* '\\mhealthcare\\M'
-     LIMIT 1000;
+     LIMIT {LIMIT_NUMBER};
 
 Natural: "CTO who worked at AI startups"
 SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education
      FROM candidates c, jsonb_array_elements(c.experiences) AS exp
      WHERE exp->>'title' ~* '\\m(CTO|Chief Technology Officer)\\M'
      AND exp->>'industry_tags' ~* '\\mai/ml\\M'
-     LIMIT 1000;
+     LIMIT {LIMIT_NUMBER};
 """
 
 def get_schema_context():

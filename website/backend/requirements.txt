@@ -6,3 +6,4 @@ python-dotenv==1.0.0
 perplexityai==0.17.0
 google-generativeai
 packaging
+pydantic==2.10.5
