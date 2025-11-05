@@ -16,7 +16,7 @@ interface CandidateListProps {
 export function CandidateList({ results, hasSearched, loading }: CandidateListProps) {
   // Collapsible state for each section
   const [strongExpanded, setStrongExpanded] = useState(true);
-  const [partialExpanded, setPartialExpanded] = useState(true);
+  const [partialExpanded, setPartialExpanded] = useState(false);
   const [noMatchExpanded, setNoMatchExpanded] = useState(false);
 
   // Group candidates by match type and sort by relevance_score (descending)
