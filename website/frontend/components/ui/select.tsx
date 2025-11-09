@@ -11,6 +11,7 @@ const MultiSelectContext = React.createContext<{
   multiple: boolean;
   selectedValues: string[];
   options: Array<{label: string; value: string}>;
+  value: string | undefined;
 } | null>(null);
 
 function Select({
@@ -27,9 +28,10 @@ function Select({
 
   // Parse comma-separated value to array
   const selectedValues = React.useMemo(() => {
-    if (!value || value === 'all') return [];
+    if (!value) return [];
+    if (value === 'all') return props.options?.map(opt => opt.value) || [];
     return value.split(',').map(v => v.trim().toLowerCase());
-  }, [value]);
+  }, [value, props.options]);
 
   // Handle selection toggle for multi-select
   const handleValueChange = React.useCallback((newValue: string) => {
@@ -38,20 +40,31 @@ function Select({
       return;
     }
 
-    // Toggle the value in/out of selection
+    // Special handling for "All" option
+    if (newValue === 'all') {
+      const allOptions = props.options?.map(opt => opt.value) || [];
+      const allSelected = allOptions.length > 0 && allOptions.every(opt => selectedValues.includes(opt));
+      onValueChange?.(allSelected ? '' : 'all');
+      return;
+    }
+
+    // Toggle individual item in/out of selection
     const isSelected = selectedValues.includes(newValue);
     const newSelected = isSelected
       ? selectedValues.filter(v => v !== newValue)
       : [...selectedValues, newValue];
 
     // Convert back to comma-separated string
-    const newValueString = newSelected.length === 0 ? 'all' : newSelected.join(',');
+    // If all options are selected, use "all"
+    const allOptions = props.options?.map(opt => opt.value) || [];
+    const allSelected = allOptions.length > 0 && allOptions.every(opt => newSelected.includes(opt));
+    const newValueString = newSelected.length === 0 ? '' : allSelected ? 'all' : newSelected.join(',');
     onValueChange?.(newValueString);
-  }, [multiple, selectedValues, onValueChange]);
+  }, [multiple, selectedValues, onValueChange, props.options]);
 
   if (multiple) {
     return (
-      <MultiSelectContext.Provider value={{ multiple, selectedValues, options: props.options || [] }}>
+      <MultiSelectContext.Provider value={{ multiple, selectedValues, options: props.options || [], value }}>
         <SelectPrimitive.Root
           data-slot="select"
           {...props}
@@ -82,9 +95,12 @@ function SelectValue({
   const context = React.useContext(MultiSelectContext);
 
   if (context?.multiple) {
-    const { selectedValues, options } = context;
+    const { selectedValues, options, value } = context;
 
-    const displayValue = selectedValues.length === 0
+    // Check value prop first - if "all", display "All"
+    const displayValue = value === 'all'
+      ? 'All'
+      : selectedValues.length === 0
       ? 'All'
       : selectedValues.length === 1
       ? options.find(opt => opt.value === selectedValues[0])?.label || selectedValues[0]
@@ -189,7 +205,18 @@ function SelectItem({
   const context = React.useContext(MultiSelectContext);
 
   // In multi-select mode, check if this item is selected
-  const isSelected = context?.multiple && context.selectedValues.includes(value || '');
+  const isSelected = React.useMemo(() => {
+    if (!context?.multiple) return false;
+
+    // Special handling for "All" option - check if all options are selected
+    if (value === 'all') {
+      const allOptions = context.options.map(opt => opt.value);
+      return allOptions.length > 0 && allOptions.every(opt => context.selectedValues.includes(opt));
+    }
+
+    // Regular items - check if this value is in selectedValues
+    return context.selectedValues.includes(value || '');
+  }, [context, value]);
 
   return (
     <SelectPrimitive.Item
