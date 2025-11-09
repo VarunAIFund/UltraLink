@@ -4,6 +4,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -56,6 +57,13 @@ export function SearchBar({
             <SelectItem value="linda">Linda</SelectItem>
             <SelectItem value="jon">Jon</SelectItem>
             <SelectItem value="mary">Mary</SelectItem>
+            <SelectSeparator />
+            <button
+              className="w-full px-2 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground rounded-sm cursor-pointer"
+              onClick={() => setConnectedTo('')}
+            >
+              Deselect All
+            </button>
           </SelectContent>
         </Select>
         <Button onClick={onSearch} disabled={loading} className="flex-1 md:flex-none">

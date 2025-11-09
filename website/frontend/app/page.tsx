@@ -53,7 +53,9 @@ export default function Home() {
     setHasSearched(false);
 
     try {
-      const response = await searchAndRank(query, connectedTo);
+      // If nothing selected, default to 'all'
+      const connectionFilter = connectedTo || 'all';
+      const response = await searchAndRank(query, connectionFilter);
       setResults(response.results);
       setSql(response.sql);
       setHasSearched(true);
