@@ -59,7 +59,13 @@ def generate_sql(query: str, connected_to: str = None) -> str:
     # Add connection filter if specified
     user_query = query
     if connected_to and connected_to.lower() != 'all':
-        user_query = f"{query}\n\nIMPORTANT: Also filter for people connected to '{connected_to}' using: array_to_string(connected_to, ',') ~* '\\m{connected_to}\\M'"
+        # Handle multiple connections with OR logic
+        connections = [c.strip().lower() for c in connected_to.split(',')]
+        if len(connections) > 1:
+            or_conditions = ' OR '.join([f"array_to_string(connected_to, ',') ~* '\\m{conn}\\M'" for conn in connections])
+            user_query = f"{query}\n\nIMPORTANT: Also filter for people connected to any of these: {', '.join(connections)}. Use this WHERE clause: ({or_conditions})"
+        else:
+            user_query = f"{query}\n\nIMPORTANT: Also filter for people connected to '{connected_to}' using: array_to_string(connected_to, ',') ~* '\\m{connected_to}\\M'"
 
     response = client.chat.completions.create(
         model="gpt-4o",

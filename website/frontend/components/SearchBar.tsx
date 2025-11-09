@@ -36,16 +36,26 @@ export function SearchBar({
         className="flex-1 w-full"
       />
       <div className="flex gap-3">
-        <Select value={connectedTo} onValueChange={setConnectedTo}>
+        <Select
+          multiple
+          options={[
+            { label: 'Dan', value: 'dan' },
+            { label: 'Linda', value: 'linda' },
+            { label: 'Jon', value: 'jon' },
+            { label: 'Mary', value: 'mary' },
+          ]}
+          value={connectedTo}
+          onValueChange={setConnectedTo}
+        >
           <SelectTrigger className="w-[140px] md:w-[180px]">
             <SelectValue placeholder="Connected to" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
-            <SelectItem value="Dan">Dan</SelectItem>
-            <SelectItem value="Linda">Linda</SelectItem>
-            <SelectItem value="Jon">Jon</SelectItem>
-            <SelectItem value="Mary">Mary</SelectItem>
+            <SelectItem value="dan">Dan</SelectItem>
+            <SelectItem value="linda">Linda</SelectItem>
+            <SelectItem value="jon">Jon</SelectItem>
+            <SelectItem value="mary">Mary</SelectItem>
           </SelectContent>
         </Select>
         <Button onClick={onSearch} disabled={loading} className="flex-1 md:flex-none">

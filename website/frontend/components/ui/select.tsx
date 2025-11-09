@@ -6,10 +6,67 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+// Context for multi-select state
+const MultiSelectContext = React.createContext<{
+  multiple: boolean;
+  selectedValues: string[];
+  options: Array<{label: string; value: string}>;
+} | null>(null);
+
 function Select({
+  multiple,
+  value,
+  onValueChange,
+  children,
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />
+}: React.ComponentProps<typeof SelectPrimitive.Root> & {
+  multiple?: boolean;
+  options?: Array<{label: string; value: string}>;
+}) {
+  const [open, setOpen] = React.useState(false);
+
+  // Parse comma-separated value to array
+  const selectedValues = React.useMemo(() => {
+    if (!value || value === 'all') return [];
+    return value.split(',').map(v => v.trim().toLowerCase());
+  }, [value]);
+
+  // Handle selection toggle for multi-select
+  const handleValueChange = React.useCallback((newValue: string) => {
+    if (!multiple) {
+      onValueChange?.(newValue);
+      return;
+    }
+
+    // Toggle the value in/out of selection
+    const isSelected = selectedValues.includes(newValue);
+    const newSelected = isSelected
+      ? selectedValues.filter(v => v !== newValue)
+      : [...selectedValues, newValue];
+
+    // Convert back to comma-separated string
+    const newValueString = newSelected.length === 0 ? 'all' : newSelected.join(',');
+    onValueChange?.(newValueString);
+  }, [multiple, selectedValues, onValueChange]);
+
+  if (multiple) {
+    return (
+      <MultiSelectContext.Provider value={{ multiple, selectedValues, options: props.options || [] }}>
+        <SelectPrimitive.Root
+          data-slot="select"
+          {...props}
+          value={value}
+          onValueChange={handleValueChange}
+          open={open}
+          onOpenChange={setOpen}
+        >
+          {children}
+        </SelectPrimitive.Root>
+      </MultiSelectContext.Provider>
+    );
+  }
+
+  return <SelectPrimitive.Root data-slot="select" value={value} onValueChange={onValueChange} {...props}>{children}</SelectPrimitive.Root>
 }
 
 function SelectGroup({
@@ -19,9 +76,24 @@ function SelectGroup({
 }
 
 function SelectValue({
+  placeholder,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Value>) {
-  return <SelectPrimitive.Value data-slot="select-value" {...props} />
+  const context = React.useContext(MultiSelectContext);
+
+  if (context?.multiple) {
+    const { selectedValues, options } = context;
+
+    const displayValue = selectedValues.length === 0
+      ? 'All'
+      : selectedValues.length === 1
+      ? options.find(opt => opt.value === selectedValues[0])?.label || selectedValues[0]
+      : `${selectedValues.length} selected`;
+
+    return <span data-slot="select-value" suppressHydrationWarning>{displayValue}</span>;
+  }
+
+  return <SelectPrimitive.Value data-slot="select-value" placeholder={placeholder} {...props} />
 }
 
 function SelectTrigger({
@@ -57,6 +129,8 @@ function SelectContent({
   align = "center",
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
+  const context = React.useContext(MultiSelectContext);
+
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
@@ -69,6 +143,12 @@ function SelectContent({
         )}
         position={position}
         align={align}
+        onCloseAutoFocus={(e) => {
+          // Prevent auto-close in multi-select mode
+          if (context?.multiple) {
+            e.preventDefault();
+          }
+        }}
         {...props}
       >
         <SelectScrollUpButton />
@@ -103,11 +183,18 @@ function SelectLabel({
 function SelectItem({
   className,
   children,
+  value,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Item>) {
+  const context = React.useContext(MultiSelectContext);
+
+  // In multi-select mode, check if this item is selected
+  const isSelected = context?.multiple && context.selectedValues.includes(value || '');
+
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
+      value={value}
       className={cn(
         "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className
@@ -115,9 +202,15 @@ function SelectItem({
       {...props}
     >
       <span className="absolute right-2 flex size-3.5 items-center justify-center">
-        <SelectPrimitive.ItemIndicator>
-          <CheckIcon className="size-4" />
-        </SelectPrimitive.ItemIndicator>
+        {context?.multiple ? (
+          // In multi-select mode, show check for selected items
+          isSelected && <CheckIcon className="size-4" />
+        ) : (
+          // In single-select mode, use the ItemIndicator
+          <SelectPrimitive.ItemIndicator>
+            <CheckIcon className="size-4" />
+          </SelectPrimitive.ItemIndicator>
+        )}
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
