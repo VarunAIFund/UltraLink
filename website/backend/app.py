@@ -36,7 +36,7 @@ def search():
 
 @app.route('/rank', methods=['POST'])
 def rank():
-    """Rank candidates - two-stage pipeline (GPT-5-nano classification → Gemini ranking)"""
+    """Rank candidates - two-stage pipeline (GPT-5-nano classification → GPT-4o ranking with structured outputs)"""
     data = request.json
     query = data.get('query', '').strip()
     candidates = data.get('candidates', [])
@@ -81,7 +81,7 @@ def rank_gemini():
 
 @app.route('/search-and-rank', methods=['POST'])
 def search_and_rank():
-    """Combined endpoint - search then rank with two-stage pipeline (GPT-5-nano + Gemini)"""
+    """Combined endpoint - search then rank with two-stage pipeline (GPT-5-nano classification + GPT-4o ranking)"""
     data = request.json
     query = data.get('query', '').strip()
     connected_to = data.get('connected_to', 'all')
