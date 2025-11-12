@@ -22,23 +22,22 @@ client = AsyncOpenAI()
 
 def create_ranking_model(num_candidates: int):
     """
-    Dynamically create a Pydantic model with hardcoded fields for each index
+    Dynamically create a Pydantic model with score fields for each index
 
-    This forces GPT-4o to provide BOTH a score AND description for EVERY index.
-    Each index has TWO required fields:
+    This forces GPT-4o to provide a score for EVERY index.
+    Each index has ONE required field:
     - index_N_score: int (0-100)
-    - index_N_description: str (explanation of the score)
 
     Args:
         num_candidates: Number of candidates to rank
 
     Returns:
-        Pydantic model class with fields index_0_score, index_0_description, index_1_score, etc.
+        Pydantic model class with fields index_0_score, index_1_score, index_2_score, etc.
     """
     fields = {}
 
     for i in range(num_candidates):
-        # Score field
+        # Score field only
         score_field = f"index_{i}_score"
         fields[score_field] = (
             int,
@@ -49,21 +48,10 @@ def create_ranking_model(num_candidates: int):
             )
         )
 
-        # Description field
-        description_field = f"index_{i}_description"
-        fields[description_field] = (
-            str,
-            Field(
-                description=f"Brief explanation (1-2 sentences) of why candidate {i} received this score. Explain what makes them a good match or what gaps exist.",
-                min_length=10,
-                max_length=300
-            )
-        )
-
     # Dynamically create the model
     RankingModel = create_model(
         'RankingModel',
-        __doc__=f"Scores and descriptions for all {num_candidates} candidates. Each index_N_score and index_N_description field is REQUIRED.",
+        __doc__=f"Scores for all {num_candidates} candidates. Each index_N_score field is REQUIRED.",
         **fields
     )
 
@@ -75,53 +63,51 @@ async def rank_with_openai(query: str, summaries: list):
     Rank all candidates using GPT-4o with structured output (single API call)
 
     Uses dynamically created Pydantic model with hardcoded fields for each index.
-    This FORCES GPT-4o to provide BOTH a score AND description for every single candidate.
+    This FORCES GPT-4o to provide a score for every single candidate.
 
     Args:
         query: The search query
         summaries: List of dicts with {index, name, analysis}
 
     Returns:
-        List of dicts with {index, relevance_score, ranking_description}
+        List of dicts with {index, relevance_score}
         (guaranteed to include all indices 0 to N-1)
     """
     if not summaries or len(summaries) == 0:
         return []
 
     num_candidates = len(summaries)
-    print(f"   Ranking {num_candidates} candidates with GPT-4o structured output (hardcoded indices)...")
+    print(f"   Ranking {num_candidates} candidates with GPT-4o structured output (scores only)...")
 
     # Create dynamic Pydantic model with hardcoded fields for each index
     RankingModel = create_ranking_model(num_candidates)
 
     prompt = f"""Query: "{query}"
 
-    Rank these {num_candidates} pre-analyzed strong match candidates by relevance to the query.
+Rank these {num_candidates} pre-analyzed strong match candidates by relevance to the query.
 
-    Each candidate has been analyzed by a recruiting expert who explained why they're a strong match.
-    Your job is to:
-    1. Assign a relevance score (0-100) to each candidate based on how well they match the query
-    2. Write a brief explanation (1-2 sentences) for each score
+Each candidate has been analyzed by a recruiting expert who explained why they're a strong match.
+Your job: Assign a relevance score (0-100) to each candidate based on how well they match the query.
 
-    CRITICAL: You MUST provide BOTH a score AND description for ALL {num_candidates} candidates.
-    Output format: index_N_score and index_N_description where N ranges from 0 to {num_candidates-1}.
+CRITICAL: You MUST provide a score for ALL {num_candidates} candidates.
+Output format: index_N_score where N ranges from 0 to {num_candidates-1}.
 
-    Candidates to rank:
-    {json.dumps(summaries, indent=2)}
+Candidates to rank:
+{json.dumps(summaries, indent=2)}
 
-    Scoring guidelines:
-    - 90-100: Perfect match for the query
-    - 80-89: Very strong match with minor gaps
-    - 70-79: Strong match but missing aspects
-    - 60-69: Good match but several gaps
-    - 50-59: Moderate match
-    - Below 50: Weak match"""
+Scoring guidelines:
+- 90-100: Perfect match
+- 80-89: Very strong match with minor gaps
+- 70-79: Strong match but missing aspects
+- 60-69: Good match but several gaps
+- 50-59: Moderate match
+- Below 50: Weak match"""
 
     try:
         response = await client.responses.parse(
             model="gpt-4o",
             input=[
-                {"role": "system", "content": "You are an expert recruiting analyst. Score candidates objectively based on query relevance. For each candidate you MUST provide BOTH a score (0-100) AND a brief description explaining the score. ALL index_N_score and index_N_description fields are REQUIRED."},
+                {"role": "system", "content": "You are an expert recruiting analyst. Score candidates objectively based on query relevance. For each candidate you MUST provide a score (0-100). ALL index_N_score fields are REQUIRED."},
                 {"role": "user", "content": prompt}
             ],
             text_format=RankingModel
@@ -133,18 +119,14 @@ async def rank_with_openai(query: str, summaries: list):
         rankings = []
         for i in range(num_candidates):
             score_field = f"index_{i}_score"
-            description_field = f"index_{i}_description"
-
             score = getattr(result, score_field)
-            description = getattr(result, description_field)
 
             rankings.append({
                 'index': i,
-                'relevance_score': score,
-                'ranking_description': description
+                'relevance_score': score
             })
 
-        print(f"   ✓ Ranked {len(rankings)} candidates with scores and descriptions (all {num_candidates} indices present)")
+        print(f"   ✓ Ranked {len(rankings)} candidates with scores (all {num_candidates} indices present)")
 
         return rankings
 
@@ -159,8 +141,7 @@ async def rank_with_openai(query: str, summaries: list):
         for i in range(num_candidates):
             fallback_rankings.append({
                 'index': i,
-                'relevance_score': 50,
-                'ranking_description': 'Default score due to ranking error'
+                'relevance_score': 50
             })
         return fallback_rankings
 
@@ -208,9 +189,8 @@ async def rank_strong_matches_with_openai(query: str, strong_matches: list):
             candidate['fit_description'] = match['analysis']  # Stage 1's "why strong" from GPT-5-nano
             candidate['stage_1_confidence'] = match['confidence']
 
-            # Add Stage 2 data (GPT-4o ranking with description)
+            # Add Stage 2 data (GPT-4o score only)
             candidate['relevance_score'] = ranking['relevance_score']
-            candidate['ranking_rationale'] = ranking['ranking_description']  # GPT-4o's explanation of the score
 
             ranked_results.append(candidate)
 
@@ -229,7 +209,6 @@ async def rank_strong_matches_with_openai(query: str, strong_matches: list):
                 candidate['fit_description'] = match['analysis']
                 candidate['stage_1_confidence'] = match['confidence']
                 candidate['relevance_score'] = 40
-                candidate['ranking_rationale'] = 'Fallback score - candidate was not ranked by GPT-4o'
                 ranked_results.append(candidate)
 
     # Sort by relevance_score descending
@@ -264,7 +243,6 @@ def process_partial_matches(query: str, partial_matches: list):
         candidate['fit_description'] = match['analysis']  # GPT-5-nano's "what's missing"
         candidate['stage_1_confidence'] = match.get('confidence', 50)
         candidate['relevance_score'] = None  # No score for partial matches
-        candidate['ranking_rationale'] = 'Partial match - see fit_description for gaps'
 
         processed_results.append(candidate)
 
@@ -307,7 +285,6 @@ async def rank_all_candidates(query: str, stage_1_results: dict):
         candidate['fit_description'] = ''
         candidate['stage_1_confidence'] = match.get('confidence', 0)
         candidate['relevance_score'] = None
-        candidate['ranking_rationale'] = 'Not relevant to query'
         no_match_list.append(candidate)
 
     # Combine: strong (AI ranked) → partial (no score) → no_match
