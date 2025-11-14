@@ -105,8 +105,41 @@ def is_safe_query(sql: str) -> bool:
 
     return True
 
-def execute_search(query: str, connected_to: str = None):
-    """Main search function"""
+def generate_relaxed_query(original_query: str, connected_to: str = None) -> str:
+    """Generate a more relaxed/broader version of the query for progressive search"""
+
+    relaxation_prompt = f"""The original query "{original_query}" returned too few results.
+
+Generate a BROADER, more RELAXED version of the SQL query by following these principles:
+
+WHAT TO KEEP STRICT:
+- Seniority levels (e.g., if looking for executives, keep Director/VP/C-Level, don't downgrade to Mid/Senior)
+- Years of experience requirements
+- Location constraints (if specified)
+
+WHAT TO BROADEN:
+- KEYWORDS and SKILLS: Expand to synonyms and related terms
+  * Think semantically: what other terms mean the same thing?
+  * Example concept: "digital experience" could also be "digital transformation", "ecommerce", "online", "omnichannel", "digital strategy"
+  * Example concept: "AI" could also be "artificial intelligence", "machine learning", "ML"
+
+- FIELDS TO SEARCH: Look in multiple places
+  * Search in: job titles (exp->>'title'), job descriptions (exp->>'summary'), headline, skills array, full experiences text
+  * Use OR conditions to search the same concept across multiple fields
+
+- MATCHING LOGIC: Use OR instead of AND for related concepts
+  * Instead of: title must contain X AND Y
+  * Try: title OR summary OR headline contains (X OR X-synonym) OR (Y OR Y-synonym)
+
+IMPORTANT: Keep all candidates relevant to the original query intent, just broaden how you find them.
+
+Generate a broader SQL query for: {original_query}"""
+
+    return generate_sql(relaxation_prompt, connected_to)
+
+def execute_search(query: str, connected_to: str = None, min_results: int = 10):
+    """Main search function with progressive relaxation if results are too few"""
+
     # Generate SQL
     sql = generate_sql(query, connected_to)
 
@@ -115,7 +148,7 @@ def execute_search(query: str, connected_to: str = None):
         raise ValueError(f"Unsafe SQL query generated:\n{sql}")
 
     # Debug: print SQL
-    print(f"Generated SQL:\n{sql}\n")
+    print(f"[SEARCH] Generated SQL:\n{sql}\n")
 
     # Execute
     conn = get_db_connection()
@@ -123,7 +156,6 @@ def execute_search(query: str, connected_to: str = None):
     cursor.execute(sql)
 
     columns = [desc[0] for desc in cursor.description]
-    print(columns)
     rows = cursor.fetchall()
 
     results = []
@@ -132,6 +164,45 @@ def execute_search(query: str, connected_to: str = None):
         for i, value in enumerate(row):
             result[columns[i]] = value
         results.append(result)
+
+    print(f"[SEARCH] Initial search returned {len(results)} results")
+
+    # If too few results, try a more relaxed search
+    if len(results) < min_results:
+        print(f"[SEARCH] Too few results ({len(results)} < {min_results}), trying relaxed search...")
+
+        try:
+            relaxed_sql = generate_relaxed_query(query, connected_to)
+
+            # Validate relaxed query
+            if not is_safe_query(relaxed_sql):
+                print(f"[SEARCH] Relaxed query unsafe, using original results")
+            else:
+                print(f"[SEARCH] Relaxed SQL:\n{relaxed_sql}\n")
+
+                # Execute relaxed query
+                cursor.execute(relaxed_sql)
+                relaxed_rows = cursor.fetchall()
+
+                relaxed_results = []
+                for row in relaxed_rows:
+                    result = {}
+                    for i, value in enumerate(row):
+                        result[columns[i]] = value
+                    relaxed_results.append(result)
+
+                print(f"[SEARCH] Relaxed search returned {len(relaxed_results)} results")
+
+                # Use relaxed results if they're better
+                if len(relaxed_results) > len(results):
+                    print(f"[SEARCH] Using relaxed results ({len(relaxed_results)} results)")
+                    results = relaxed_results
+                    sql = relaxed_sql  # Update SQL to show the one that was actually used
+                else:
+                    print(f"[SEARCH] Keeping original results ({len(results)} results)")
+
+        except Exception as e:
+            print(f"[SEARCH] Relaxed search failed: {e}, using original results")
 
     cursor.close()
     conn.close()
