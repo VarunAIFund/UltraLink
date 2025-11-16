@@ -32,7 +32,7 @@ UltraLink is a comprehensive LinkedIn data processing and candidate search platf
 - **Shareable search links** with UUID-based persistent search sessions
 - **AI-generated highlights** via Perplexity search + GPT-4o analysis
 - **HR Notes feature** for candidate annotations with edit/view modes
-- **Local profile picture storage** with automatic fallback for expired LinkedIn URLs
+- **Supabase Storage profile pictures** with automatic HiUser icon fallback for missing images (5,383 uploaded, 99.1% success rate)
 
 ---
 
@@ -44,6 +44,7 @@ UltraLink/
 │   ├── backend/                 # Flask API backend
 │   │   ├── app.py              # Main Flask app with all endpoints
 │   │   ├── search.py           # Natural language to SQL generation (supports multi-connection filtering)
+│   │   ├── utils.py            # Profile picture URL generation (Railway-compatible)
 │   │   ├── ranking.py          # GPT-4o candidate reranking (top 30)
 │   │   ├── ranking_gemini.py   # Gemini 2.5 Pro ranking (ALL candidates)
 │   │   ├── ranking_stage_1.py  # Async parallel classification (strong vs partial matches)
@@ -94,9 +95,10 @@ UltraLink/
 │   ├── upload_to_supabase.py   # Supabase database upload
 │   ├── supabase_config.py      # Supabase client setup
 │   ├── count_unique_linkedin_urls.py   # Validate LinkedIn URL uniqueness
-│   ├── download_profile_pictures.py    # Download profile pictures locally
-│   ├── profile_pictures/       # Local profile picture storage
-│   ├── profile_picture_mapping.json    # LinkedIn URL → local path mapping
+│   ├── download_profile_pictures.py    # Download profile pictures locally (no default copies)
+│   ├── upload_pictures/        # Profile picture upload utilities
+│   │   └── upload_profile_pictures_to_supabase.py  # Upload to Supabase Storage
+│   ├── profile_pictures/       # Local profile picture storage (5,383 images)
 │   └── create_candidates_table.sql
 │
 └── CLAUDE.md                    # This file
@@ -417,40 +419,47 @@ Seniority Distribution:
   - C-Level: 10%
 ```
 
-#### Profile Picture Management: `download_profile_pictures.py`
+#### Profile Picture Download: `download_profile_pictures.py`
 
-**Purpose:** Download LinkedIn profile pictures locally to prevent URL expiration
+**Purpose:** Download LinkedIn profile pictures locally (one-time setup for new candidates)
 
 **Key Features:**
 - **Batch Downloads:** 50 concurrent downloads for speed
 - **Expiration Handling:** LinkedIn profile picture URLs expire (contain `e=timestamp`)
-- **Default Fallback:** Automatically uses default.jpg for expired/invalid URLs
-- **Mapping File:** Creates profile_picture_mapping.json for URL → local path lookup
-- **No JSON Modification:** Keeps original LinkedIn URLs in data files
+- **No Default Copies:** No longer creates default.jpg copies (website handles fallback)
+- **Status Tracking:** Returns status for each download (success/failed/no_image)
 
 **Directory Structure:**
 ```
 transform_data/
-├── profile_pictures/
-│   ├── shalinmantri.jpg
-│   ├── josephleblanc.jpg
-│   ├── default.jpg          # Fallback image
+├── profile_pictures/        # 5,383 downloaded images
+│   ├── in-shalinmantri.jpg
+│   ├── in-josephleblanc.jpg
 │   └── ...
-└── profile_picture_mapping.json
+└── upload_pictures/
+    └── upload_profile_pictures_to_supabase.py  # Uploads to Supabase Storage
 ```
 
 **Usage:**
 ```bash
 cd transform_data
+
+# Step 1: Download from LinkedIn
 python download_profile_pictures.py
 # Downloads 100x100 profile pictures for all candidates
-# Creates mapping file for local path lookup
+
+# Step 2: Upload to Supabase Storage
+python upload_pictures/upload_profile_pictures_to_supabase.py
+# Uploads to profile-pictures bucket (skips already uploaded)
 ```
 
 **Statistics:**
+- 5,383 images uploaded to Supabase Storage (99.1% success)
+- 48 failed uploads due to special characters
 - Average image size: 10-20KB
-- Total storage for 13K profiles: ~130-260MB
-- Success rate: ~90% (rest use default)
+- Total storage: ~54-108MB
+
+**Note:** Website dynamically generates Supabase Storage URLs - no mapping file needed for runtime operation.
 
 #### LinkedIn URL Validation: `count_unique_linkedin_urls.py`
 
@@ -723,6 +732,26 @@ python count_unique_linkedin_urls.py
 - Share internal assessments with hiring team
 - Document concerns or red flags
 - Add follow-up reminders
+
+#### Profile Picture System
+
+**Purpose:** Display LinkedIn profile pictures from Supabase Storage with HiUser icon fallback for missing images
+
+**How it works:**
+- Backend (`utils.py`) dynamically generates Supabase Storage URLs from LinkedIn URLs
+- Frontend (`CandidateCard.tsx`) uses regular `<img>` tag with `onError` handler
+- Missing images (404) automatically trigger HiUser icon fallback
+- Railway-compatible environment variable loading (detects Railway vs local)
+
+**Storage:**
+- 5,383 images in Supabase Storage `profile-pictures` bucket (99.1% success)
+- Failed uploads (~48 files) due to special characters show HiUser fallback
+
+**Key files:**
+- `website/backend/utils.py` - URL generation logic
+- `website/frontend/components/CandidateCard.tsx` - Image display with fallback
+- `transform_data/download_profile_pictures.py` - Download from LinkedIn (one-time)
+- `transform_data/upload_pictures/upload_profile_pictures_to_supabase.py` - Upload to storage (one-time)
 
 #### CLI Search: `candidate_search.py`
 
