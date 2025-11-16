@@ -127,6 +127,12 @@ def get_search(search_id):
         if not result:
             return jsonify({'error': 'Search not found'}), 404
 
+        # Add profile_pic URLs to saved results (for backward compatibility)
+        from utils import add_profile_pic_urls
+        if 'results' in result and result['results']:
+            result['results'] = add_profile_pic_urls(result['results'])
+            print(f"[DEBUG] Added profile_pic URLs to {len(result['results'])} saved candidates")
+
         return jsonify({
             'success': True,
             **result

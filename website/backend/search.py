@@ -8,6 +8,7 @@ from urllib.parse import quote_plus
 from dotenv import load_dotenv, dotenv_values
 from openai import OpenAI
 from db_schema import get_schema_prompt
+from utils import add_profile_pic_urls
 
 # Load environment - .env is in website directory
 env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
@@ -206,6 +207,9 @@ def execute_search(query: str, connected_to: str = None, min_results: int = 10):
 
     cursor.close()
     conn.close()
+
+    # Add profile pic URLs to results
+    results = add_profile_pic_urls(results)
 
     return {
         'sql': sql,

@@ -44,44 +44,8 @@ def sanitize_linkedin_url(linkedin_url):
 
     return username
 
-def create_default_image():
-    """Create a simple default profile picture if it doesn't exist"""
-    default_path = os.path.join(OUTPUT_DIR, DEFAULT_IMAGE)
-
-    if os.path.exists(default_path):
-        return default_path
-
-    try:
-        # Try to create a simple gray placeholder using PIL
-        from PIL import Image, ImageDraw
-
-        # Create 100x100 gray circle
-        img = Image.new('RGB', (100, 100), color='#E5E7EB')
-        draw = ImageDraw.Draw(img)
-
-        # Draw circle
-        draw.ellipse([20, 20, 80, 80], fill='#9CA3AF')
-
-        # Save
-        img.save(default_path, 'JPEG', quality=85)
-        print(f"✅ Created default profile picture at {default_path}")
-
-    except ImportError:
-        # PIL not available, create a minimal file
-        print("⚠️  PIL not available, using minimal default image")
-        # Download a simple placeholder from a reliable source
-        try:
-            placeholder_url = "https://ui-avatars.com/api/?name=User&size=100&background=E5E7EB&color=9CA3AF"
-            response = requests.get(placeholder_url, timeout=10)
-            if response.status_code == 200:
-                with open(default_path, 'wb') as f:
-                    f.write(response.content)
-                print(f"✅ Downloaded default profile picture")
-        except:
-            print("❌ Could not create default image")
-            return None
-
-    return default_path
+# Removed create_default_image() function - no longer needed
+# Frontend shows HiUser icon for missing pictures
 
 def download_image(linkedin_url, profile_pic_url, output_path, retries=MAX_RETRIES):
     """Download a single profile picture with retry logic"""
@@ -136,7 +100,7 @@ def download_image(linkedin_url, profile_pic_url, output_path, retries=MAX_RETRI
     }
 
 def process_profile(profile, default_image_path):
-    """Process a single profile - download or use default"""
+    """Process a single profile - download only, don't create default copies"""
 
     linkedin_url = profile.get('linkedinUrl')
     profile_pic_url = profile.get('profilePic')
@@ -172,19 +136,17 @@ def process_profile(profile, default_image_path):
                 'downloaded_at': datetime.now().isoformat()
             }
         else:
-            # Download failed, use default
-            if default_image_path and os.path.exists(default_image_path):
-                import shutil
-                shutil.copy(default_image_path, output_path)
-                return {
-                    'linkedin_url': linkedin_url,
-                    'local_path': output_path,
-                    'status': 'default',
-                    'name': name,
-                    'error': result['error']
-                }
+            # Download failed - DON'T copy default, just return null
+            # Frontend will show HiUser icon fallback
+            return {
+                'linkedin_url': linkedin_url,
+                'local_path': None,
+                'status': 'failed',
+                'name': name,
+                'error': result['error']
+            }
 
-    # No profile pic URL or default copy failed
+    # No profile pic URL
     return {
         'linkedin_url': linkedin_url,
         'local_path': None,
@@ -203,9 +165,8 @@ def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     print(f"✅ Created output directory: {OUTPUT_DIR}")
 
-    # Create default image
-    print("\n🎨 Setting up default profile picture...")
-    default_image_path = create_default_image()
+    # No default image needed - frontend shows HiUser icon
+    default_image_path = None
 
     # Load profiles
     print(f"\n📂 Loading profiles from {INPUT_FILE}...")
@@ -281,10 +242,11 @@ def main():
     print(f"\n📊 DOWNLOAD STATISTICS")
     print("=" * 60)
     print(f"Total profiles: {stats['total']:,}")
-    print(f"✅ Successfully downloaded: {stats['success']:,}")
-    print(f"📁 Already existed: {stats['exists']:,}")
-    print(f"🎨 Used default image: {stats['default']:,}")
-    print(f"❌ No profile picture: {stats['no_image']:,}")
+    print(f"✅ Successfully downloaded: {stats.get('success', 0):,}")
+    print(f"📁 Already existed: {stats.get('exists', 0):,}")
+    print(f"❌ Failed downloads: {stats.get('failed', 0):,}")
+    print(f"❌ No profile picture URL: {stats.get('no_image', 0):,}")
+    print(f"\n💡 Missing pictures will show HiUser icon in frontend")
 
     # Calculate storage
     total_size = sum(

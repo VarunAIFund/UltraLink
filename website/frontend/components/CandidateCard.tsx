@@ -1,5 +1,4 @@
 import { useState } from "react";
-import Image from "next/image";
 import {
   Card,
   CardContent,
@@ -35,6 +34,9 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
   const [showHighlights, setShowHighlights] = useState(false);
   const [loadingHighlights, setLoadingHighlights] = useState(false);
   const [highlightsError, setHighlightsError] = useState<string | null>(null);
+
+  // Profile picture error state
+  const [imageError, setImageError] = useState(false);
 
   // Notes state
   const [note, setNote] = useState<string>("");
@@ -159,13 +161,12 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
         <CardHeader>
           <div className="flex justify-between items-start gap-4">
             <div className="flex gap-4 flex-1 items-center">
-              {candidate.profile_pic ? (
-                <Image
+              {candidate.profile_pic && !imageError ? (
+                <img
                   src={candidate.profile_pic}
                   alt={candidate.name}
-                  width={64}
-                  height={64}
                   className="w-16 h-16 rounded-full object-cover flex-shrink-0"
+                  onError={() => setImageError(true)}
                 />
               ) : (
                 <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
