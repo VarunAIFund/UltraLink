@@ -178,12 +178,14 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
                 <CardDescription>{candidate.headline}</CardDescription>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold text-primary">
-                {candidate.relevance_score}
+            {candidate.match === 'strong' && (
+              <div className="text-right">
+                <div className="text-2xl font-bold text-primary">
+                  {candidate.relevance_score}
+                </div>
+                <div className="text-xs text-muted-foreground">Score</div>
               </div>
-              <div className="text-xs text-muted-foreground">Score</div>
-            </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>
