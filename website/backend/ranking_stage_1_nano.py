@@ -1,10 +1,17 @@
 """
 Ranking Stage 1 - GPT-5-nano Classification
 Classify candidates as strong/partial/no_match with detailed analyses
+
+Optimized for concurrent processing:
+- Fires all requests concurrently using asyncio.gather()
+- Creates fresh httpx.AsyncClient per search request (supports concurrent Flask requests)
+- No artificial rate limiting (let OpenAI handle 429s with retries)
+- Automatic retry for failed requests
 """
 import json
 import os
 import asyncio
+import httpx
 from typing import Literal
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
@@ -13,17 +20,6 @@ from pydantic import BaseModel, Field
 # Load environment - .env is in website directory
 env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 load_dotenv(env_path)
-
-client = AsyncOpenAI()
-
-# Rate limiting configuration (OpenAI Usage Tier 3)
-# Tier 3 limits: 5,000 RPM, 4,000,000 TPM
-# Using 1,000 RPM (20% of limit) for safe buffer
-MAX_REQUESTS_PER_MIN = 250
-RATE_LIMIT_INTERVAL = 60 / MAX_REQUESTS_PER_MIN  # 0.06 seconds between requests
-
-# Batch processing to prevent connection pool exhaustion
-BATCH_SIZE = 250  # Process 200 candidates at a time
 
 class CandidateClassification(BaseModel):
     """Classification result with detailed analysis"""
@@ -53,7 +49,7 @@ class CandidateClassification(BaseModel):
     )
 
 
-async def classify_single_candidate_nano(query: str, candidate: dict, index: int):
+async def classify_single_candidate_nano(query: str, candidate: dict, index: int, client: AsyncOpenAI):
     """
     Classify a single candidate using GPT-5-nano with detailed analysis
 
@@ -61,6 +57,7 @@ async def classify_single_candidate_nano(query: str, candidate: dict, index: int
         query: The search query
         candidate: Full candidate profile dict
         index: Index in original list
+        client: AsyncOpenAI client instance
 
     Returns:
         Dict with: index, match_type, analysis, confidence, candidate
@@ -98,9 +95,6 @@ Classify based on:
 - Are there any notable achievements or companies?"""
 
     try:
-        # Rate limiting: wait before making API call (spaces out requests)
-        await asyncio.sleep(RATE_LIMIT_INTERVAL)
-
         response = await client.responses.parse(
             model="gpt-5-nano",
             input=[
@@ -121,20 +115,27 @@ Classify based on:
         }
 
     except Exception as e:
-        print(f"⚠️  Classification error for {candidate.get('name', 'Unknown')} (index {index}): {e}")
-        # Return as partial match with error note on failure
+        # Don't print errors here - will be handled in classify_all_candidates
+        # Return error dict instead of raising (so gather doesn't cancel others)
         return {
             'index': index,
             'match_type': 'partial',
             'analysis': 'Classification error occurred',
             'confidence': 0,
-            'candidate': candidate
+            'candidate': candidate,
+            'error': str(e)  # Track error for retry logic
         }
 
 
 async def classify_all_candidates(query: str, candidates: list):
     """
-    Classify all candidates in parallel using GPT-5-nano
+    Classify all candidates concurrently using GPT-5-nano
+
+    Uses asyncio.gather() to fire all requests at once, with automatic retries
+    for failures. No artificial rate limiting - OpenAI handles 429s with max_retries.
+
+    Creates a fresh httpx/OpenAI client for this search request, allowing
+    concurrent Flask requests to work without connection conflicts.
 
     Args:
         query: The search query
@@ -150,40 +151,66 @@ async def classify_all_candidates(query: str, candidates: list):
             'no_matches': []
         }
 
+    import time
+    start_time = time.time()
+
     print(f"\n🔍 Stage 1: Classifying {len(candidates)} candidates with GPT-5-nano...")
-    print(f"   Rate limit: {MAX_REQUESTS_PER_MIN} requests/min ({RATE_LIMIT_INTERVAL:.2f}s interval)")
-    estimated_time = len(candidates) * RATE_LIMIT_INTERVAL
-    print(f"   Estimated time: ~{estimated_time:.1f} seconds")
+    print(f"   🚀 Firing all {len(candidates)} requests concurrently (no rate limiting)")
 
-    # Calculate number of batches
-    total_batches = (len(candidates) + BATCH_SIZE - 1) // BATCH_SIZE
-    print(f"   Processing in {total_batches} batch(es) of {BATCH_SIZE}")
+    # Create fresh httpx client for this request (supports concurrent Flask requests)
+    async with httpx.AsyncClient(
+        limits=httpx.Limits(
+            max_connections=500,
+            max_keepalive_connections=100
+        ),
+        timeout=httpx.Timeout(120.0)
+    ) as http_client:
+        # Create OpenAI client with custom http client
+        client = AsyncOpenAI(
+            http_client=http_client,
+            max_retries=3
+        )
 
-    all_results = []
+        # First pass: classify all candidates concurrently
+        tasks = [
+            classify_single_candidate_nano(query, candidate, i, client)
+            for i, candidate in enumerate(candidates)
+        ]
 
-    # Process each batch sequentially
-    for batch_num in range(total_batches):
-        start_idx = batch_num * BATCH_SIZE
-        end_idx = min(start_idx + BATCH_SIZE, len(candidates))
-        batch = candidates[start_idx:end_idx]
+        # Use return_exceptions=True so one failure doesn't cancel all
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        print(f"\n   📦 Batch {batch_num + 1}/{total_batches}: Processing {len(batch)} candidates (indices {start_idx}-{end_idx-1})...")
+        # Identify failures (exceptions or confidence=0 errors)
+        failed_indices = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                failed_indices.append(i)
+                print(f"⚠️  Exception for {candidates[i].get('name', 'Unknown')} (index {i}): {result}")
+            elif result.get('confidence') == 0 and 'error' in result:
+                failed_indices.append(i)
 
-        # Create async tasks for this batch only
-        tasks = []
-        for i, candidate in enumerate(batch):
-            global_index = start_idx + i
-            task = asyncio.create_task(classify_single_candidate_nano(query, candidate, global_index))
-            tasks.append(task)
+        # Second pass: retry failures
+        if failed_indices:
+            print(f"\n🔄 Retrying {len(failed_indices)} failed requests...")
+            retry_tasks = [
+                classify_single_candidate_nano(query, candidates[i], i, client)
+                for i in failed_indices
+            ]
+            retry_results = await asyncio.gather(*retry_tasks, return_exceptions=True)
 
-        # Wait for this batch to complete
-        batch_results = await asyncio.gather(*tasks, return_exceptions=True)
-        all_results.extend(batch_results)
+            # Replace failures with retry results
+            for idx, retry_result in zip(failed_indices, retry_results):
+                if isinstance(retry_result, Exception):
+                    print(f"⚠️  Retry failed for {candidates[idx].get('name', 'Unknown')} (index {idx}): {retry_result}")
+                    # Keep original error result
+                else:
+                    results[idx] = retry_result
+                    if retry_result.get('confidence') > 0:
+                        print(f"   ✓ Retry succeeded for {candidates[idx].get('name', 'Unknown')}")
 
-        print(f"   ✓ Batch {batch_num + 1}/{total_batches} complete")
+    # Client automatically cleaned up after 'async with' block
 
-    # Use all results from all batches
-    results = all_results
+    elapsed = time.time() - start_time
 
     # Separate into three tiers
     strong_matches = []
@@ -192,8 +219,7 @@ async def classify_all_candidates(query: str, candidates: list):
 
     for result in results:
         if isinstance(result, Exception):
-            print(f"⚠️  Task failed: {result}")
-            continue
+            continue  # Skip exceptions entirely
 
         if result['match_type'] == 'strong':
             strong_matches.append(result)
@@ -202,11 +228,12 @@ async def classify_all_candidates(query: str, candidates: list):
         else:  # no_match
             no_matches.append(result)
 
-    print(f"✅ Stage 1 Complete:")
+    print(f"\n✅ Stage 1 Complete:")
     print(f"   • Strong matches: {len(strong_matches)}")
     print(f"   • Partial matches: {len(partial_matches)}")
     print(f"   • No matches: {len(no_matches)}")
     print(f"   • Total classified: {len(strong_matches) + len(partial_matches) + len(no_matches)}/{len(candidates)}")
+    print(f"   ⏱️  Time taken: {elapsed:.1f} seconds ({len(candidates)/elapsed:.1f} candidates/sec)")
 
     return {
         'strong_matches': strong_matches,
