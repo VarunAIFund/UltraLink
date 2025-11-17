@@ -49,9 +49,8 @@ def extract_company_urls(input_file="../results/connections.json"):
                     # Remove trailing slashes and query parameters for consistency
                     company_url = company_url.rstrip('/').split('?')[0]
                     company_urls.add(company_url)  # Set automatically ensures uniqueness
-                    
                     # Extract company name for counting
-                    company_name = experience.get('subtitle', '').split(' ·')[0].strip()
+                    company_name = (experience.get('subtitle') or '').split(' ·')[0].strip()
                     if company_name:
                         company_counter[company_name] += 1
     
