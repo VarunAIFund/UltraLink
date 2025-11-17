@@ -74,6 +74,36 @@ Respond ONLY with valid JSON:
 
         response_text = response.text.strip()
 
+        # Track token usage and cost (safely)
+        print("[DEBUG] Attempting to track Gemini tokens...")
+        try:
+            if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                usage_metadata = response.usage_metadata
+                input_tokens = getattr(usage_metadata, 'prompt_token_count', 0)
+                output_tokens = getattr(usage_metadata, 'candidates_token_count', 0)
+                total_tokens = getattr(usage_metadata, 'total_token_count', 0)
+
+                if total_tokens > 0:
+                    # Gemini 2.5 Pro pricing (tiered by context length)
+                    # < 200K tokens: $1.25/M input, $10/M output
+                    # > 200K tokens: $2.50/M input, $15/M output
+                    if input_tokens <= 200_000:
+                        cost_input = (input_tokens / 1_000_000) * 1.25
+                        cost_output = (output_tokens / 1_000_000) * 10.00
+                    else:
+                        cost_input = (input_tokens / 1_000_000) * 2.50
+                        cost_output = (output_tokens / 1_000_000) * 15.00
+
+                    total_cost = cost_input + cost_output
+
+                    print(f"\n💰 Gemini Ranking Cost:")
+                    print(f"   • Input tokens: {input_tokens:,} (${cost_input:.4f})")
+                    print(f"   • Output tokens: {output_tokens:,} (${cost_output:.4f})")
+                    print(f"   • Total tokens: {total_tokens:,}")
+                    print(f"   • Total cost: ${total_cost:.4f}")
+        except Exception as e:
+            print(f"[DEBUG] Could not track Gemini tokens: {e}")
+
         # Extract JSON
         if response_text.startswith('```'):
             response_text = response_text.split('```')[1]
