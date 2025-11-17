@@ -86,6 +86,24 @@ def generate_sql(query: str, connected_to: str = None) -> str:
             sql = sql[3:]
         sql = sql.strip()
 
+    # Track token usage and cost
+    usage = response.usage
+    tokens_used = {
+        'input_tokens': usage.prompt_tokens,
+        'output_tokens': usage.completion_tokens,
+        'total_tokens': usage.total_tokens
+    }
+
+    # GPT-4o pricing: $2.50 per 1M input, $10.00 per 1M output
+    cost_input = (tokens_used['input_tokens'] / 1_000_000) * 2.50
+    cost_output = (tokens_used['output_tokens'] / 1_000_000) * 10.00
+    total_cost = cost_input + cost_output
+
+    print(f"\n💰 SQL Generation Cost (GPT-4o):")
+    print(f"   • Input tokens: {tokens_used['input_tokens']:,} (${cost_input:.4f})")
+    print(f"   • Output tokens: {tokens_used['output_tokens']:,} (${cost_output:.4f})")
+    print(f"   • Total cost: ${total_cost:.4f}")
+
     return sql
 
 def is_safe_query(sql: str) -> bool:

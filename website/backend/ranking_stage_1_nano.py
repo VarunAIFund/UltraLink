@@ -106,12 +106,27 @@ Classify based on:
 
         result = response.output_parsed  # Correct attribute for GPT-5-nano structured outputs
 
+        # Track token usage for cost calculation (safely)
+        # Note: responses.parse() uses input_tokens/output_tokens (not prompt_tokens/completion_tokens)
+        tokens_data = {}
+        try:
+            if hasattr(response, 'usage') and response.usage:
+                tokens_data = {
+                    'input_tokens': getattr(response.usage, 'input_tokens', 0),
+                    'output_tokens': getattr(response.usage, 'output_tokens', 0),
+                    'total_tokens': getattr(response.usage, 'total_tokens', 0)
+                }
+        except Exception:
+            # If token tracking fails, just skip it (don't break the classification)
+            pass
+
         return {
             'index': index,
             'match_type': result.match_type,
             'analysis': result.analysis,
             'confidence': result.confidence,
-            'candidate': candidate
+            'candidate': candidate,
+            **tokens_data  # Add token data if available
         }
 
     except Exception as e:
@@ -166,9 +181,10 @@ async def classify_all_candidates(query: str, candidates: list):
         timeout=httpx.Timeout(120.0)
     ) as http_client:
         # Create OpenAI client with custom http client
+        # Increased max_retries to 8 to handle rate limits better
         client = AsyncOpenAI(
             http_client=http_client,
-            max_retries=3
+            max_retries=8
         )
 
         # First pass: classify all candidates concurrently
@@ -228,12 +244,36 @@ async def classify_all_candidates(query: str, candidates: list):
         else:  # no_match
             no_matches.append(result)
 
+    # Calculate token usage and cost (safely)
+    total_input_tokens = 0
+    total_output_tokens = 0
+    for r in results:
+        if not isinstance(r, Exception):
+            total_input_tokens += r.get('input_tokens', 0)
+            total_output_tokens += r.get('output_tokens', 0)
+
+    total_tokens = total_input_tokens + total_output_tokens
+
+    # GPT-5-nano pricing (as of 2025)
+    # Input: $0.05 per 1M tokens, Output: $0.40 per 1M tokens
+    cost_input = (total_input_tokens / 1_000_000) * 0.05
+    cost_output = (total_output_tokens / 1_000_000) * 0.40
+    total_cost = cost_input + cost_output
+
     print(f"\n✅ Stage 1 Complete:")
     print(f"   • Strong matches: {len(strong_matches)}")
     print(f"   • Partial matches: {len(partial_matches)}")
     print(f"   • No matches: {len(no_matches)}")
     print(f"   • Total classified: {len(strong_matches) + len(partial_matches) + len(no_matches)}/{len(candidates)}")
     print(f"   ⏱️  Time taken: {elapsed:.1f} seconds ({len(candidates)/elapsed:.1f} candidates/sec)")
+
+    # Only show cost if we tracked any tokens
+    if total_tokens > 0:
+        print(f"\n💰 Stage 1 Cost:")
+        print(f"   • Input tokens: {total_input_tokens:,} (${cost_input:.4f})")
+        print(f"   • Output tokens: {total_output_tokens:,} (${cost_output:.4f})")
+        print(f"   • Total tokens: {total_tokens:,}")
+        print(f"   • Total cost: ${total_cost:.4f}")
 
     return {
         'strong_matches': strong_matches,
