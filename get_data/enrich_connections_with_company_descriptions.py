@@ -96,7 +96,7 @@ def analyze_enrichment_needs(connections, company_lookup):
                     else:
                         stats['companies_without_descriptions'] += 1
                         # Track unique company
-                        company_name = experience.get('subtitle', 'Unknown').split(' ·')[0].strip()
+                        company_name = (experience.get('subtitle') or 'Unknown').split(' ·')[0].strip()
                         stats['unique_companies_without_descriptions'].add((normalized_company_link, company_name))
                 else:
                     stats['companies_not_found'] += 1

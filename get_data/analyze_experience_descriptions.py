@@ -72,7 +72,7 @@ def analyze_descriptions(file_path="results/connections.json", min_length_thresh
                                     sample_descriptions.append({
                                         'name': profile.get('fullName'),
                                         'title': exp.get('title'),
-                                        'company': exp.get('subtitle', '').split('·')[0].strip(),
+                                        'company': (exp.get('subtitle') or '').split('·')[0].strip(),
                                         'description': text[:200] + ('...' if len(text) > 200 else ''),
                                         'length': len(text)
                                     })
@@ -88,7 +88,7 @@ def analyze_descriptions(file_path="results/connections.json", min_length_thresh
                 sample_short_descriptions.append({
                     'name': profile.get('fullName'),
                     'title': exp.get('title'),
-                    'company': exp.get('subtitle', '').split('·')[0].strip(),
+                    'company': (exp.get('subtitle') or '').split('·')[0].strip(),
                     'description': exp_desc_text,
                     'length': len(exp_desc_text)
                 })
@@ -102,7 +102,7 @@ def analyze_descriptions(file_path="results/connections.json", min_length_thresh
                 company_desc_lengths.append(len(company_desc))
                 if len(sample_company_descriptions) < 10:
                     sample_company_descriptions.append({
-                        'company': exp.get('subtitle', '').split('·')[0].strip(),
+                        'company': (exp.get('subtitle') or '').split('·')[0].strip(),
                         'description': company_desc[:200] + ('...' if len(company_desc) > 200 else ''),
                         'length': len(company_desc)
                     })
