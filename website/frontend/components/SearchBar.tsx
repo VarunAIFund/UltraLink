@@ -1,5 +1,5 @@
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -7,7 +7,7 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 
 interface SearchBarProps {
   query: string;
@@ -24,7 +24,7 @@ export function SearchBar({
   onSearch,
   loading,
   connectedTo,
-  setConnectedTo
+  setConnectedTo,
 }: SearchBarProps) {
   return (
     <div className="flex flex-col md:flex-row gap-3 mb-8">
@@ -33,17 +33,18 @@ export function SearchBar({
         placeholder="Search for candidates (e.g., CEO in healthcare with startup experience)"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+        onKeyDown={(e) => e.key === "Enter" && onSearch()}
         className="flex-1 w-full"
       />
       <div className="flex gap-3">
         <Select
           multiple
           options={[
-            { label: 'Dan', value: 'dan' },
-            { label: 'Linda', value: 'linda' },
-            { label: 'Jon', value: 'jon' },
-            { label: 'Mary', value: 'mary' },
+            { label: "Dan", value: "dan" },
+            { label: "Linda", value: "linda" },
+            { label: "Jon", value: "jon" },
+            { label: "Mary", value: "mary" },
+            { label: "Eli", value: "eli" },
           ]}
           value={connectedTo}
           onValueChange={setConnectedTo}
@@ -57,17 +58,22 @@ export function SearchBar({
             <SelectItem value="linda">Linda</SelectItem>
             <SelectItem value="jon">Jon</SelectItem>
             <SelectItem value="mary">Mary</SelectItem>
+            <SelectItem value="eli">Eli</SelectItem>
             <SelectSeparator />
             <button
               className="w-full px-2 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground rounded-sm cursor-pointer"
-              onClick={() => setConnectedTo('')}
+              onClick={() => setConnectedTo("")}
             >
               Deselect All
             </button>
           </SelectContent>
         </Select>
-        <Button onClick={onSearch} disabled={loading} className="flex-1 md:flex-none">
-          {loading ? 'Searching...' : 'Search'}
+        <Button
+          onClick={onSearch}
+          disabled={loading}
+          className="flex-1 md:flex-none"
+        >
+          {loading ? "Searching..." : "Search"}
         </Button>
       </div>
     </div>
