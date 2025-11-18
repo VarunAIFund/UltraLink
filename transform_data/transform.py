@@ -11,6 +11,7 @@ import json
 import os
 import asyncio
 import time
+import httpx
 from typing import List
 from openai import AsyncOpenAI
 from models import AIInferredProfile
@@ -20,20 +21,24 @@ from datetime import datetime
 # Load .env from parent directory
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
-client = AsyncOpenAI()
+# Concurrent processing configuration (based on ranking_stage_1_nano.py)
+# Fire all requests concurrently with no artificial rate limiting
+# Let OpenAI handle 429s with max_retries
+BATCH_SIZE = 250  # Process 500 profiles per batch with 500 concurrent requests
 
-# Rate limiting configuration (OpenAI Usage Tier 2)
-# TPM limit is 2,000,000 tokens/min. Each profile uses 3,000-5,500 tokens (~4,000 avg).
-# Using 400 req/min = 1,600,000 TPM (80% of limit) for 400,000 token safety buffer
-MAX_REQUESTS_PER_MIN = 250
-RATE_LIMIT_INTERVAL = 60 / MAX_REQUESTS_PER_MIN  # 0.15 seconds between requests
-BATCH_SIZE = 250
-
-async def extract_profile_data(raw_data: dict) -> dict:
+async def extract_profile_data(raw_data: dict, index: int, client: AsyncOpenAI) -> dict:
     """
     Transform raw Apify LinkedIn data into structured PersonProfile using direct extraction and OpenAI for remaining fields
+
+    Args:
+        raw_data: Raw LinkedIn profile data
+        index: Index in original list (for error tracking)
+        client: AsyncOpenAI client instance
+
+    Returns:
+        Dict with transformed profile data or error info
     """
-    
+
     # Get current date
     current_date = datetime.now().strftime("%B %d, %Y")
         
@@ -95,52 +100,193 @@ async def extract_profile_data(raw_data: dict) -> dict:
     """
 
     # Should short summary be there if the summary is empty?
-    
-    # Rate limiting: wait before making API call
-    await asyncio.sleep(RATE_LIMIT_INTERVAL)
-    
-    response = await client.responses.parse(
+
+    try:
+        response = await client.responses.parse(
         model="gpt-5-nano",
         input=[
             {"role": "system", "content": "Extract the structured profile information from candidate data."},
             {"role": "user", "content": prompt}
         ],
-        text_format=AIInferredProfile,
-    )
-    
-    ai_profile = response.output_parsed
-    
-    # Calculate average tenure: total years experience / number of experiences
-    num_experiences = len(ai_profile.experiences) if ai_profile.experiences else 1  # Avoid division by zero
-    average_tenure = ai_profile.years_experience / num_experiences if ai_profile.years_experience else 0.0
-    
-    # Combine company skills from all experiences to get overall skills
-    all_company_skills = []
-    for exp in ai_profile.experiences:
-        all_company_skills.extend(exp.company_skills)
-    
-    # Remove duplicates while preserving order
-    skills = list(dict.fromkeys(all_company_skills))
-    
-    # Combine direct extraction with AI inference
-    return {
-        "name": ai_profile.name,
-        "linkedinUrl": direct_fields["linkedinUrl"],
-        "headline": ai_profile.headline,
-        "location": ai_profile.location,
-        "phone": direct_fields["phone"],
-        "email": direct_fields["email"],
-        "connected_to": direct_fields["connected_to"],
-        "profilePic": direct_fields["profilePic"],
-        "profilePicHighQuality": direct_fields["profilePicHighQuality"],
-        "seniority": ai_profile.seniority,
-        "skills": skills,
-        "years_experience": ai_profile.years_experience,
-        "average_tenure": average_tenure,
-        "worked_at_startup": ai_profile.worked_at_startup,
-        "experiences": [exp.model_dump() for exp in ai_profile.experiences],
-        "education": [edu.model_dump() for edu in ai_profile.education]
-    }
+            text_format=AIInferredProfile,
+        )
+
+        ai_profile = response.output_parsed
+
+        # Calculate average tenure: total years experience / number of experiences
+        num_experiences = len(ai_profile.experiences) if ai_profile.experiences else 1  # Avoid division by zero
+        average_tenure = ai_profile.years_experience / num_experiences if ai_profile.years_experience else 0.0
+
+        # Combine company skills from all experiences to get overall skills
+        all_company_skills = []
+        for exp in ai_profile.experiences:
+            all_company_skills.extend(exp.company_skills)
+
+        # Remove duplicates while preserving order
+        skills = list(dict.fromkeys(all_company_skills))
+
+        # Track token usage for cost calculation
+        tokens_data = {}
+        try:
+            if hasattr(response, 'usage') and response.usage:
+                tokens_data = {
+                    'input_tokens': getattr(response.usage, 'input_tokens', 0),
+                    'output_tokens': getattr(response.usage, 'output_tokens', 0),
+                    'total_tokens': getattr(response.usage, 'total_tokens', 0)
+                }
+        except Exception:
+            pass
+
+        # Combine direct extraction with AI inference
+        return {
+            "name": ai_profile.name,
+            "linkedinUrl": direct_fields["linkedinUrl"],
+            "headline": ai_profile.headline,
+            "location": ai_profile.location,
+            "phone": direct_fields["phone"],
+            "email": direct_fields["email"],
+            "connected_to": direct_fields["connected_to"],
+            "profilePic": direct_fields["profilePic"],
+            "profilePicHighQuality": direct_fields["profilePicHighQuality"],
+            "seniority": ai_profile.seniority,
+            "skills": skills,
+            "years_experience": ai_profile.years_experience,
+            "average_tenure": average_tenure,
+            "worked_at_startup": ai_profile.worked_at_startup,
+            "experiences": [exp.model_dump() for exp in ai_profile.experiences],
+            "education": [edu.model_dump() for edu in ai_profile.education],
+            "index": index,
+            **tokens_data
+        }
+
+    except Exception as e:
+        # Return error dict instead of raising (so gather doesn't cancel others)
+        return {
+            'index': index,
+            'linkedinUrl': direct_fields["linkedinUrl"],
+            'name': raw_data.get("fullName", "Unknown"),
+            'error': str(e)
+        }
+
+async def process_batch_concurrent(candidates: list) -> list:
+    """
+    Process a batch of candidates concurrently using GPT-5-nano (500 concurrent requests)
+
+    Uses asyncio.gather() to fire all requests at once, with automatic retries
+    for failures. No artificial rate limiting - OpenAI handles 429s with max_retries.
+
+    Args:
+        candidates: List of raw candidate dicts
+
+    Returns:
+        List of transformed profile dicts
+    """
+    if not candidates or len(candidates) == 0:
+        return []
+
+    start_time = time.time()
+
+    print(f"\n🚀 Processing {len(candidates)} candidates with 500 concurrent requests...")
+    print(f"   No artificial rate limiting - relying on OpenAI's retry logic")
+
+    # Create fresh httpx client for this batch (supports concurrent processing)
+    async with httpx.AsyncClient(
+        limits=httpx.Limits(
+            max_connections=500,
+            max_keepalive_connections=100
+        ),
+        timeout=httpx.Timeout(120.0)
+    ) as http_client:
+        # Create OpenAI client with custom http client
+        # Increased max_retries to 8 to handle rate limits better
+        client = AsyncOpenAI(
+            http_client=http_client,
+            max_retries=8
+        )
+
+        # First pass: process all candidates concurrently
+        tasks = [
+            extract_profile_data(candidate, i, client)
+            for i, candidate in enumerate(candidates)
+        ]
+
+        # Use return_exceptions=True so one failure doesn't cancel all
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Identify failures (exceptions or error field)
+        failed_indices = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                failed_indices.append(i)
+                print(f"⚠️  Exception for {candidates[i].get('fullName', 'Unknown')} (index {i}): {result}")
+            elif isinstance(result, dict) and 'error' in result and 'seniority' not in result:
+                failed_indices.append(i)
+                print(f"⚠️  Error for {result.get('name', 'Unknown')} (index {i}): {result['error']}")
+
+        # Second pass: retry failures
+        if failed_indices:
+            print(f"\n🔄 Retrying {len(failed_indices)} failed requests...")
+            retry_tasks = [
+                extract_profile_data(candidates[i], i, client)
+                for i in failed_indices
+            ]
+            retry_results = await asyncio.gather(*retry_tasks, return_exceptions=True)
+
+            # Replace failures with retry results
+            for idx, retry_result in zip(failed_indices, retry_results):
+                if isinstance(retry_result, Exception):
+                    print(f"⚠️  Retry failed for {candidates[idx].get('fullName', 'Unknown')} (index {idx}): {retry_result}")
+                    # Keep original error result
+                elif isinstance(retry_result, dict) and 'seniority' in retry_result:
+                    results[idx] = retry_result
+                    print(f"   ✓ Retry succeeded for {retry_result.get('name', 'Unknown')}")
+
+    # Client automatically cleaned up after 'async with' block
+
+    elapsed = time.time() - start_time
+
+    # Separate successful vs failed
+    successful_results = []
+    failed_results = []
+
+    for result in results:
+        if isinstance(result, Exception):
+            continue  # Skip exceptions entirely
+        elif 'error' in result and 'seniority' not in result:
+            failed_results.append(result)
+        else:
+            successful_results.append(result)
+
+    # Calculate token usage and cost
+    total_input_tokens = 0
+    total_output_tokens = 0
+    for r in successful_results:
+        total_input_tokens += r.get('input_tokens', 0)
+        total_output_tokens += r.get('output_tokens', 0)
+
+    total_tokens = total_input_tokens + total_output_tokens
+
+    # GPT-5-nano pricing (as of 2025)
+    # Input: $0.05 per 1M tokens, Output: $0.40 per 1M tokens
+    cost_input = (total_input_tokens / 1_000_000) * 0.05
+    cost_output = (total_output_tokens / 1_000_000) * 0.40
+    total_cost = cost_input + cost_output
+
+    print(f"\n✅ Batch Complete:")
+    print(f"   • Successful: {len(successful_results)}/{len(candidates)}")
+    print(f"   • Failed: {len(failed_results)}")
+    print(f"   ⏱️  Time taken: {elapsed:.1f} seconds ({len(candidates)/elapsed:.1f} candidates/sec)")
+
+    # Only show cost if we tracked any tokens
+    if total_tokens > 0:
+        print(f"\n💰 Batch Cost:")
+        print(f"   • Input tokens: {total_input_tokens:,} (${cost_input:.4f})")
+        print(f"   • Output tokens: {total_output_tokens:,} (${cost_output:.4f})")
+        print(f"   • Total tokens: {total_tokens:,}")
+        print(f"   • Total cost: ${total_cost:.4f}")
+
+    return successful_results
+
 
 async def process_candidates(input_file: str, output_file: str):
     """
@@ -149,9 +295,8 @@ async def process_candidates(input_file: str, output_file: str):
     with open(input_file, 'r') as f:
         candidates = json.load(f)
 
-    print(f"Starting async processing of {len(candidates)} candidates")
-    print(f"Rate limit: {MAX_REQUESTS_PER_MIN} requests/min ({RATE_LIMIT_INTERVAL:.1f}s between requests)")
-    print(f"Batch size: {BATCH_SIZE}")
+    print(f"Starting concurrent processing of {len(candidates)} candidates")
+    print(f"Batch size: {BATCH_SIZE} (500 concurrent requests per batch)")
     
     # Initialize output file if it doesn't exist, otherwise keep existing data
     try:
@@ -216,59 +361,54 @@ async def process_candidates(input_file: str, output_file: str):
     start_time = time.time()
     
     for batch_num, batch_candidates in enumerate(batches, 1):
-        print(f"\n📦 Processing batch {batch_num}/{len(batches)} ({len(batch_candidates)} profiles)")
-        
-        # Create tasks for this batch
-        batch_tasks = []
-        for i, candidate in enumerate(batch_candidates):
-            print(f"  Launching {i+1}/{len(batch_candidates)}: {candidate.get('fullName', 'Unknown')}")
-            
-            task = asyncio.create_task(extract_profile_data(candidate))
-            batch_tasks.append(task)
-        
-        # Wait for this batch to complete
-        print(f"  ⏳ Waiting for batch {batch_num} to complete...")
-        batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
-        
-        # Process batch results
-        successful_results = []
-        failed_count = 0
-        
-        for i, result in enumerate(batch_results):
-            if isinstance(result, Exception):
-                failed_count += 1
-                print(f"    ❌ Task {i+1} failed: {type(result).__name__}: {result}")
-            else:
-                successful_results.append(result)
-        
+        print(f"\n{'='*60}")
+        print(f"📦 BATCH {batch_num}/{len(batches)} ({len(batch_candidates)} profiles)")
+        print(f"{'='*60}")
+
+        # Process entire batch concurrently
+        batch_results = await process_batch_concurrent(batch_candidates)
+
         # Save batch results to file (no need for duplicate checking since we pre-filtered)
-        if successful_results:
+        if batch_results:
             # Read existing results
             with open(output_file, 'r') as f:
                 existing_results = json.load(f)
-            
+
+            # Remove index field before saving (was only for error tracking)
+            for result in batch_results:
+                result.pop('index', None)
+                # Also remove token tracking fields
+                result.pop('input_tokens', None)
+                result.pop('output_tokens', None)
+                result.pop('total_tokens', None)
+
             # Add all successful results (they're guaranteed to be new)
-            existing_results.extend(successful_results)
-            
+            existing_results.extend(batch_results)
+
             # Save back to file
             with open(output_file, 'w') as f:
                 json.dump(existing_results, f, indent=2)
-        
-        total_processed += len(successful_results) if successful_results else 0
-        print(f"  ✅ Batch {batch_num} complete: {len(successful_results)} successful, {failed_count} failed")
-        print(f"  💾 Saved {len(successful_results)} new entries. Total processed: {total_processed}")
-        
-        # Wait between batches to let TPM window reset
-        if batch_num < len(batches):  # Don't wait after the last batch
-            print(f"  ⏱️ Waiting 60s for TPM window to reset before next batch...")
-            await asyncio.sleep(60)
+
+        total_processed += len(batch_results)
+        print(f"\n💾 Saved {len(batch_results)} new entries. Total processed: {total_processed}")
+
+        # Optional wait between batches (reduced from 60s)
+        if batch_num < len(batches):
+            wait_time = 10  # Reduced from 60s - can be 0 if you want
+            if wait_time > 0:
+                print(f"⏱️  Waiting {wait_time}s before next batch...")
+                await asyncio.sleep(wait_time)
     
-    print(f"\nCompleted {len(new_candidates) if 'batches_to_process' in locals() and batches_to_process > 0 else 0} requests in {time.time() - start_time:.1f}s")
-    print(f"Final results: {total_processed} successful")
+    elapsed = time.time() - start_time
+    print(f"\n{'='*60}")
+    print(f"🎉 ALL BATCHES COMPLETE")
+    print(f"{'='*60}")
+    print(f"Total processed: {total_processed}/{len(new_candidates)}")
+    print(f"Total time: {elapsed:.1f}s ({total_processed/elapsed:.1f} profiles/sec)")
     print(f"Results saved to: {output_file}")
-    
+
     # Show remaining work if applicable
-    if 'batches_to_process' in locals() and batches_to_process < total_batches_available:
+    if batches_to_process < total_batches_available:
         remaining_batches = total_batches_available - batches_to_process
         remaining_candidates = len(new_candidates) - (batches_to_process * BATCH_SIZE)
         print(f"\n📋 REMAINING WORK:")
