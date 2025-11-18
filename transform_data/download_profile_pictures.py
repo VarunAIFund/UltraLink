@@ -24,13 +24,29 @@ BATCH_SIZE = 50  # Concurrent downloads
 TIMEOUT = 10  # seconds
 MAX_RETRIES = 2
 
+def normalize_linkedin_url(linkedin_url):
+    """Normalize LinkedIn URL for consistent comparison"""
+    if not linkedin_url:
+        return None
+
+    # Remove trailing slash, query params, fragments
+    url = linkedin_url.strip().rstrip('/').split('?')[0].split('#')[0]
+
+    # Convert to lowercase for consistency
+    return url.lower()
+
 def sanitize_linkedin_url(linkedin_url):
     """Extract clean username from LinkedIn URL for filename"""
     if not linkedin_url:
         return "unknown"
 
+    # Normalize first
+    normalized = normalize_linkedin_url(linkedin_url)
+    if not normalized:
+        return "unknown"
+
     # Extract path from URL
-    parsed = urlparse(linkedin_url)
+    parsed = urlparse(normalized)
     path = parsed.path.strip('/')
 
     # Extract username (last part after /in/)
@@ -39,8 +55,8 @@ def sanitize_linkedin_url(linkedin_url):
     else:
         username = path.replace('/', '-')
 
-    # Clean filename
-    username = username.replace('/', '-').replace('?', '').replace('&', '')
+    # Clean filename - remove any remaining special characters
+    username = username.replace('/', '-').replace('?', '').replace('&', '').replace('=', '')
 
     return username
 
@@ -99,7 +115,23 @@ def download_image(linkedin_url, profile_pic_url, output_path, retries=MAX_RETRI
         'error': 'Max retries exceeded'
     }
 
-def process_profile(profile, default_image_path):
+def is_valid_image(filepath):
+    """Check if image file is valid (not corrupted/empty)"""
+    try:
+        if not os.path.exists(filepath):
+            return False
+
+        # Check file size (should be at least 1KB)
+        size = os.path.getsize(filepath)
+        if size < 1024:
+            return False
+
+        # File exists and has reasonable size
+        return True
+    except Exception:
+        return False
+
+def process_profile(profile, default_image_path, existing_mapping):
     """Process a single profile - download only, don't create default copies"""
 
     linkedin_url = profile.get('linkedinUrl')
@@ -109,19 +141,43 @@ def process_profile(profile, default_image_path):
     if not linkedin_url:
         return None
 
+    # Normalize URL for consistent lookup
+    normalized_url = normalize_linkedin_url(linkedin_url)
+
+    # Check if already in mapping with successful download
+    if normalized_url in existing_mapping:
+        existing_entry = existing_mapping[normalized_url]
+        if existing_entry.get('status') == 'success' and existing_entry.get('local_path'):
+            # Verify the file still exists and is valid
+            if is_valid_image(existing_entry['local_path']):
+                return {
+                    'linkedin_url': linkedin_url,
+                    'local_path': existing_entry['local_path'],
+                    'status': 'skipped_mapping',
+                    'name': name
+                }
+
     # Generate filename
     username = sanitize_linkedin_url(linkedin_url)
     output_filename = f"{username}.jpg"
     output_path = os.path.join(OUTPUT_DIR, output_filename)
 
-    # Skip if already exists
+    # Check if file exists and is valid
     if os.path.exists(output_path):
-        return {
-            'linkedin_url': linkedin_url,
-            'local_path': output_path,
-            'status': 'exists',
-            'name': name
-        }
+        if is_valid_image(output_path):
+            return {
+                'linkedin_url': linkedin_url,
+                'local_path': output_path,
+                'status': 'skipped_filesystem',
+                'name': name
+            }
+        else:
+            # File exists but is invalid - delete and re-download
+            print(f"   ⚠️  Invalid image found for {name}, re-downloading...")
+            try:
+                os.remove(output_path)
+            except Exception:
+                pass
 
     # Try to download
     if profile_pic_url:
@@ -168,6 +224,26 @@ def main():
     # No default image needed - frontend shows HiUser icon
     default_image_path = None
 
+    # Load existing mapping file if available
+    existing_mapping = {}
+    if os.path.exists(MAPPING_FILE):
+        print(f"\n📄 Loading existing mapping from {MAPPING_FILE}...")
+        try:
+            with open(MAPPING_FILE, 'r', encoding='utf-8') as f:
+                raw_mapping = json.load(f)
+                # Normalize keys in existing mapping
+                existing_mapping = {
+                    normalize_linkedin_url(url): data
+                    for url, data in raw_mapping.items()
+                    if normalize_linkedin_url(url)
+                }
+            print(f"✅ Loaded {len(existing_mapping):,} existing entries")
+        except Exception as e:
+            print(f"⚠️  Could not load existing mapping: {e}")
+            existing_mapping = {}
+    else:
+        print(f"\n📄 No existing mapping file found - starting fresh")
+
     # Load profiles
     print(f"\n📂 Loading profiles from {INPUT_FILE}...")
     try:
@@ -180,14 +256,86 @@ def main():
     total_profiles = len(profiles)
     print(f"✅ Loaded {total_profiles:,} profiles")
 
+    # Filter out profiles that are already in mapping or filesystem
+    profiles_to_process = []
+    skipped_count = 0
+
+    print(f"\n🔍 Checking which profiles need downloading...")
+    for profile in profiles:
+        linkedin_url = profile.get('linkedinUrl')
+        if not linkedin_url:
+            continue
+
+        normalized_url = normalize_linkedin_url(linkedin_url)
+
+        # Check mapping first
+        if normalized_url in existing_mapping:
+            existing_entry = existing_mapping[normalized_url]
+            if existing_entry.get('status') == 'success' and existing_entry.get('local_path'):
+                if is_valid_image(existing_entry['local_path']):
+                    skipped_count += 1
+                    continue
+
+        # Check filesystem
+        username = sanitize_linkedin_url(linkedin_url)
+        output_path = os.path.join(OUTPUT_DIR, f"{username}.jpg")
+        if os.path.exists(output_path) and is_valid_image(output_path):
+            skipped_count += 1
+            continue
+
+        profiles_to_process.append(profile)
+
+    print(f"✅ Analysis complete:")
+    print(f"   • Total profiles: {total_profiles:,}")
+    print(f"   • Already downloaded (valid): {skipped_count:,}")
+    print(f"   • Need to download: {len(profiles_to_process):,}")
+
+    if len(profiles_to_process) == 0:
+        print(f"\n✅ All profiles already have valid images! Nothing to download.")
+        return
+
+    # Ask user for confirmation and how many to process
+    print(f"\n{'='*60}")
+    print(f"READY TO DOWNLOAD")
+    print(f"{'='*60}")
+    print(f"📥 {len(profiles_to_process):,} profiles need images")
+    print(f"⏱️  Estimated time: ~{len(profiles_to_process) * 0.2:.1f} seconds ({BATCH_SIZE} concurrent)")
+    print(f"💾 Estimated storage: ~{len(profiles_to_process) * 15 / 1024:.1f} MB")
+
+    while True:
+        try:
+            user_input = input(f"\nHow many profiles to download? (1-{len(profiles_to_process):,}, or 'all' or 'cancel'): ").strip().lower()
+
+            if user_input == 'cancel':
+                print("❌ Download cancelled by user")
+                return
+            elif user_input == 'all':
+                profiles_to_download = profiles_to_process
+                break
+            else:
+                num_to_download = int(user_input)
+                if 1 <= num_to_download <= len(profiles_to_process):
+                    profiles_to_download = profiles_to_process[:num_to_download]
+                    remaining = len(profiles_to_process) - num_to_download
+                    if remaining > 0:
+                        print(f"📋 {remaining:,} profiles will remain for next run")
+                    break
+                else:
+                    print(f"Please enter a number between 1 and {len(profiles_to_process):,}, 'all', or 'cancel'")
+        except ValueError:
+            print("Please enter a valid number, 'all', or 'cancel'")
+
+    print(f"\n🚀 Starting download of {len(profiles_to_download):,} profile pictures...")
+
     # Statistics
     stats = {
-        'total': total_profiles,
+        'total': len(profiles_to_download),
         'success': 0,
-        'default': 0,
-        'exists': 0,
+        'skipped_mapping': 0,
+        'skipped_filesystem': 0,
         'no_image': 0,
-        'failed': 0
+        'failed': 0,
+        'redownloaded': 0
     }
 
     mapping = {}
@@ -198,10 +346,10 @@ def main():
     print()
 
     with ThreadPoolExecutor(max_workers=BATCH_SIZE) as executor:
-        # Submit all tasks
+        # Submit all tasks for selected profiles
         futures = {
-            executor.submit(process_profile, profile, default_image_path): profile
-            for profile in profiles
+            executor.submit(process_profile, profile, default_image_path, existing_mapping): profile
+            for profile in profiles_to_download
         }
 
         # Process completed tasks
@@ -228,25 +376,41 @@ def main():
                     mapping[result['linkedin_url']]['downloaded_at'] = result['downloaded_at']
 
             # Progress indicator
-            if completed % 100 == 0 or completed == total_profiles:
-                print(f"📈 Progress: {completed}/{total_profiles} ({completed/total_profiles*100:.1f}%)")
+            if completed % 100 == 0 or completed == len(profiles_to_download):
+                print(f"📈 Progress: {completed}/{len(profiles_to_download)} ({completed/len(profiles_to_download)*100:.1f}%)")
 
-    # Save mapping file
+    # Save mapping file (merge with existing)
     print(f"\n💾 Saving mapping file to {MAPPING_FILE}...")
-    with open(MAPPING_FILE, 'w', encoding='utf-8') as f:
-        json.dump(mapping, f, indent=2, ensure_ascii=False)
 
-    print(f"✅ Saved mapping with {len(mapping):,} entries")
+    # Load existing mapping again to merge (in case it changed)
+    final_mapping = {}
+    if os.path.exists(MAPPING_FILE):
+        try:
+            with open(MAPPING_FILE, 'r', encoding='utf-8') as f:
+                final_mapping = json.load(f)
+        except Exception:
+            pass
+
+    # Merge new mappings into existing
+    final_mapping.update(mapping)
+
+    with open(MAPPING_FILE, 'w', encoding='utf-8') as f:
+        json.dump(final_mapping, f, indent=2, ensure_ascii=False)
+
+    print(f"✅ Saved mapping with {len(final_mapping):,} total entries ({len(mapping):,} new)")
 
     # Display statistics
     print(f"\n📊 DOWNLOAD STATISTICS")
     print("=" * 60)
     print(f"Total profiles: {stats['total']:,}")
     print(f"✅ Successfully downloaded: {stats.get('success', 0):,}")
-    print(f"📁 Already existed: {stats.get('exists', 0):,}")
+    print(f"⏩ Skipped (in mapping): {stats.get('skipped_mapping', 0):,}")
+    print(f"⏩ Skipped (filesystem check): {stats.get('skipped_filesystem', 0):,}")
+    print(f"🔄 Re-downloaded (invalid): {stats.get('redownloaded', 0):,}")
     print(f"❌ Failed downloads: {stats.get('failed', 0):,}")
     print(f"❌ No profile picture URL: {stats.get('no_image', 0):,}")
-    print(f"\n💡 Missing pictures will show HiUser icon in frontend")
+    print(f"\n💡 Total skipped: {stats.get('skipped_mapping', 0) + stats.get('skipped_filesystem', 0):,}")
+    print(f"💡 Missing pictures will show HiUser icon in frontend")
 
     # Calculate storage
     total_size = sum(
@@ -277,6 +441,13 @@ def main():
     print("✅ Download complete!")
     print(f"\n📁 Profile pictures saved to: {OUTPUT_DIR}/")
     print(f"📄 Mapping file: {MAPPING_FILE}")
+
+    # Show remaining work if applicable
+    if len(profiles_to_download) < len(profiles_to_process):
+        remaining = len(profiles_to_process) - len(profiles_to_download)
+        print(f"\n📋 REMAINING WORK:")
+        print(f"   • {remaining:,} profiles still need images")
+        print(f"   • Run the script again to continue downloading")
 
 if __name__ == "__main__":
     main()
