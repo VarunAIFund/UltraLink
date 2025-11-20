@@ -12,6 +12,7 @@ import os
 import asyncio
 import time
 import httpx
+import argparse
 from typing import List
 from openai import AsyncOpenAI
 from models import AIInferredProfile
@@ -288,9 +289,14 @@ async def process_batch_concurrent(candidates: list) -> list:
     return successful_results
 
 
-async def process_candidates(input_file: str, output_file: str):
+async def process_candidates(input_file: str, output_file: str, auto_mode: bool = False):
     """
     Process all candidates from input file and save structured profiles to output file
+
+    Args:
+        input_file: Path to input JSON file
+        output_file: Path to output JSON file
+        auto_mode: If True, process all batches without prompting (default: False)
     """
     with open(input_file, 'r') as f:
         candidates = json.load(f)
@@ -328,29 +334,35 @@ async def process_candidates(input_file: str, output_file: str):
     total_batches_available = len(batches)
     
     print(f"Total batches available: {total_batches_available}")
-    
-    # Ask user how many batches to process
+
+    # Determine how many batches to process
     if total_batches_available > 0:
-        while True:
-            try:
-                user_input = input(f"\nHow many batches do you want to process? (1-{total_batches_available}, or 'all'): ").strip().lower()
-                
-                if user_input == 'all':
-                    batches_to_process = total_batches_available
-                    break
-                else:
-                    batches_to_process = int(user_input)
-                    if 1 <= batches_to_process <= total_batches_available:
+        if auto_mode:
+            # Auto mode: process all batches without prompting
+            batches_to_process = total_batches_available
+            print(f"\n🤖 Auto mode: Processing all {batches_to_process} batches")
+        else:
+            # Interactive mode: ask user
+            while True:
+                try:
+                    user_input = input(f"\nHow many batches do you want to process? (1-{total_batches_available}, or 'all'): ").strip().lower()
+
+                    if user_input == 'all':
+                        batches_to_process = total_batches_available
                         break
                     else:
-                        print(f"Please enter a number between 1 and {total_batches_available}, or 'all'")
-            except ValueError:
-                print("Please enter a valid number or 'all'")
-        
+                        batches_to_process = int(user_input)
+                        if 1 <= batches_to_process <= total_batches_available:
+                            break
+                        else:
+                            print(f"Please enter a number between 1 and {total_batches_available}, or 'all'")
+                except ValueError:
+                    print("Please enter a valid number or 'all'")
+
         # Only process the requested number of batches
         batches = batches[:batches_to_process]
         remaining_candidates = len(new_candidates) - (batches_to_process * BATCH_SIZE)
-        
+
         print(f"\n🚀 Processing {batches_to_process} out of {total_batches_available} available batches")
         if remaining_candidates > 0:
             print(f"📋 {remaining_candidates} candidates will remain for future processing")
@@ -417,15 +429,21 @@ async def process_candidates(input_file: str, output_file: str):
 
 async def main():
     """Main async function"""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description='AI Profile Transformation Engine')
+    parser.add_argument('--auto', '--all', action='store_true',
+                       help='Process all batches without prompting (for automated pipelines)')
+    args = parser.parse_args()
+
     # Process the Apify LinkedIn data
     input_file = "../get_data/results/connections.json"
     #input_file = "test_set_new.json"
     output_file = "structured_profiles_test.json"
-    
+
     script_start_time = time.time()
-    await process_candidates(input_file, output_file)
+    await process_candidates(input_file, output_file, auto_mode=args.auto)
     total_duration = time.time() - script_start_time
-    
+
     print(f"\n🎉 Script completed successfully!")
     print(f"Total script duration: {total_duration:.1f}s")
 

@@ -42,9 +42,10 @@ def run_pipeline():
     
     # Step 4: AI-powered transformation using GPT-5-nano
     print("\n🤖 Step 4: AI transformation of profiles...")
-    os.system("python transform.py")
+    os.system("python transform.py --auto")
     # Uses OpenAI GPT-5-nano to transform cleaned profiles into structured format
     # Infers seniority, skills, years experience, business models, industry tags, summaries
+    # --auto flag processes all batches without prompting
     
     # Step 5: Analyze data quality and completeness
     print("\n📊 Step 5: Analyzing data quality...")
