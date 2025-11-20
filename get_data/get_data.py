@@ -9,6 +9,7 @@ Processes CSV connection files, handles duplicates, tracks connection sources, a
 import json
 import os
 import csv
+import argparse
 from datetime import datetime
 from apify_client import ApifyClient
 from dotenv import load_dotenv
@@ -16,9 +17,15 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description='Apify LinkedIn Profile Scraper')
+parser.add_argument('--auto', '--all', action='store_true',
+                   help='Process all batches without prompting (for automated pipelines)')
+args = parser.parse_args()
+
 # Initialize the ApifyClient with your API token
 client = ApifyClient(os.getenv('APIFY_KEY'))
-input_file = "connections_data/eli_connections.csv"
+input_file = "connections_data/katherine_connections.csv"
 name = input_file.split("/")[-1].replace("_connections.csv", "").replace("connections_data/", "")
 csv_size = 0
 # Check for existing results in the master connections file
@@ -89,24 +96,30 @@ print(f"Total batches available: {num_batches}")
 if urls_to_update:
     print(f"Updated {len(urls_to_update)} existing profiles with '{name}' connection")
 
-# Ask user how many batches to process
+# Determine how many batches to process
 if csv_size > 0:
-    while True:
-        try:
-            user_input = input(f"\nHow many batches do you want to scrape? (1-{num_batches}, or 'all'): ").strip().lower()
-            
-            if user_input == 'all':
-                batches_to_process = num_batches
-                break
-            else:
-                batches_to_process = int(user_input)
-                if 1 <= batches_to_process <= num_batches:
+    if args.auto:
+        # Auto mode: process all batches without prompting
+        batches_to_process = num_batches
+        print(f"\n🤖 Auto mode: Processing all {batches_to_process} batches")
+    else:
+        # Interactive mode: ask user
+        while True:
+            try:
+                user_input = input(f"\nHow many batches do you want to scrape? (1-{num_batches}, or 'all'): ").strip().lower()
+
+                if user_input == 'all':
+                    batches_to_process = num_batches
                     break
                 else:
-                    print(f"Please enter a number between 1 and {num_batches}, or 'all'")
-        except ValueError:
-            print("Please enter a valid number or 'all'")
-    
+                    batches_to_process = int(user_input)
+                    if 1 <= batches_to_process <= num_batches:
+                        break
+                    else:
+                        print(f"Please enter a number between 1 and {num_batches}, or 'all'")
+            except ValueError:
+                print("Please enter a valid number or 'all'")
+
     print(f"\n🚀 Processing {batches_to_process} out of {num_batches} available batches")
     remaining_urls = csv_size - (batches_to_process * batch_size)
     if remaining_urls > 0:

@@ -8,6 +8,7 @@ Based on JavaScript template but adapted for Python
 
 import json
 import os
+import argparse
 from datetime import datetime
 from apify_client import ApifyClient
 from dotenv import load_dotenv
@@ -54,9 +55,13 @@ def check_existing_companies():
     
     return existing_input_urls, existing_data
 
-def scrape_companies():
-    """Main company scraping function"""
-    
+def scrape_companies(auto_mode=False):
+    """Main company scraping function
+
+    Args:
+        auto_mode: If True, process all batches without prompting (default: False)
+    """
+
     print("🏢 LinkedIn Company Scraper")
     print("=" * 50)
     
@@ -87,24 +92,30 @@ def scrape_companies():
     print(f"Batch size: {batch_size}")
     print(f"Total batches available: {total_batches}")
     
-    # Ask user how many batches to process
+    # Determine how many batches to process
     if len(new_urls) > 0:
-        while True:
-            try:
-                user_input = input(f"\nHow many batches do you want to scrape? (1-{total_batches}, or 'all'): ").strip().lower()
-                
-                if user_input == 'all':
-                    batches_to_process = total_batches
-                    break
-                else:
-                    batches_to_process = int(user_input)
-                    if 1 <= batches_to_process <= total_batches:
+        if auto_mode:
+            # Auto mode: process all batches without prompting
+            batches_to_process = total_batches
+            print(f"\n🤖 Auto mode: Processing all {batches_to_process} batches")
+        else:
+            # Interactive mode: ask user
+            while True:
+                try:
+                    user_input = input(f"\nHow many batches do you want to scrape? (1-{total_batches}, or 'all'): ").strip().lower()
+
+                    if user_input == 'all':
+                        batches_to_process = total_batches
                         break
                     else:
-                        print(f"Please enter a number between 1 and {total_batches}, or 'all'")
-            except ValueError:
-                print("Please enter a valid number or 'all'")
-        
+                        batches_to_process = int(user_input)
+                        if 1 <= batches_to_process <= total_batches:
+                            break
+                        else:
+                            print(f"Please enter a number between 1 and {total_batches}, or 'all'")
+                except ValueError:
+                    print("Please enter a valid number or 'all'")
+
         print(f"\n🚀 Processing {batches_to_process} out of {total_batches} available batches")
         remaining_urls = len(new_urls) - (batches_to_process * batch_size)
         if remaining_urls > 0:
@@ -215,7 +226,13 @@ def scrape_companies():
 
 def main():
     """Main function"""
-    scrape_companies()
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description='Apify LinkedIn Company Scraper')
+    parser.add_argument('--auto', '--all', action='store_true',
+                       help='Process all batches without prompting (for automated pipelines)')
+    args = parser.parse_args()
+
+    scrape_companies(auto_mode=args.auto)
 
 if __name__ == "__main__":
     main()

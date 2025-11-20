@@ -54,21 +54,29 @@ def main():
     print("\n" + "="*80)
     print("ULTRALINK DATA COLLECTION PIPELINE")
     print("="*80)
-    print("\nThis will run 4 sequential steps:")
+    print("\nThis will run 3 sequential steps:")
     print("  1. Scrape LinkedIn profiles from CSV")
     print("  2. Extract company URLs from profiles")
     print("  3. Scrape company data")
-    print("  4. Enrich profiles with company descriptions")
     print("\n" + "="*80 + "\n")
 
     # Get current directory
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     # Step 1: Scrape LinkedIn profiles
-    step1 = run_script(
-        os.path.join(current_dir, "get_data.py"),
-        "1/4: Scraping LinkedIn profiles"
+    # Use --auto flag to process all batches without prompting
+    step1_result = subprocess.run(
+        [sys.executable, os.path.join(current_dir, "get_data.py"), "--auto"],
+        cwd=current_dir,
+        check=False,
+        text=True
     )
+
+    step1 = (step1_result.returncode == 0)
+    if step1:
+        print(f"\n✅ 1/4: Scraping LinkedIn profiles - COMPLETE")
+    else:
+        print(f"\n❌ 1/4: Scraping LinkedIn profiles - FAILED")
 
     if not step1:
         print("\n❌ Pipeline stopped at step 1")
@@ -85,33 +93,43 @@ def main():
         return
 
     # Step 3: Scrape companies
-    step3 = run_script(
-        os.path.join(current_dir, "get_companies", "scrape_companies.py"),
-        "3/4: Scraping company data"
+    # Use --auto flag to process all batches without prompting
+    step3_result = subprocess.run(
+        [sys.executable, os.path.join(current_dir, "get_companies", "scrape_companies.py"), "--auto"],
+        cwd=current_dir,
+        check=False,
+        text=True
     )
+
+    step3 = (step3_result.returncode == 0)
+    if step3:
+        print(f"\n✅ 3/4: Scraping company data - COMPLETE")
+    else:
+        print(f"\n❌ 3/4: Scraping company data - FAILED")
 
     if not step3:
         print("\n❌ Pipeline stopped at step 3")
         return
 
-    # Step 4: Enrich connections
-    step4 = run_script(
-        os.path.join(current_dir, "enrich_connections_with_company_descriptions.py"),
-        "4/4: Enriching profiles with company descriptions"
-    )
+    # Step 4: Enrich connections (commented out)
+    # step4 = run_script(
+    #     os.path.join(current_dir, "enrich_connections_with_company_descriptions.py"),
+    #     "4/4: Enriching profiles with company descriptions"
+    # )
 
-    if not step4:
-        print("\n❌ Pipeline stopped at step 4")
-        return
+    # if not step4:
+    #     print("\n❌ Pipeline stopped at step 4")
+    #     return
 
     # All steps complete
     print("\n" + "="*80)
     print("🎉 PIPELINE COMPLETE!")
     print("="*80)
-    print("\nAll data collection and enrichment steps finished successfully.")
-    print("Your LinkedIn profiles are now enriched with company descriptions.")
+    print("\nAll data collection steps finished successfully.")
+    print("Your LinkedIn profiles and company data have been scraped.")
     print("\nNext steps:")
     print("  - Review results in results/connections.json")
+    print("  - Review company data in results/companies.json")
     print("  - Run transform_data pipeline for AI enhancement")
     print("  - Upload to Supabase database")
     print("\n" + "="*80 + "\n")
