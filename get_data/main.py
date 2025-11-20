@@ -12,6 +12,7 @@ Runs the complete LinkedIn data collection and enrichment pipeline:
 import subprocess
 import sys
 import os
+import gc
 
 def run_script(script_path, description):
     """
@@ -78,6 +79,9 @@ def main():
     else:
         print(f"\n❌ 1/4: Scraping LinkedIn profiles - FAILED")
 
+    # Force garbage collection to free memory after scraping
+    gc.collect()
+
     if not step1:
         print("\n❌ Pipeline stopped at step 1")
         return
@@ -87,6 +91,9 @@ def main():
         os.path.join(current_dir, "get_companies", "extract_company_urls.py"),
         "2/4: Extracting company URLs"
     )
+
+    # Force garbage collection to free memory after extraction
+    gc.collect()
 
     if not step2:
         print("\n❌ Pipeline stopped at step 2")
@@ -106,6 +113,9 @@ def main():
         print(f"\n✅ 3/4: Scraping company data - COMPLETE")
     else:
         print(f"\n❌ 3/4: Scraping company data - FAILED")
+
+    # Force garbage collection to free memory after company scraping
+    gc.collect()
 
     if not step3:
         print("\n❌ Pipeline stopped at step 3")

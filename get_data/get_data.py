@@ -25,7 +25,7 @@ args = parser.parse_args()
 
 # Initialize the ApifyClient with your API token
 client = ApifyClient(os.getenv('APIFY_KEY'))
-input_file = "connections_data/katherine_connections.csv"
+input_file = "connections_data/rishabh_connections.csv"
 name = input_file.split("/")[-1].replace("_connections.csv", "").replace("connections_data/", "")
 csv_size = 0
 # Check for existing results in the master connections file

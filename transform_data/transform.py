@@ -25,7 +25,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 # Concurrent processing configuration (based on ranking_stage_1_nano.py)
 # Fire all requests concurrently with no artificial rate limiting
 # Let OpenAI handle 429s with max_retries
-BATCH_SIZE = 250  # Process 500 profiles per batch with 500 concurrent requests
+BATCH_SIZE = 200  # Process 500 profiles per batch with 500 concurrent requests
 
 async def extract_profile_data(raw_data: dict, index: int, client: AsyncOpenAI) -> dict:
     """
@@ -196,13 +196,13 @@ async def process_batch_concurrent(candidates: list) -> list:
             max_connections=500,
             max_keepalive_connections=100
         ),
-        timeout=httpx.Timeout(120.0)
+        timeout=httpx.Timeout(480.0)
     ) as http_client:
         # Create OpenAI client with custom http client
         # Increased max_retries to 8 to handle rate limits better
         client = AsyncOpenAI(
             http_client=http_client,
-            max_retries=8
+            max_retries=3
         )
 
         # First pass: process all candidates concurrently
@@ -283,6 +283,8 @@ async def process_batch_concurrent(candidates: list) -> list:
         print(f"\n💰 Batch Cost:")
         print(f"   • Input tokens: {total_input_tokens:,} (${cost_input:.4f})")
         print(f"   • Output tokens: {total_output_tokens:,} (${cost_output:.4f})")
+        print(f"   • Input cost: ${cost_input:.4f}")
+        print(f"   • Output cost: ${cost_output:.4f}")
         print(f"   • Total tokens: {total_tokens:,}")
         print(f"   • Total cost: ${total_cost:.4f}")
 
