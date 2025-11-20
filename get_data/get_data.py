@@ -10,6 +10,8 @@ import json
 import os
 import csv
 import argparse
+import contextlib
+import io
 from datetime import datetime
 from apify_client import ApifyClient
 from dotenv import load_dotenv
@@ -146,8 +148,10 @@ for batch_num in range(batches_to_process):
     
     # Run the Actor and wait for it to finish
     if len(batch_urls) > 0:
-        run = client.actor("2SyF0bVxmgGr8IVCZ").call(run_input=run_input)
-        
+        # Suppress Apify output
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            run = client.actor("2SyF0bVxmgGr8IVCZ").call(run_input=run_input)
+
         # Fetch and print Actor results from the run's dataset
         batch_results = []
         for item in client.dataset(run["defaultDatasetId"]).iterate_items():

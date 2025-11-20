@@ -9,6 +9,8 @@ Based on JavaScript template but adapted for Python
 import json
 import os
 import argparse
+import contextlib
+import io
 from datetime import datetime
 from apify_client import ApifyClient
 from dotenv import load_dotenv
@@ -154,8 +156,10 @@ def scrape_companies(auto_mode=False):
         try:
             # Run the Actor and wait for it to finish
             # Using the company scraper actor ID from your template
-            run = client.actor("AjfNXEI9qTA2IdaAX").call(run_input=run_input)
-            
+            # Suppress Apify output
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                run = client.actor("AjfNXEI9qTA2IdaAX").call(run_input=run_input)
+
             # Fetch Actor results from the run's dataset
             batch_results = []
             results_list = list(client.dataset(run["defaultDatasetId"]).iterate_items())
