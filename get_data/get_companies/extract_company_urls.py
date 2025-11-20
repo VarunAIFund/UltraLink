@@ -9,9 +9,17 @@ import json
 import os
 from collections import Counter
 
-def extract_company_urls(input_file="../results/connections.json"):
+# Get script directory and parent directory for proper path resolution
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR = os.path.dirname(SCRIPT_DIR)  # get_data/
+
+def extract_company_urls(input_file=None):
     """Extract unique company URLs from LinkedIn profiles"""
-    
+
+    # Use default path if not provided
+    if input_file is None:
+        input_file = os.path.join(PARENT_DIR, "results", "connections.json")
+
     print(f"🔍 Extracting company URLs from: {input_file}")
     
     # Load profile data
@@ -81,9 +89,13 @@ def extract_company_urls(input_file="../results/connections.json"):
     
     return unique_company_urls
 
-def save_company_urls(company_urls, output_file="../company_urls.json"):
+def save_company_urls(company_urls, output_file=None):
     """Save company URLs to JSON file"""
-    
+
+    # Use default path if not provided
+    if output_file is None:
+        output_file = os.path.join(PARENT_DIR, "company_urls.json")
+
     if not company_urls:
         print("❌ No company URLs to save")
         return

@@ -16,12 +16,20 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 
+# Get script directory and parent directory for proper path resolution
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR = os.path.dirname(SCRIPT_DIR)  # get_data/
+
 # Initialize the ApifyClient with API token
 client = ApifyClient(os.getenv('APIFY_KEY'))
 
-def load_company_urls(input_file="../company_urls.json"):
+def load_company_urls(input_file=None):
     """Load company URLs from JSON file"""
-    
+
+    # Use default path if not provided
+    if input_file is None:
+        input_file = os.path.join(PARENT_DIR, "company_urls.json")
+
     try:
         with open(input_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -37,10 +45,13 @@ def load_company_urls(input_file="../company_urls.json"):
 
 def check_existing_companies():
     """Check for existing company results to avoid duplicates"""
-    
+
+    # Construct path relative to script location
+    companies_file = os.path.join(PARENT_DIR, "results", "companies.json")
+
     existing_input_urls = set()
     try:
-        with open('../results/companies.json', 'r', encoding='utf-8') as f:
+        with open(companies_file, 'r', encoding='utf-8') as f:
             existing_data = json.load(f)
             for item in existing_data:
                 # Check the input_linkedin_url field to see what was already scraped
@@ -178,21 +189,25 @@ def scrape_companies(auto_mode=False):
             
             # Save progress incrementally
             if batch_results:
+                # Construct paths relative to script location
+                results_dir = os.path.join(PARENT_DIR, "results")
+                companies_file = os.path.join(results_dir, "companies.json")
+
                 # Load current companies file
                 try:
-                    with open('../results/companies.json', 'r', encoding='utf-8') as f:
+                    with open(companies_file, 'r', encoding='utf-8') as f:
                         current_companies = json.load(f)
                 except FileNotFoundError:
                     current_companies = []
-                
+
                 # Append new batch results
                 current_companies.extend(batch_results)
-                
+
                 # Ensure results directory exists
-                os.makedirs('../results', exist_ok=True)
-                
+                os.makedirs(results_dir, exist_ok=True)
+
                 # Save updated file
-                with open('../results/companies.json', 'w', encoding='utf-8') as f:
+                with open(companies_file, 'w', encoding='utf-8') as f:
                     json.dump(current_companies, f, indent=2, ensure_ascii=False)
                 
                 print(f"💾 Saved batch {batch_num + 1} progress ({len(current_companies)} total companies)")
@@ -204,17 +219,18 @@ def scrape_companies(auto_mode=False):
     # Final summary
     print(f"\n🎉 COMPANY SCRAPING COMPLETE")
     print(f"✅ Scraped {len(all_results)} new companies")
-    
+
     # Get final count from file
+    companies_file = os.path.join(PARENT_DIR, "results", "companies.json")
     try:
-        with open('../results/companies.json', 'r', encoding='utf-8') as f:
+        with open(companies_file, 'r', encoding='utf-8') as f:
             final_data = json.load(f)
         final_count = len(final_data)
     except FileNotFoundError:
         final_count = 0
-    
+
     print(f"📄 Total companies in companies.json: {final_count}")
-    print(f"📄 All results saved to: ../results/companies.json")
+    print(f"📄 All results saved to: {companies_file}")
     
     # Show remaining work if applicable
     if batches_to_process < total_batches:
