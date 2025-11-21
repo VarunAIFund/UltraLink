@@ -168,6 +168,16 @@ export function CandidateList({ results, hasSearched, loading, totalCost, totalT
                 <h3 className="text-lg font-semibold">
                   Search Info
                 </h3>
+                {totalCost !== undefined && totalCost > 0 && (
+                  <span className="px-2 py-0.5 bg-muted text-muted-foreground text-sm font-medium rounded-full">
+                    ${totalCost.toFixed(4)}
+                  </span>
+                )}
+                {totalTime !== undefined && totalTime > 0 && (
+                  <span className="px-2 py-0.5 bg-muted text-muted-foreground text-sm font-medium rounded-full">
+                    {Math.floor(totalTime / 60)} min {Math.floor(totalTime % 60)} sec
+                  </span>
+                )}
               </button>
               {searchInfoExpanded && (
                 <div className="px-4 py-3 border rounded-lg bg-card space-y-4">
