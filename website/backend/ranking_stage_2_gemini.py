@@ -72,7 +72,15 @@ def rank_strong_matches_with_gemini(query: str, strong_matches: list):
         List of ranked candidates with relevance_score and ranking_rationale
     """
     if not strong_matches or len(strong_matches) == 0:
-        return []
+        empty_cost = {
+            'input_tokens': 0,
+            'output_tokens': 0,
+            'total_tokens': 0,
+            'cost_input': 0.0,
+            'cost_output': 0.0,
+            'total_cost': 0.0
+        }
+        return [], empty_cost
 
     print(f"\n🎯 Stage 2A: Ranking {len(strong_matches)} strong matches with Gemini...")
 
@@ -155,6 +163,26 @@ Respond ONLY with valid JSON including ALL {len(summaries)} candidates:
             print(f"   • Total tokens: {total_tokens:,}")
             print(f"   • Total cost: ${total_cost:.4f}")
 
+            # Store cost data for return
+            gemini_cost = {
+                'input_tokens': input_tokens,
+                'output_tokens': output_tokens,
+                'total_tokens': total_tokens,
+                'cost_input': cost_input,
+                'cost_output': cost_output,
+                'total_cost': total_cost
+            }
+        else:
+            # No token data available
+            gemini_cost = {
+                'input_tokens': 0,
+                'output_tokens': 0,
+                'total_tokens': 0,
+                'cost_input': 0.0,
+                'cost_output': 0.0,
+                'total_cost': 0.0
+            }
+
         # Extract JSON
         if response_text.startswith('```'):
             response_text = response_text.split('```')[1]
@@ -200,12 +228,12 @@ Respond ONLY with valid JSON including ALL {len(summaries)} candidates:
                 candidate['match'] = 'strong'
                 candidate['fit_description'] = match['analysis']
                 candidate['stage_1_confidence'] = match['confidence']
-                candidate['relevance_score'] = 40  # Lower score for skipped
+                candidate['relevance_score'] = 80  # Lower score for skipped
                 candidate['ranking_rationale'] = 'Not ranked by AI (added manually)'
                 ranked_results.append(candidate)
 
         print(f"✅ Stage 2A Complete: {len(ranked_results)} strong matches ranked")
-        return ranked_results
+        return ranked_results, gemini_cost
 
     except Exception as e:
         print(f"❌ Gemini ranking error: {e}")
@@ -222,7 +250,16 @@ Respond ONLY with valid JSON including ALL {len(summaries)} candidates:
             candidate['relevance_score'] = 50  # Default score
             candidate['ranking_rationale'] = 'Ranking error - using default score'
             fallback_results.append(candidate)
-        return fallback_results
+
+        fallback_cost = {
+            'input_tokens': 0,
+            'output_tokens': 0,
+            'total_tokens': 0,
+            'cost_input': 0.0,
+            'cost_output': 0.0,
+            'total_cost': 0.0
+        }
+        return fallback_results, fallback_cost
 
 
 def score_partial_matches(query: str, partial_matches: list):
@@ -280,7 +317,7 @@ def rank_all_candidates(query: str, stage_1_results: dict):
     print(f"{'='*60}")
 
     # Rank strong matches with Gemini (compressed summaries)
-    strong_ranked = rank_strong_matches_with_gemini(
+    strong_ranked, gemini_cost = rank_strong_matches_with_gemini(
         query,
         stage_1_results['strong_matches']
     )
@@ -312,7 +349,7 @@ def rank_all_candidates(query: str, stage_1_results: dict):
     print(f"  • No matches: {len(no_match_list)} (Filtered)")
     print(f"{'='*60}\n")
 
-    return final_results
+    return final_results, gemini_cost
 
 
 # Test function

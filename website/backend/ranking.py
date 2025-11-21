@@ -32,7 +32,12 @@ def rank_candidates(query: str, candidates: list):
     Note: This function wraps async calls, so it can be called from synchronous Flask endpoints.
     """
     if not candidates or len(candidates) == 0:
-        return []
+        empty_cost = {
+            'stage_1': {'input_tokens': 0, 'output_tokens': 0, 'total_cost': 0.0},
+            'stage_2': {'input_tokens': 0, 'output_tokens': 0, 'total_cost': 0.0},
+            'total_cost': 0.0
+        }
+        return [], empty_cost
 
     print(f"\n[RANKING] Starting two-stage pipeline for {len(candidates)} candidates")
 
@@ -43,16 +48,25 @@ def rank_candidates(query: str, candidates: list):
     num_strong = len(stage_1_results['strong_matches'])
     num_partial = len(stage_1_results['partial_matches'])
     num_no_match = len(stage_1_results['no_matches'])
+    stage_1_cost = stage_1_results.get('cost', {})
 
     print(f"[RANKING] Stage 1 complete: {num_strong} strong, {num_partial} partial, {num_no_match} no_match")
 
     # Stage 2: Gemini ranking (strong) + rule scoring (partial)
     print(f"[RANKING] Stage 2: Gemini ranking + rule scoring...")
-    final_results = rank_all_candidates(query, stage_1_results)
+    final_results, stage_2_cost = rank_all_candidates(query, stage_1_results)
 
     print(f"[RANKING] Pipeline complete: {len(final_results)} candidates ranked\n")
 
-    return final_results
+    # Aggregate costs
+    total_ranking_cost = stage_1_cost.get('total_cost', 0.0) + stage_2_cost.get('total_cost', 0.0)
+    aggregated_cost = {
+        'stage_1': stage_1_cost,
+        'stage_2': stage_2_cost,
+        'total_cost': total_ranking_cost
+    }
+
+    return final_results, aggregated_cost
 
 
 # Backward compatibility alias

@@ -104,7 +104,16 @@ def generate_sql(query: str, connected_to: str = None) -> str:
     print(f"   • Output tokens: {tokens_used['output_tokens']:,} (${cost_output:.4f})")
     print(f"   • Total cost: ${total_cost:.4f}")
 
-    return sql
+    cost_data = {
+        'input_tokens': tokens_used['input_tokens'],
+        'output_tokens': tokens_used['output_tokens'],
+        'total_tokens': tokens_used['total_tokens'],
+        'cost_input': cost_input,
+        'cost_output': cost_output,
+        'total_cost': total_cost
+    }
+
+    return sql, cost_data
 
 def is_safe_query(sql: str) -> bool:
     """Check if SQL is safe"""
@@ -160,7 +169,7 @@ def execute_search(query: str, connected_to: str = None, min_results: int = 10):
     """Main search function with progressive relaxation if results are too few"""
 
     # Generate SQL
-    sql = generate_sql(query, connected_to)
+    sql, sql_cost = generate_sql(query, connected_to)
 
     # Validate
     if not is_safe_query(sql):
@@ -191,7 +200,7 @@ def execute_search(query: str, connected_to: str = None, min_results: int = 10):
         print(f"[SEARCH] Too few results ({len(results)} < {min_results}), trying relaxed search...")
 
         try:
-            relaxed_sql = generate_relaxed_query(query, connected_to)
+            relaxed_sql, relaxed_cost = generate_relaxed_query(query, connected_to)
 
             # Validate relaxed query
             if not is_safe_query(relaxed_sql):
@@ -217,6 +226,7 @@ def execute_search(query: str, connected_to: str = None, min_results: int = 10):
                     print(f"[SEARCH] Using relaxed results ({len(relaxed_results)} results)")
                     results = relaxed_results
                     sql = relaxed_sql  # Update SQL to show the one that was actually used
+                    sql_cost = relaxed_cost  # Update cost to match the query that was used
                 else:
                     print(f"[SEARCH] Keeping original results ({len(results)} results)")
 
@@ -232,5 +242,6 @@ def execute_search(query: str, connected_to: str = None, min_results: int = 10):
     return {
         'sql': sql,
         'results': results,
-        'total': len(results)
+        'total': len(results),
+        'cost': sql_cost
     }

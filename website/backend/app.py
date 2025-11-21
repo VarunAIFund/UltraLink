@@ -94,12 +94,29 @@ def search_and_rank():
 
         # Search with connection filter
         search_result = execute_search(query, connected_to)
+        search_cost = search_result.get('cost', {})
         print(f"[DEBUG] Search completed. Found {len(search_result['results'])} results")
 
         # Rank with two-stage pipeline (GPT-5-nano classification + Gemini ranking)
         print(f"[DEBUG] Starting two-stage ranking pipeline...")
-        ranked = rank_candidates(query, search_result['results'])
+        ranked, ranking_cost = rank_candidates(query, search_result['results'])
         print(f"[DEBUG] Two-stage ranking completed. Ranked {len(ranked)} candidates")
+
+        # Calculate total cost
+        sql_cost = search_cost.get('total_cost', 0.0)
+        stage_1_cost = ranking_cost.get('stage_1', {}).get('total_cost', 0.0)
+        stage_2_cost = ranking_cost.get('stage_2', {}).get('total_cost', 0.0)
+        total_cost = sql_cost + stage_1_cost + stage_2_cost
+
+        # Print cost breakdown
+        print(f"\n{'='*60}")
+        print(f"💰 TOTAL SEARCH COST")
+        print(f"{'='*60}")
+        print(f"   • SQL Generation (GPT-4o): ${sql_cost:.4f}")
+        print(f"   • Classification (GPT-5-nano): ${stage_1_cost:.4f}")
+        print(f"   • Ranking (Gemini 2.5 Pro): ${stage_2_cost:.4f}")
+        print(f"   • TOTAL: ${total_cost:.4f}")
+        print(f"{'='*60}\n")
 
         # Save search session
         search_id = save_search_session(query, connected_to, search_result['sql'], ranked)

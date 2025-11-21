@@ -275,10 +275,20 @@ async def classify_all_candidates(query: str, candidates: list):
         print(f"   • Total tokens: {total_tokens:,}")
         print(f"   • Total cost: ${total_cost:.4f}")
 
+    cost_data = {
+        'input_tokens': total_input_tokens,
+        'output_tokens': total_output_tokens,
+        'total_tokens': total_tokens,
+        'cost_input': cost_input,
+        'cost_output': cost_output,
+        'total_cost': total_cost
+    }
+
     return {
         'strong_matches': strong_matches,
         'partial_matches': partial_matches,
-        'no_matches': no_matches
+        'no_matches': no_matches,
+        'cost': cost_data
     }
 
 
