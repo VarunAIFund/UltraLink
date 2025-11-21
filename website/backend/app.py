@@ -1,6 +1,8 @@
 """
 Minimal Flask backend for candidate search
 """
+import io
+import sys
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from search import execute_search
@@ -89,6 +91,11 @@ def search_and_rank():
     if not query:
         return jsonify({'error': 'Query required'}), 400
 
+    # Capture stdout to save as logs
+    log_buffer = io.StringIO()
+    original_stdout = sys.stdout
+    sys.stdout = log_buffer
+
     try:
         print(f"[DEBUG] Starting search for query: {query}")
 
@@ -118,8 +125,17 @@ def search_and_rank():
         print(f"   • TOTAL: ${total_cost:.4f}")
         print(f"{'='*60}\n")
 
-        # Save search session
-        search_id = save_search_session(query, connected_to, search_result['sql'], ranked, total_cost)
+        # Get captured logs
+        logs = log_buffer.getvalue()
+
+        # Restore stdout
+        sys.stdout = original_stdout
+
+        # Also print logs to actual stdout for real-time monitoring
+        print(logs, end='')
+
+        # Save search session with logs
+        search_id = save_search_session(query, connected_to, search_result['sql'], ranked, total_cost, logs)
         print(f"[DEBUG] Saved search session with ID: {search_id}")
 
         return jsonify({
@@ -128,12 +144,24 @@ def search_and_rank():
             'sql': search_result['sql'],
             'results': ranked,
             'total': len(ranked),
-            'total_cost': total_cost
+            'total_cost': total_cost,
+            'logs': logs
         })
     except Exception as e:
+        # Capture error in logs
         print(f"[ERROR] Exception occurred: {type(e).__name__}: {str(e)}")
         import traceback
         traceback.print_exc()
+
+        # Get captured logs (including error)
+        logs = log_buffer.getvalue()
+
+        # Restore stdout
+        sys.stdout = original_stdout
+
+        # Print error to actual stdout
+        print(logs, end='')
+
         return jsonify({'error': str(e)}), 500
 
 @app.route('/search/<search_id>', methods=['GET'])

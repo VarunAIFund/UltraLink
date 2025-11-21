@@ -12,9 +12,10 @@ interface CandidateListProps {
   hasSearched: boolean;
   loading?: boolean;
   totalCost?: number;
+  logs?: string;
 }
 
-export function CandidateList({ results, hasSearched, loading, totalCost }: CandidateListProps) {
+export function CandidateList({ results, hasSearched, loading, totalCost, logs }: CandidateListProps) {
   // Collapsible state for each section
   const [strongExpanded, setStrongExpanded] = useState(true);
   const [partialExpanded, setPartialExpanded] = useState(false);
@@ -152,7 +153,7 @@ export function CandidateList({ results, hasSearched, loading, totalCost }: Cand
           )}
 
           {/* Search Info Section */}
-          {totalCost !== undefined && totalCost > 0 && (
+          {((totalCost !== undefined && totalCost > 0) || (logs && logs.length > 0)) && (
             <div>
               <button
                 onClick={() => setSearchInfoExpanded(!searchInfoExpanded)}
@@ -168,13 +169,25 @@ export function CandidateList({ results, hasSearched, loading, totalCost }: Cand
                 </h3>
               </button>
               {searchInfoExpanded && (
-                <div className="px-4 py-3 border rounded-lg bg-card">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Total Cost:</span>
-                    <span className="font-mono font-semibold">
-                      ${totalCost.toFixed(4)}
-                    </span>
-                  </div>
+                <div className="px-4 py-3 border rounded-lg bg-card space-y-4">
+                  {totalCost !== undefined && totalCost > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Total Cost:</span>
+                      <span className="font-mono font-semibold">
+                        ${totalCost.toFixed(4)}
+                      </span>
+                    </div>
+                  )}
+                  {logs && logs.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-muted-foreground mb-2">
+                        Execution Logs:
+                      </h4>
+                      <pre className="text-xs font-mono bg-muted p-3 rounded overflow-x-auto max-h-96 overflow-y-auto whitespace-pre-wrap break-words">
+                        {logs}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

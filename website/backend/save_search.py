@@ -46,7 +46,7 @@ def get_db_connection():
 
     return psycopg2.connect(conn_string)
 
-def save_search_session(query, connected_to, sql_query, results, total_cost=0.0):
+def save_search_session(query, connected_to, sql_query, results, total_cost=0.0, logs=''):
     """
     Save search session to database
 
@@ -56,6 +56,7 @@ def save_search_session(query, connected_to, sql_query, results, total_cost=0.0)
         sql_query: The SQL query that was executed
         results: List of ranked candidates
         total_cost: Total cost of the search (default: 0.0)
+        logs: Console logs from search execution (default: '')
 
     Returns:
         UUID of saved search session
@@ -67,8 +68,8 @@ def save_search_session(query, connected_to, sql_query, results, total_cost=0.0)
     connected_to_array = [connected_to] if connected_to != 'all' else []
 
     cursor.execute("""
-        INSERT INTO search_sessions (query, connected_to, sql_query, results, total_results, total_cost)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO search_sessions (query, connected_to, sql_query, results, total_results, total_cost, logs)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """, (
         query,
@@ -76,7 +77,8 @@ def save_search_session(query, connected_to, sql_query, results, total_cost=0.0)
         sql_query,
         json.dumps(results),
         len(results),
-        total_cost
+        total_cost,
+        logs
     ))
 
     search_id = cursor.fetchone()[0]
@@ -100,7 +102,7 @@ def get_search_session(search_id):
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT query, connected_to, sql_query, results, total_results, total_cost, created_at
+        SELECT query, connected_to, sql_query, results, total_results, total_cost, logs, created_at
         FROM search_sessions
         WHERE id = %s
     """, (search_id,))
@@ -112,7 +114,7 @@ def get_search_session(search_id):
     if not result:
         return None
 
-    query, connected_to, sql_query, results, total_results, total_cost, created_at = result
+    query, connected_to, sql_query, results, total_results, total_cost, logs, created_at = result
 
     return {
         'id': search_id,
@@ -122,5 +124,6 @@ def get_search_session(search_id):
         'results': results,
         'total': total_results,
         'total_cost': float(total_cost) if total_cost else 0.0,
+        'logs': logs if logs else '',
         'created_at': created_at.isoformat()
     }
