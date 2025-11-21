@@ -62,6 +62,7 @@ export interface SearchResponse {
   sql: string;
   results: CandidateResult[];
   total: number;
+  total_cost?: number;
   error?: string;
 }
 
@@ -73,6 +74,7 @@ export interface SavedSearchResponse {
   sql: string;
   results: CandidateResult[];
   total: number;
+  total_cost?: number;
   created_at: string;
   error?: string;
 }

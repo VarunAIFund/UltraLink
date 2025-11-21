@@ -11,13 +11,15 @@ interface CandidateListProps {
   results: CandidateResult[];
   hasSearched: boolean;
   loading?: boolean;
+  totalCost?: number;
 }
 
-export function CandidateList({ results, hasSearched, loading }: CandidateListProps) {
+export function CandidateList({ results, hasSearched, loading, totalCost }: CandidateListProps) {
   // Collapsible state for each section
   const [strongExpanded, setStrongExpanded] = useState(true);
   const [partialExpanded, setPartialExpanded] = useState(false);
   const [noMatchExpanded, setNoMatchExpanded] = useState(false);
+  const [searchInfoExpanded, setSearchInfoExpanded] = useState(false);
 
   // Group candidates by match type and sort by relevance_score (descending)
   const groupedCandidates = useMemo(() => {
@@ -144,6 +146,35 @@ export function CandidateList({ results, hasSearched, loading }: CandidateListPr
                   {groupedCandidates.noMatch.map((candidate, index) => (
                     <CandidateCard key={index} candidate={candidate} />
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Search Info Section */}
+          {totalCost !== undefined && totalCost > 0 && (
+            <div>
+              <button
+                onClick={() => setSearchInfoExpanded(!searchInfoExpanded)}
+                className="w-full flex items-center gap-2 mb-4 px-4 py-3 border rounded-lg bg-card shadow-sm hover:shadow-md transition-shadow"
+              >
+                {searchInfoExpanded ? (
+                  <ChevronDown className="w-5 h-5" />
+                ) : (
+                  <ChevronRight className="w-5 h-5" />
+                )}
+                <h3 className="text-lg font-semibold">
+                  Search Info
+                </h3>
+              </button>
+              {searchInfoExpanded && (
+                <div className="px-4 py-3 border rounded-lg bg-card">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Total Cost:</span>
+                    <span className="font-mono font-semibold">
+                      ${totalCost.toFixed(4)}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>

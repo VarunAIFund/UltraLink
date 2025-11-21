@@ -127,7 +127,8 @@ def search_and_rank():
             'id': search_id,
             'sql': search_result['sql'],
             'results': ranked,
-            'total': len(ranked)
+            'total': len(ranked),
+            'total_cost': total_cost
         })
     except Exception as e:
         print(f"[ERROR] Exception occurred: {type(e).__name__}: {str(e)}")
