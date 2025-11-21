@@ -119,7 +119,7 @@ def search_and_rank():
         print(f"{'='*60}\n")
 
         # Save search session
-        search_id = save_search_session(query, connected_to, search_result['sql'], ranked)
+        search_id = save_search_session(query, connected_to, search_result['sql'], ranked, total_cost)
         print(f"[DEBUG] Saved search session with ID: {search_id}")
 
         return jsonify({
