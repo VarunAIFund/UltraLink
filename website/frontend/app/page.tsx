@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { searchAndRank, getSearchSession, type CandidateResult } from "@/lib/api";
+import { searchAndRank, searchAndRankStream, getSearchSession, type CandidateResult } from "@/lib/api";
 import { SearchBar } from "@/components/SearchBar";
 import { SqlDisplay } from "@/components/SqlDisplay";
 import { CandidateList } from "@/components/CandidateList";
@@ -20,6 +20,7 @@ export default function Home() {
   const [totalCost, setTotalCost] = useState<number>(0);
   const [totalTime, setTotalTime] = useState<number>(0);
   const [logs, setLogs] = useState<string>("");
+  const [searchStep, setSearchStep] = useState<string>("");
 
   // Load saved search if URL contains /search/[id]
   useEffect(() => {
@@ -57,17 +58,28 @@ export default function Home() {
     setResults([]);
     setSql("");
     setHasSearched(false);
+    setSearchStep("");
 
     try {
       // If nothing selected, default to 'all'
       const connectionFilter = connectedTo || 'all';
-      const response = await searchAndRank(query, connectionFilter);
+
+      // Use streaming API for real-time progress
+      const response = await searchAndRankStream(
+        query,
+        connectionFilter,
+        (step: string, message: string) => {
+          setSearchStep(message);
+        }
+      );
+
       setResults(response.results);
       setSql(response.sql);
       setHasSearched(true);
       setTotalCost(response.total_cost || 0);
       setTotalTime(response.total_time || 0);
       setLogs(response.logs || "");
+      setSearchStep(""); // Clear step after completion
 
       // Update URL with search ID without page reload
       if (response.id) {
@@ -125,6 +137,7 @@ export default function Home() {
         results={results}
         hasSearched={hasSearched}
         loading={loading}
+        searchStep={searchStep}
         totalCost={totalCost}
         totalTime={totalTime}
         logs={logs}

@@ -4,7 +4,8 @@ Minimal Flask backend for candidate search
 import io
 import sys
 import time
-from flask import Flask, request, jsonify
+import json
+from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
 from search import execute_search
 from ranking import rank_candidates
@@ -15,6 +16,10 @@ from add_note import update_candidate_note, get_candidate_note
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend
+
+def format_sse(data: dict) -> str:
+    """Format data as Server-Sent Event message"""
+    return f"data: {json.dumps(data)}\n\n"
 
 @app.route('/search', methods=['POST'])
 def search():
@@ -172,6 +177,117 @@ def search_and_rank():
         print(logs, end='')
 
         return jsonify({'error': str(e)}), 500
+
+@app.route('/search-and-rank-stream', methods=['POST'])
+def search_and_rank_stream():
+    """Combined endpoint with Server-Sent Events for real-time progress"""
+    data = request.json
+    query = data.get('query', '').strip()
+    connected_to = data.get('connected_to', 'all')
+
+    if not query:
+        return jsonify({'error': 'Query required'}), 400
+
+    def generate():
+        # Capture stdout to save as logs
+        log_buffer = io.StringIO()
+        original_stdout = sys.stdout
+        sys.stdout = log_buffer
+
+        # Start timer for execution time tracking
+        start_time = time.time()
+
+        try:
+            # Step 1: Generate SQL query
+            yield format_sse({'step': 'generating_query', 'message': 'Generating search query...'})
+
+            search_result = execute_search(query, connected_to)
+            search_cost = search_result.get('cost', {})
+
+            # Step 2: Searching database
+            yield format_sse({'step': 'searching', 'message': 'Searching database...'})
+
+            # Step 3: Analyzing candidates (Stage 1 - GPT-5-nano classification)
+            yield format_sse({'step': 'classifying', 'message': 'Analyzing candidates...'})
+
+            # Import stage functions directly for real-time progress
+            from ranking_stage_1_nano import classify_all_candidates
+            from ranking_stage_2_gemini import rank_all_candidates
+            import asyncio
+
+            stage_1_results = asyncio.run(classify_all_candidates(query, search_result['results']))
+            stage_1_cost = stage_1_results.get('cost', {})
+
+            # Step 4: Ranking matches (Stage 2 - Gemini ranking)
+            yield format_sse({'step': 'ranking', 'message': 'Ranking matches...'})
+
+            ranked, stage_2_cost = rank_all_candidates(query, stage_1_results)
+
+            # Calculate costs
+            sql_cost = search_cost.get('total_cost', 0.0)
+            stage_1_total = stage_1_cost.get('total_cost', 0.0)
+            stage_2_total = stage_2_cost.get('total_cost', 0.0)
+            total_cost = sql_cost + stage_1_total + stage_2_total
+
+            # Print cost breakdown
+            print(f"\n{'='*60}")
+            print(f"💰 TOTAL SEARCH COST")
+            print(f"{'='*60}")
+            print(f"   • SQL Generation (GPT-4o): ${sql_cost:.4f}")
+            print(f"   • Classification (GPT-5-nano): ${stage_1_total:.4f}")
+            print(f"   • Ranking (Gemini 2.5 Pro): ${stage_2_total:.4f}")
+            print(f"   • TOTAL: ${total_cost:.4f}")
+            print(f"{'='*60}\n")
+
+            # Calculate execution time
+            elapsed_time = time.time() - start_time
+
+            # Get captured logs
+            logs = log_buffer.getvalue()
+
+            # Restore stdout
+            sys.stdout = original_stdout
+
+            # Print logs to actual stdout
+            print(logs, end='')
+
+            # Save search session
+            search_id = save_search_session(query, connected_to, search_result['sql'], ranked, total_cost, logs, elapsed_time)
+            print(f"[DEBUG] Saved search session with ID: {search_id}")
+
+            # Step 5: Complete - send final results
+            yield format_sse({
+                'step': 'complete',
+                'message': 'Complete',
+                'data': {
+                    'success': True,
+                    'id': search_id,
+                    'sql': search_result['sql'],
+                    'results': ranked,
+                    'total': len(ranked),
+                    'total_cost': total_cost,
+                    'total_time': elapsed_time,
+                    'logs': logs
+                }
+            })
+
+        except Exception as e:
+            # Capture error in logs
+            print(f"[ERROR] Exception occurred: {type(e).__name__}: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+            logs = log_buffer.getvalue()
+            sys.stdout = original_stdout
+            print(logs, end='')
+
+            # Send error event
+            yield format_sse({
+                'step': 'error',
+                'message': str(e)
+            })
+
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
 @app.route('/search/<search_id>', methods=['GET'])
 def get_search(search_id):

@@ -12,13 +12,14 @@ from ranking_stage_1_nano import classify_all_candidates
 from ranking_stage_2_gemini import rank_all_candidates
 
 
-def rank_candidates(query: str, candidates: list):
+def rank_candidates(query: str, candidates: list, progress_callback=None):
     """
     Main ranking function - runs complete two-stage pipeline
 
     Args:
         query: The search query string
         candidates: List of candidate dictionaries from database
+        progress_callback: Optional callback function to report progress (called before each stage)
 
     Returns:
         List of ranked candidates with relevance scores and fit descriptions
@@ -42,6 +43,9 @@ def rank_candidates(query: str, candidates: list):
     print(f"\n[RANKING] Starting two-stage pipeline for {len(candidates)} candidates")
 
     # Stage 1: GPT-5-nano classification (async)
+    if progress_callback:
+        progress_callback('classifying', 'Analyzing candidates...')
+
     print(f"[RANKING] Stage 1: GPT-5-nano classification...")
     stage_1_results = asyncio.run(classify_all_candidates(query, candidates))
 
@@ -53,6 +57,9 @@ def rank_candidates(query: str, candidates: list):
     print(f"[RANKING] Stage 1 complete: {num_strong} strong, {num_partial} partial, {num_no_match} no_match")
 
     # Stage 2: Gemini ranking (strong) + rule scoring (partial)
+    if progress_callback:
+        progress_callback('ranking', 'Ranking matches...')
+
     print(f"[RANKING] Stage 2: Gemini ranking + rule scoring...")
     final_results, stage_2_cost = rank_all_candidates(query, stage_1_results)
 

@@ -102,6 +102,78 @@ export async function searchAndRank(query: string, connectedTo?: string): Promis
   return response.json();
 }
 
+export async function searchAndRankStream(
+  query: string,
+  connectedTo: string,
+  onProgress: (step: string, message: string) => void
+): Promise<SearchResponse> {
+  const response = await fetch(`${API_BASE_URL}/search-and-rank-stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query,
+      connected_to: connectedTo || 'all'
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+
+  if (!reader) {
+    throw new Error('Response body is not readable');
+  }
+
+  let buffer = '';
+  let finalData: SearchResponse | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    // Process complete SSE messages (ending with \n\n)
+    const messages = buffer.split('\n\n');
+    buffer = messages.pop() || ''; // Keep incomplete message in buffer
+
+    for (const message of messages) {
+      if (!message.trim()) continue;
+
+      // Parse SSE message (format: "data: {json}")
+      const dataMatch = message.match(/^data: (.+)$/m);
+      if (dataMatch) {
+        try {
+          const event = JSON.parse(dataMatch[1]);
+
+          if (event.step === 'complete' && event.data) {
+            finalData = event.data;
+          } else if (event.step === 'error') {
+            throw new Error(event.message);
+          } else {
+            // Progress update
+            onProgress(event.step, event.message);
+          }
+        } catch (e) {
+          console.error('Failed to parse SSE message:', e);
+        }
+      }
+    }
+  }
+
+  if (!finalData) {
+    throw new Error('No final data received from server');
+  }
+
+  return finalData;
+}
+
 export async function generateHighlights(candidate: CandidateResult): Promise<HighlightsResponse> {
   const response = await fetch(`${API_BASE_URL}/generate-highlights`, {
     method: 'POST',

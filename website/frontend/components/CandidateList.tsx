@@ -11,12 +11,13 @@ interface CandidateListProps {
   results: CandidateResult[];
   hasSearched: boolean;
   loading?: boolean;
+  searchStep?: string;
   totalCost?: number;
   totalTime?: number;
   logs?: string;
 }
 
-export function CandidateList({ results, hasSearched, loading, totalCost, totalTime, logs }: CandidateListProps) {
+export function CandidateList({ results, hasSearched, loading, searchStep, totalCost, totalTime, logs }: CandidateListProps) {
   // Collapsible state for each section
   const [strongExpanded, setStrongExpanded] = useState(true);
   const [partialExpanded, setPartialExpanded] = useState(false);
@@ -48,7 +49,9 @@ export function CandidateList({ results, hasSearched, loading, totalCost, totalT
   if (loading) {
     return (
       <div>
-        <h2 className="text-2xl font-semibold mb-4">Searching...</h2>
+        <h2 className="text-2xl font-semibold mb-4">
+          {searchStep || "Searching..."}
+        </h2>
         <div className="grid gap-4">
           {[1, 2, 3].map((i) => (
             <CandidateCardSkeleton key={i} />
