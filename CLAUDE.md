@@ -33,6 +33,7 @@ UltraLink is a comprehensive LinkedIn data processing and candidate search platf
 - **AI-generated highlights** via Perplexity search + GPT-4o analysis
 - **HR Notes feature** for candidate annotations with edit/view modes
 - **Supabase Storage profile pictures** with automatic HiUser icon fallback for missing images (5,383 uploaded, 99.1% success rate)
+- **Real-time cost tracking** for all AI operations (SQL generation, classification, ranking) with backend logs and frontend display
 
 ---
 
@@ -916,6 +917,7 @@ CREATE TABLE search_sessions (
     sql_query TEXT NOT NULL,
     results JSONB NOT NULL,
     total_results INTEGER NOT NULL,
+    total_cost DECIMAL(10, 6) DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
@@ -924,6 +926,7 @@ CREATE TABLE search_sessions (
 - Each search is automatically saved with a UUID
 - URL pattern: `ultralink.com/search/[uuid]`
 - Results stored as JSONB for fast retrieval
+- Total cost tracked for each search (SQL + classification + ranking)
 - No user authentication required - public sharing
 
 ### Database Configuration
@@ -1167,6 +1170,7 @@ CREATE TABLE search_sessions (
     sql_query TEXT NOT NULL,
     results JSONB NOT NULL,
     total_results INTEGER NOT NULL,
+    total_cost DECIMAL(10, 6) DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
