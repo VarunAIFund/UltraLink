@@ -12,10 +12,11 @@ interface CandidateListProps {
   hasSearched: boolean;
   loading?: boolean;
   totalCost?: number;
+  totalTime?: number;
   logs?: string;
 }
 
-export function CandidateList({ results, hasSearched, loading, totalCost, logs }: CandidateListProps) {
+export function CandidateList({ results, hasSearched, loading, totalCost, totalTime, logs }: CandidateListProps) {
   // Collapsible state for each section
   const [strongExpanded, setStrongExpanded] = useState(true);
   const [partialExpanded, setPartialExpanded] = useState(false);
@@ -153,7 +154,7 @@ export function CandidateList({ results, hasSearched, loading, totalCost, logs }
           )}
 
           {/* Search Info Section */}
-          {((totalCost !== undefined && totalCost > 0) || (logs && logs.length > 0)) && (
+          {((totalCost !== undefined && totalCost > 0) || (totalTime !== undefined && totalTime > 0) || (logs && logs.length > 0)) && (
             <div>
               <button
                 onClick={() => setSearchInfoExpanded(!searchInfoExpanded)}
@@ -175,6 +176,14 @@ export function CandidateList({ results, hasSearched, loading, totalCost, logs }
                       <span className="text-muted-foreground">Total Cost:</span>
                       <span className="font-mono font-semibold">
                         ${totalCost.toFixed(4)}
+                      </span>
+                    </div>
+                  )}
+                  {totalTime !== undefined && totalTime > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Total Time:</span>
+                      <span className="font-mono font-semibold">
+                        {Math.floor(totalTime / 60)} min {Math.floor(totalTime % 60)} sec
                       </span>
                     </div>
                   )}

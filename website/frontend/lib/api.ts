@@ -63,6 +63,7 @@ export interface SearchResponse {
   results: CandidateResult[];
   total: number;
   total_cost?: number;
+  total_time?: number;
   logs?: string;
   error?: string;
 }
@@ -76,6 +77,7 @@ export interface SavedSearchResponse {
   results: CandidateResult[];
   total: number;
   total_cost?: number;
+  total_time?: number;
   logs?: string;
   created_at: string;
   error?: string;

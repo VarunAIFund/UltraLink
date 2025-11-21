@@ -3,6 +3,7 @@ Minimal Flask backend for candidate search
 """
 import io
 import sys
+import time
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from search import execute_search
@@ -96,6 +97,9 @@ def search_and_rank():
     original_stdout = sys.stdout
     sys.stdout = log_buffer
 
+    # Start timer for execution time tracking
+    start_time = time.time()
+
     try:
         print(f"[DEBUG] Starting search for query: {query}")
 
@@ -125,6 +129,9 @@ def search_and_rank():
         print(f"   • TOTAL: ${total_cost:.4f}")
         print(f"{'='*60}\n")
 
+        # Calculate total execution time
+        elapsed_time = time.time() - start_time
+
         # Get captured logs
         logs = log_buffer.getvalue()
 
@@ -134,9 +141,10 @@ def search_and_rank():
         # Also print logs to actual stdout for real-time monitoring
         print(logs, end='')
 
-        # Save search session with logs
-        search_id = save_search_session(query, connected_to, search_result['sql'], ranked, total_cost, logs)
+        # Save search session with logs and execution time
+        search_id = save_search_session(query, connected_to, search_result['sql'], ranked, total_cost, logs, elapsed_time)
         print(f"[DEBUG] Saved search session with ID: {search_id}")
+        print(f"[DEBUG] Total execution time: {elapsed_time:.2f} seconds")
 
         return jsonify({
             'success': True,
@@ -145,6 +153,7 @@ def search_and_rank():
             'results': ranked,
             'total': len(ranked),
             'total_cost': total_cost,
+            'total_time': elapsed_time,
             'logs': logs
         })
     except Exception as e:

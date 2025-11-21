@@ -18,6 +18,7 @@ export default function Home() {
   const [hasSearched, setHasSearched] = useState(false);
   const [connectedTo, setConnectedTo] = useState("all");
   const [totalCost, setTotalCost] = useState<number>(0);
+  const [totalTime, setTotalTime] = useState<number>(0);
   const [logs, setLogs] = useState<string>("");
 
   // Load saved search if URL contains /search/[id]
@@ -35,6 +36,7 @@ export default function Home() {
           setHasSearched(true);
           setConnectedTo(response.connected_to);
           setTotalCost(response.total_cost || 0);
+          setTotalTime(response.total_time || 0);
           setLogs(response.logs || "");
         } catch (err) {
           setError(err instanceof Error ? err.message : "Failed to load search");
@@ -64,6 +66,7 @@ export default function Home() {
       setSql(response.sql);
       setHasSearched(true);
       setTotalCost(response.total_cost || 0);
+      setTotalTime(response.total_time || 0);
       setLogs(response.logs || "");
 
       // Update URL with search ID without page reload
@@ -123,6 +126,7 @@ export default function Home() {
         hasSearched={hasSearched}
         loading={loading}
         totalCost={totalCost}
+        totalTime={totalTime}
         logs={logs}
       />
     </div>
