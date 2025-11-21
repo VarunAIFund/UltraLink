@@ -109,20 +109,17 @@ Candidates with expert analyses:
 
 For each candidate, provide:
 - relevance_score (0-100): How well they match the query
-- ranking_rationale (1 sentence): Brief explanation of their ranking
 
 Respond ONLY with valid JSON including ALL {len(summaries)} candidates:
 {{
   "ranked_candidates": [
     {{
       "index": 0,
-      "relevance_score": 95,
-      "ranking_rationale": "Perfect match - VP in exact target industry with all required skills"
+      "relevance_score": 95
     }},
     {{
       "index": 1,
-      "relevance_score": 88,
-      "ranking_rationale": "Strong experience but slightly different industry focus"
+      "relevance_score": 88
     }}
   ]
 }}"""
@@ -210,7 +207,7 @@ Respond ONLY with valid JSON including ALL {len(summaries)} candidates:
 
                 # Add Stage 2 data
                 candidate['relevance_score'] = ranked_item.get('relevance_score', 50)
-                candidate['ranking_rationale'] = ranked_item.get('ranking_rationale', '')
+                # ranking_rationale removed to save tokens (not displayed in UI)
 
                 ranked_results.append(candidate)
 
@@ -229,7 +226,7 @@ Respond ONLY with valid JSON including ALL {len(summaries)} candidates:
                 candidate['fit_description'] = match['analysis']
                 candidate['stage_1_confidence'] = match['confidence']
                 candidate['relevance_score'] = 80  # Lower score for skipped
-                candidate['ranking_rationale'] = 'Not ranked by AI (added manually)'
+                # ranking_rationale removed to save tokens
                 ranked_results.append(candidate)
 
         print(f"✅ Stage 2A Complete: {len(ranked_results)} strong matches ranked")
@@ -248,7 +245,7 @@ Respond ONLY with valid JSON including ALL {len(summaries)} candidates:
             candidate['fit_description'] = match['analysis']
             candidate['stage_1_confidence'] = match['confidence']
             candidate['relevance_score'] = 50  # Default score
-            candidate['ranking_rationale'] = 'Ranking error - using default score'
+            # ranking_rationale removed to save tokens
             fallback_results.append(candidate)
 
         fallback_cost = {
