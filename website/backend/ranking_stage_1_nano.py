@@ -16,6 +16,11 @@ from typing import Literal
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
+from constants import (
+    RANKING_STAGE_1_MODEL,
+    RANKING_STAGE_1_MAX_CONNECTIONS,
+    RANKING_STAGE_1_MAX_KEEPALIVE_CONNECTIONS
+)
 
 # Load environment - .env is in website directory
 env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
@@ -96,7 +101,7 @@ Classify based on:
 
     try:
         response = await client.responses.parse(
-            model="gpt-5-nano",
+            model=RANKING_STAGE_1_MODEL,
             input=[
                 {"role": "system", "content": "You are an expert recruiting analyst. Analyze candidates objectively and provide detailed insights."},
                 {"role": "user", "content": prompt}
@@ -175,8 +180,8 @@ async def classify_all_candidates(query: str, candidates: list):
     # Create fresh httpx client for this request (supports concurrent Flask requests)
     async with httpx.AsyncClient(
         limits=httpx.Limits(
-            max_connections=500,
-            max_keepalive_connections=100
+            max_connections=RANKING_STAGE_1_MAX_CONNECTIONS,
+            max_keepalive_connections=RANKING_STAGE_1_MAX_KEEPALIVE_CONNECTIONS
         ),
         timeout=httpx.Timeout(120.0)
     ) as http_client:

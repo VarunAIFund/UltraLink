@@ -6,6 +6,7 @@ import json
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
+from constants import RANKING_STAGE_2_MODEL
 
 # Load environment - .env is in website directory
 env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
@@ -13,7 +14,7 @@ load_dotenv(env_path)
 
 # Configure Gemini
 genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
-model = genai.GenerativeModel('gemini-2.5-pro')
+model = genai.GenerativeModel(RANKING_STAGE_2_MODEL)
 
 
 def calculate_rule_based_score(candidate: dict, query: str):

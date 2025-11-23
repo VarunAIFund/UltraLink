@@ -9,6 +9,7 @@ from dotenv import load_dotenv, dotenv_values
 from openai import OpenAI
 from db_schema import get_schema_prompt
 from utils import add_profile_pic_urls
+from constants import SQL_GENERATION_MODEL, SQL_QUERY_LIMIT
 
 # Load environment - .env is in website directory
 env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
@@ -69,7 +70,7 @@ def generate_sql(query: str, connected_to: str = None) -> str:
             user_query = f"{query}\n\nIMPORTANT: Also filter for people connected to '{connected_to}' using: array_to_string(connected_to, ',') ~* '\\m{connected_to}\\M'"
 
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model=SQL_GENERATION_MODEL,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"{user_query}\n\nSQL:"}
@@ -94,12 +95,12 @@ def generate_sql(query: str, connected_to: str = None) -> str:
         'total_tokens': usage.total_tokens
     }
 
-    # GPT-4o pricing: $2.50 per 1M input, $10.00 per 1M output
-    cost_input = (tokens_used['input_tokens'] / 1_000_000) * 2.50
-    cost_output = (tokens_used['output_tokens'] / 1_000_000) * 10.00
+    # GPT-4o-mini pricing: $0.150 per 1M input, $0.600 per 1M output
+    cost_input = (tokens_used['input_tokens'] / 1_000_000) * 0.150
+    cost_output = (tokens_used['output_tokens'] / 1_000_000) * 0.600
     total_cost = cost_input + cost_output
 
-    print(f"\n💰 SQL Generation Cost (GPT-4o):")
+    print(f"\n💰 SQL Generation Cost ({SQL_GENERATION_MODEL}):")
     print(f"   • Input tokens: {tokens_used['input_tokens']:,} (${cost_input:.4f})")
     print(f"   • Output tokens: {tokens_used['output_tokens']:,} (${cost_output:.4f})")
     print(f"   • Total cost: ${total_cost:.4f}")
