@@ -33,16 +33,10 @@ class CandidateClassification(BaseModel):
     )
     analysis: str = Field(
         description="""
-        If strong match: Write a detailed 2-3 sentence analysis explaining WHY they're a strong match.
-                        Include: relevant experience, key skills, seniority alignment, notable companies/education.
-                        Example: "VP Engineering at Stripe with 15 years experience. Strong match because:
-                        extensive healthcare tech leadership (VP @ Oscar Health 4y, Director @ One Medical 3y),
-                        built multiple B2B SaaS platforms, Stanford CS degree, led ML initiatives in medical
-                        imaging and patient data systems."
+        If strong match: Start with the candidate's full name. Write 3-4 sentences explaining why they're a strong fit for the query.
+                        Include relevant experience, key skills, years of experience, and notable accomplishments that directly match the query criteria.
 
-        If partial match: Write 1-2 sentences explaining what they're MISSING or what gaps exist.
-                         Example: "Missing healthcare industry experience - background is primarily in
-                         fintech and e-commerce."
+        If partial match: Write 1-2 sentences explaining what they HAVE that's relevant and what key elements they're MISSING.
 
         If no_match: Leave empty string ""
         """
@@ -85,9 +79,14 @@ async def classify_single_candidate_nano(query: str, candidate: dict, index: int
 
 Analyze this candidate and classify as strong/partial/no_match.
 
+CLASSIFICATION CRITERIA:
+- STRONG match: Candidate closely matches all query requirements
+- PARTIAL match: Candidate has some relevant experience/skills but is missing key elements from the query
+- NO MATCH: Candidate is not relevant to any of the query requirements
+
 IMPORTANT INSTRUCTIONS:
-1. For STRONG matches: Write a detailed 2-3 sentence explanation of WHY they're strong
-2. For PARTIAL matches: Write 1-2 sentences explaining what they're MISSING
+1. For STRONG matches: Start with the candidate's name. Write 2-3 sentences explaining why they're a strong fit for the query. Include relevant experience, key skills, years of experience, and notable accomplishments that match the query criteria.
+2. For PARTIAL matches: Write 1-2 sentences explaining what they HAVE that's relevant and what key elements they're MISSING
 3. For NO MATCH: Leave analysis empty ("")
 
 Candidate Profile:
