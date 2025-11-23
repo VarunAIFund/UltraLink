@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
 from ranking import rank_candidates
 
 # Load search results from test_search.json
-input_path = os.path.join(os.path.dirname(__file__), 'test_search.json')
+input_path = os.path.join(os.path.dirname(__file__), 'output', 'test_search.json')
 with open(input_path, 'r') as f:
     search_data = json.load(f)
 
@@ -42,7 +42,7 @@ output_data = {
 }
 
 # Write to file in tests directory
-output_path = os.path.join(os.path.dirname(__file__), 'test_ranking.json')
+output_path = os.path.join(os.path.dirname(__file__), 'output', 'test_ranking.json')
 with open(output_path, 'w') as f:
     json.dump(output_data, f, indent=2, default=str)
 

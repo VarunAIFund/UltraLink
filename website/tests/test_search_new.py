@@ -81,7 +81,7 @@ def main():
 
     if result:
         # Save to JSON file
-        output_file = os.path.join(os.path.dirname(__file__), 'test_search_new_results.json')
+        output_file = os.path.join(os.path.dirname(__file__), 'output', 'test_search_new_results.json')
         output_data = {
             'timestamp': datetime.now().isoformat(),
             'query': result['query'],

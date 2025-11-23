@@ -149,10 +149,12 @@ def test_highlights_api():
                 print(f"    🔗 URL: {highlight['url']}")
 
             # Save to file for inspection
-            with open('test_highlights_output.json', 'w') as f:
+            import os
+            output_file = os.path.join(os.path.dirname(__file__), 'output', 'test_highlights_output.json')
+            with open(output_file, 'w') as f:
                 json.dump(data, f, indent=2)
             print("\n" + "=" * 60)
-            print("✅ Full response saved to: test_highlights_output.json")
+            print(f"✅ Full response saved to: {output_file}")
             print("=" * 60)
 
         else:

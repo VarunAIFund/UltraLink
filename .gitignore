@@ -15,7 +15,7 @@ linda317lee-brightdata.json
 .mcp.json
 coresignal.json
 
-website/tests/*.json
+website/tests/output/*.json
 
 search/*.json
 tests/*.json

@@ -54,7 +54,7 @@ async def test_classification():
         for c in partial_matches
     ]
 
-    output_file = "classification_results.json"
+    output_file = os.path.join(os.path.dirname(__file__), 'output', 'classification_results.json')
     output_data = {
         'query': query,
         'sql': search_result['sql'],

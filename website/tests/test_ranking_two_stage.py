@@ -87,7 +87,7 @@ async def test_two_stage_pipeline(query: str, connected_to: str = 'all', limit: 
     print(f"   Rate: {len(candidates)/stage_1_time:.1f} candidates/second\n")
 
     # Save Stage 1 results immediately (before Stage 2)
-    stage_1_file = f"stage_1_results_{len(candidates)}_candidates.json"
+    stage_1_file = os.path.join(os.path.dirname(__file__), 'output', f"stage_1_results_{len(candidates)}_candidates.json")
     stage_1_data = {
         'query': query,
         'total_candidates': len(candidates),
@@ -213,7 +213,7 @@ async def test_two_stage_pipeline(query: str, connected_to: str = 'all', limit: 
         print(f"   Missing: {len(candidates) - len(final_results)}\n")
 
     # Save Stage 2 results (ONLY Gemini-ranked strong matches)
-    stage_2_file = f"stage_2_results_{len(candidates)}_candidates.json"
+    stage_2_file = os.path.join(os.path.dirname(__file__), 'output', f"stage_2_results_{len(candidates)}_candidates.json")
     stage_2_data = {
         'query': query,
         'stage': 'Stage 2A: Gemini Ranking (Strong Matches Only)',
@@ -244,7 +244,7 @@ async def test_two_stage_pipeline(query: str, connected_to: str = 'all', limit: 
     print(f"💾 Stage 2 results saved to: {stage_2_file}")
 
     # Save final combined results
-    output_file = f"two_stage_results_{len(candidates)}_candidates.json"
+    output_file = os.path.join(os.path.dirname(__file__), 'output', f"two_stage_results_{len(candidates)}_candidates.json")
     output_data = {
         'query': query,
         'sql': search_result['sql'],

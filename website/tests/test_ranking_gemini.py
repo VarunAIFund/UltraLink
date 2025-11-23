@@ -41,7 +41,7 @@ def test_gemini_ranking():
         for c in ranked_candidates
     ]
 
-    output_file = "gemini_ranking_results.json"
+    output_file = os.path.join(os.path.dirname(__file__), 'output', 'gemini_ranking_results.json')
     output_data = {
         'query': query,
         'sql': search_result['sql'],
