@@ -178,7 +178,7 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
                 <CardDescription>{candidate.headline}</CardDescription>
               </div>
             </div>
-            {candidate.match === 'strong' && (
+            {candidate.match === 'strong' && candidate.relevance_score !== null && candidate.relevance_score !== undefined && (
               <div className="text-right">
                 <div className="text-2xl font-bold text-primary">
                   {candidate.relevance_score}

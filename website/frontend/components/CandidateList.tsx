@@ -28,15 +28,28 @@ export function CandidateList({ results, hasSearched, loading, searchStep, total
   const groupedCandidates = useMemo(() => {
     const strong = results
       .filter(c => c.match === 'strong')
-      .sort((a, b) => b.relevance_score - a.relevance_score);
+      .sort((a, b) => {
+        // Handle null scores when ranking is disabled
+        const scoreA = a.relevance_score ?? 0;
+        const scoreB = b.relevance_score ?? 0;
+        return scoreB - scoreA;
+      });
 
     const partial = results
       .filter(c => c.match === 'partial')
-      .sort((a, b) => b.relevance_score - a.relevance_score);
+      .sort((a, b) => {
+        const scoreA = a.relevance_score ?? 0;
+        const scoreB = b.relevance_score ?? 0;
+        return scoreB - scoreA;
+      });
 
     const noMatch = results
       .filter(c => c.match === 'no_match')
-      .sort((a, b) => b.relevance_score - a.relevance_score);
+      .sort((a, b) => {
+        const scoreA = a.relevance_score ?? 0;
+        const scoreB = b.relevance_score ?? 0;
+        return scoreB - scoreA;
+      });
 
     return { strong, partial, noMatch };
   }, [results]);

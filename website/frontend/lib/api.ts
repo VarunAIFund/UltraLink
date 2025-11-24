@@ -105,6 +105,7 @@ export async function searchAndRank(query: string, connectedTo?: string): Promis
 export async function searchAndRankStream(
   query: string,
   connectedTo: string,
+  ranking: boolean,
   onProgress: (step: string, message: string) => void
 ): Promise<SearchResponse> {
   const response = await fetch(`${API_BASE_URL}/search-and-rank-stream`, {
@@ -114,7 +115,8 @@ export async function searchAndRankStream(
     },
     body: JSON.stringify({
       query,
-      connected_to: connectedTo || 'all'
+      connected_to: connectedTo || 'all',
+      ranking: ranking
     }),
   });
 

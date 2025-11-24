@@ -13,7 +13,7 @@ export function SqlDisplay({ sql }: SqlDisplayProps) {
   if (!sql) return null;
 
   return (
-    <div className="mb-6 border rounded-lg overflow-hidden">
+    <div className="mb-6 border rounded-lg overflow-hidden shadow-lg">
       <button
         onClick={() => setSqlOpen(!sqlOpen)}
         className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"

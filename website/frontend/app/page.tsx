@@ -21,6 +21,7 @@ export default function Home() {
   const [totalTime, setTotalTime] = useState<number>(0);
   const [logs, setLogs] = useState<string>("");
   const [searchStep, setSearchStep] = useState<string>("");
+  const [ranking, setRanking] = useState<boolean>(true);
 
   // Load saved search if URL contains /search/[id]
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function Home() {
       const response = await searchAndRankStream(
         query,
         connectionFilter,
+        ranking,
         (step: string, message: string) => {
           setSearchStep(message);
         }
@@ -118,6 +120,8 @@ export default function Home() {
           loading={loading}
           connectedTo={connectedTo}
           setConnectedTo={setConnectedTo}
+          ranking={ranking}
+          setRanking={setRanking}
         />
       </motion.div>
 

@@ -184,6 +184,7 @@ def search_and_rank_stream():
     data = request.json
     query = data.get('query', '').strip()
     connected_to = data.get('connected_to', 'all')
+    ranking = data.get('ranking', True)  # Default to True for backward compatibility
 
     if not query:
         return jsonify({'error': 'Query required'}), 400
@@ -207,7 +208,7 @@ def search_and_rank_stream():
             # Step 2: Searching database
             yield format_sse({'step': 'searching', 'message': 'Searching database...'})
 
-            # Step 3: Analyzing candidates (Stage 1 - GPT-5-nano classification)
+            # Step 3: Always run Stage 1 (GPT-5-nano classification)
             yield format_sse({'step': 'classifying', 'message': 'Analyzing candidates...'})
 
             # Import stage functions directly for real-time progress
@@ -218,26 +219,64 @@ def search_and_rank_stream():
             stage_1_results = asyncio.run(classify_all_candidates(query, search_result['results']))
             stage_1_cost = stage_1_results.get('cost', {})
 
-            # Step 4: Ranking matches (Stage 2 - Gemini ranking)
-            yield format_sse({'step': 'ranking', 'message': 'Ranking matches...'})
-
-            ranked, stage_2_cost = rank_all_candidates(query, stage_1_results)
-
-            # Calculate costs
+            # Calculate SQL + Stage 1 costs
             sql_cost = search_cost.get('total_cost', 0.0)
             stage_1_total = stage_1_cost.get('total_cost', 0.0)
-            stage_2_total = stage_2_cost.get('total_cost', 0.0)
-            total_cost = sql_cost + stage_1_total + stage_2_total
 
-            # Print cost breakdown
-            print(f"\n{'='*60}")
-            print(f"💰 TOTAL SEARCH COST")
-            print(f"{'='*60}")
-            print(f"   • SQL Generation (GPT-4o): ${sql_cost:.4f}")
-            print(f"   • Classification (GPT-5-nano): ${stage_1_total:.4f}")
-            print(f"   • Ranking (Gemini 2.5 Pro): ${stage_2_total:.4f}")
-            print(f"   • TOTAL: ${total_cost:.4f}")
-            print(f"{'='*60}\n")
+            # Conditionally run Stage 2 (Gemini ranking) based on ranking flag
+            if ranking:
+                # Step 4: Ranking matches (Stage 2 - Gemini ranking)
+                yield format_sse({'step': 'ranking', 'message': 'Ranking matches...'})
+
+                ranked, stage_2_cost = rank_all_candidates(query, stage_1_results)
+                stage_2_total = stage_2_cost.get('total_cost', 0.0)
+                total_cost = sql_cost + stage_1_total + stage_2_total
+
+                # Print cost breakdown
+                print(f"\n{'='*60}")
+                print(f"💰 TOTAL SEARCH COST")
+                print(f"{'='*60}")
+                print(f"   • SQL Generation (GPT-4o): ${sql_cost:.4f}")
+                print(f"   • Classification (GPT-5-nano): ${stage_1_total:.4f}")
+                print(f"   • Ranking (Gemini 2.5 Pro): ${stage_2_total:.4f}")
+                print(f"   • TOTAL: ${total_cost:.4f}")
+                print(f"{'='*60}\n")
+            else:
+                # Stage 2 disabled - return Stage 1 classified results without Gemini ranking
+                print(f"\n[DEBUG] Stage 2 ranking disabled - returning classified results without Gemini ranking")
+
+                # Combine results from Stage 1 without Gemini ranking
+                stage_1_candidates = (
+                    stage_1_results.get('strong_matches', []) +
+                    stage_1_results.get('partial_matches', []) +
+                    stage_1_results.get('no_matches', [])
+                )
+
+                # Flatten Stage 1 format to match Stage 2 format
+                # Stage 1 has: {candidate: {...}, analysis: "...", match_type: "..."}
+                # Stage 2 expects: {name: "...", match: "...", fit_description: "...", ...}
+                ranked = []
+                for item in stage_1_candidates:
+                    # Extract the nested candidate object
+                    candidate = item.get('candidate', {})
+
+                    # Add Stage 1 classification fields to candidate
+                    candidate['match'] = item.get('match_type', 'no_match')  # match_type -> match
+                    candidate['fit_description'] = item.get('analysis', '')  # analysis -> fit_description
+                    candidate['relevance_score'] = None  # No Gemini ranking
+                    candidate['stage_1_confidence'] = item.get('confidence', 0)
+
+                    ranked.append(candidate)
+
+                total_cost = sql_cost + stage_1_total
+
+                print(f"\n{'='*60}")
+                print(f"💰 TOTAL SEARCH COST (No Stage 2 Ranking)")
+                print(f"{'='*60}")
+                print(f"   • SQL Generation (GPT-4o): ${sql_cost:.4f}")
+                print(f"   • Classification (GPT-5-nano): ${stage_1_total:.4f}")
+                print(f"   • TOTAL: ${total_cost:.4f}")
+                print(f"{'='*60}\n")
 
             # Calculate execution time
             elapsed_time = time.time() - start_time

@@ -1,5 +1,7 @@
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import { User, ArrowRight } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -16,6 +18,8 @@ interface SearchBarProps {
   loading: boolean;
   connectedTo: string;
   setConnectedTo: (value: string) => void;
+  ranking: boolean;
+  setRanking: (value: boolean) => void;
 }
 
 export function SearchBar({
@@ -25,60 +29,111 @@ export function SearchBar({
   loading,
   connectedTo,
   setConnectedTo,
+  ranking,
+  setRanking,
 }: SearchBarProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, [query]);
+
   return (
-    <div className="flex flex-col md:flex-row gap-3 mb-8">
-      <Input
-        type="text"
-        placeholder="Search for candidates (e.g., CEO in healthcare with startup experience)"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && onSearch()}
-        className="flex-1 w-full"
-      />
-      <div className="flex gap-3">
-        <Select
-          multiple
-          options={[
-            { label: "Dan", value: "dan" },
-            { label: "Linda", value: "linda" },
-            { label: "Jon", value: "jon" },
-            { label: "Mary", value: "mary" },
-            { label: "Eli", value: "eli" },
-            { label: "Katherine", value: "katherine" },
-            { label: "Rishabh", value: "rishabh" },
-          ]}
-          value={connectedTo}
-          onValueChange={setConnectedTo}
-        >
-          <SelectTrigger className="w-[140px] md:w-[180px]">
-            <SelectValue placeholder="Connected to" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="dan">Dan</SelectItem>
-            <SelectItem value="linda">Linda</SelectItem>
-            <SelectItem value="jon">Jon</SelectItem>
-            <SelectItem value="mary">Mary</SelectItem>
-            <SelectItem value="eli">Eli</SelectItem>
-            <SelectItem value="katherine">Katherine</SelectItem>
-            <SelectItem value="rishabh">Rishabh</SelectItem>
-            <SelectSeparator />
-            <button
-              className="w-full px-2 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground rounded-sm cursor-pointer"
-              onClick={() => setConnectedTo("")}
-            >
-              Deselect All
-            </button>
-          </SelectContent>
-        </Select>
-        <Button
-          onClick={onSearch}
-          disabled={loading}
-          className="flex-1 md:flex-none"
-        >
-          {loading ? "Searching..." : "Search"}
-        </Button>
+    <div className="w-full max-w-4xl mx-auto mb-8">
+      {/* Main Search Card */}
+      <div className="bg-[#faf9f7] dark:bg-card rounded-3xl shadow-lg border border-border/50 p-6 md:p-8">
+        {/* Search Input */}
+        <div className="mb-6">
+          <textarea
+            ref={textareaRef}
+            placeholder="Search for candidates (e.g., CEO in healthcare with startup experience)"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && !loading) {
+                e.preventDefault();
+                onSearch();
+              }
+            }}
+            disabled={loading}
+            rows={1}
+            className="w-full text-base md:text-lg font-medium bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/60 disabled:opacity-50 resize-none overflow-hidden"
+          />
+        </div>
+
+        {/* Controls Row */}
+        <div className="flex flex-wrap items-center gap-3 md:gap-4">
+          {/* Ranking Toggle */}
+          <button
+            onClick={() => setRanking(!ranking)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all ${
+              ranking
+                ? "bg-primary/10 text-primary border-2 border-primary"
+                : "bg-muted/50 text-muted-foreground border-2 border-transparent hover:bg-muted"
+            }`}
+          >
+            <User className="w-4 h-4" />
+            <span>Relevance Ranking</span>
+          </button>
+
+          {/* Spacer to push dropdown and button to the right */}
+          <div className="flex-1" />
+
+          {/* Connection Dropdown */}
+          <Select
+            multiple
+            options={[
+              { label: "Dan", value: "dan" },
+              { label: "Linda", value: "linda" },
+              { label: "Jon", value: "jon" },
+              { label: "Mary", value: "mary" },
+              { label: "Eli", value: "eli" },
+              { label: "Katherine", value: "katherine" },
+              { label: "Rishabh", value: "rishabh" },
+            ]}
+            value={connectedTo}
+            onValueChange={setConnectedTo}
+          >
+            <SelectTrigger className="w-[180px] md:w-[200px] h-11 rounded-full border-2 bg-background">
+              <SelectValue placeholder="Connected to" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="dan">Dan</SelectItem>
+              <SelectItem value="linda">Linda</SelectItem>
+              <SelectItem value="jon">Jon</SelectItem>
+              <SelectItem value="mary">Mary</SelectItem>
+              <SelectItem value="eli">Eli</SelectItem>
+              <SelectItem value="katherine">Katherine</SelectItem>
+              <SelectItem value="rishabh">Rishabh</SelectItem>
+              <SelectSeparator />
+              <button
+                className="w-full px-2 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground rounded-sm cursor-pointer"
+                onClick={() => setConnectedTo("")}
+              >
+                Deselect All
+              </button>
+            </SelectContent>
+          </Select>
+
+          {/* Search Button */}
+          <button
+            onClick={onSearch}
+            disabled={loading}
+            className="w-14 h-14 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+          >
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <ArrowRight className="w-6 h-6" />
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
