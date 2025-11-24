@@ -24,30 +24,30 @@ export function CandidateList({ results, hasSearched, loading, searchStep, total
   const [noMatchExpanded, setNoMatchExpanded] = useState(false);
   const [searchInfoExpanded, setSearchInfoExpanded] = useState(false);
 
-  // Group candidates by match type and sort by relevance_score (descending)
+  // Group candidates by match type and sort by relevance_score (or score when ranking is off)
   const groupedCandidates = useMemo(() => {
     const strong = results
       .filter(c => c.match === 'strong')
       .sort((a, b) => {
-        // Handle null scores when ranking is disabled
-        const scoreA = a.relevance_score ?? 0;
-        const scoreB = b.relevance_score ?? 0;
+        // Use relevance_score if available, otherwise use score (Stage 1 confidence)
+        const scoreA = a.relevance_score ?? a.score ?? 0;
+        const scoreB = b.relevance_score ?? b.score ?? 0;
         return scoreB - scoreA;
       });
 
     const partial = results
       .filter(c => c.match === 'partial')
       .sort((a, b) => {
-        const scoreA = a.relevance_score ?? 0;
-        const scoreB = b.relevance_score ?? 0;
+        const scoreA = a.relevance_score ?? a.score ?? 0;
+        const scoreB = b.relevance_score ?? b.score ?? 0;
         return scoreB - scoreA;
       });
 
     const noMatch = results
       .filter(c => c.match === 'no_match')
       .sort((a, b) => {
-        const scoreA = a.relevance_score ?? 0;
-        const scoreB = b.relevance_score ?? 0;
+        const scoreA = a.relevance_score ?? a.score ?? 0;
+        const scoreB = b.relevance_score ?? b.score ?? 0;
         return scoreB - scoreA;
       });
 

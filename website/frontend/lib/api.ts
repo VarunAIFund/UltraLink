@@ -33,6 +33,7 @@ export interface CandidateResult {
   fit_description: string;
   ranking_rationale?: string;
   stage_1_confidence?: number;
+  score?: number;  // Stage 1 confidence score used for sorting when ranking is off
   seniority?: string;
   years_experience?: number;
   skills?: string[];
@@ -79,6 +80,7 @@ export interface SavedSearchResponse {
   total_cost?: number;
   total_time?: number;
   logs?: string;
+  ranking_enabled?: boolean;
   created_at: string;
   error?: string;
 }

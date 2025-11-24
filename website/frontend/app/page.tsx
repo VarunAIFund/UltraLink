@@ -40,6 +40,7 @@ export default function Home() {
           setTotalCost(response.total_cost || 0);
           setTotalTime(response.total_time || 0);
           setLogs(response.logs || "");
+          setRanking(response.ranking_enabled ?? true);
         } catch (err) {
           setError(err instanceof Error ? err.message : "Failed to load search");
         } finally {

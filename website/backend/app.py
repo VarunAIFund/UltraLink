@@ -147,7 +147,7 @@ def search_and_rank():
         print(logs, end='')
 
         # Save search session with logs and execution time
-        search_id = save_search_session(query, connected_to, search_result['sql'], ranked, total_cost, logs, elapsed_time)
+        search_id = save_search_session(query, connected_to, search_result['sql'], ranked, total_cost, logs, elapsed_time, ranking=True)
         print(f"[DEBUG] Saved search session with ID: {search_id}")
         print(f"[DEBUG] Total execution time: {elapsed_time:.2f} seconds")
 
@@ -261,10 +261,12 @@ def search_and_rank_stream():
                     candidate = item.get('candidate', {})
 
                     # Add Stage 1 classification fields to candidate
+                    confidence = item.get('confidence', 0)
                     candidate['match'] = item.get('match_type', 'no_match')  # match_type -> match
                     candidate['fit_description'] = item.get('analysis', '')  # analysis -> fit_description
                     candidate['relevance_score'] = None  # No Gemini ranking
-                    candidate['stage_1_confidence'] = item.get('confidence', 0)
+                    candidate['stage_1_confidence'] = confidence
+                    candidate['score'] = confidence  # Use Stage 1 confidence as sortable score
 
                     ranked.append(candidate)
 
@@ -291,7 +293,7 @@ def search_and_rank_stream():
             print(logs, end='')
 
             # Save search session
-            search_id = save_search_session(query, connected_to, search_result['sql'], ranked, total_cost, logs, elapsed_time)
+            search_id = save_search_session(query, connected_to, search_result['sql'], ranked, total_cost, logs, elapsed_time, ranking)
             print(f"[DEBUG] Saved search session with ID: {search_id}")
 
             # Step 5: Complete - send final results
