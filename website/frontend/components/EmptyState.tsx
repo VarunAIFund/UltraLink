@@ -45,7 +45,7 @@ export function EmptyState() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
-          className="p-6 border rounded-lg bg-card"
+          className="p-6 border rounded-lg bg-card text-center"
         >
           <HiLightningBolt className="w-8 h-8 text-primary mx-auto mb-3" />
           <h3 className="font-semibold mb-2">AI-Powered Search</h3>
@@ -58,7 +58,7 @@ export function EmptyState() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="p-6 border rounded-lg bg-card"
+          className="p-6 border rounded-lg bg-card text-center"
         >
           <HiUserGroup className="w-8 h-8 text-primary mx-auto mb-3" />
           <h3 className="font-semibold mb-2">Smart Ranking</h3>
@@ -71,7 +71,7 @@ export function EmptyState() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="p-6 border rounded-lg bg-card"
+          className="p-6 border rounded-lg bg-card text-center"
         >
           <HiSearch className="w-8 h-8 text-primary mx-auto mb-3" />
           <h3 className="font-semibold mb-2">Rich Profiles</h3>
