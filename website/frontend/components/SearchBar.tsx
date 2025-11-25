@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { User, ArrowRight } from "lucide-react";
+import { User, ArrowRight, Zap } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -68,18 +68,31 @@ export function SearchBar({
 
         {/* Controls Row */}
         <div className="flex flex-wrap items-center gap-3 md:gap-4">
-          {/* Ranking Toggle */}
-          <button
-            onClick={() => setRanking(!ranking)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all ${
-              ranking
-                ? "bg-primary/10 text-primary border-2 border-primary"
-                : "bg-muted/50 text-muted-foreground border-2 border-transparent hover:bg-muted"
-            }`}
-          >
-            <User className="w-4 h-4" />
-            <span>Relevance Ranking</span>
-          </button>
+          {/* Ranking Mode Selection */}
+          <div className="flex items-center gap-2 p-1 bg-muted/30 rounded-full border border-border/50">
+            <button
+              onClick={() => setRanking(false)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                !ranking
+                  ? "bg-primary/10 text-primary shadow-sm border-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Zap className="w-4 h-4" />
+              <span>Fast Response</span>
+            </button>
+            <button
+              onClick={() => setRanking(true)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                ranking
+                  ? "bg-primary/10 text-primary shadow-sm border-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <User className="w-4 h-4" />
+              <span>Relevance Ranking</span>
+            </button>
+          </div>
 
           {/* Spacer to push dropdown and button to the right */}
           <div className="flex-1" />
