@@ -35,51 +35,51 @@ export function EmptyState() {
             <h2 className="text-3xl font-bold">Find Your Perfect Candidate</h2>
           </div>
           <p className="text-muted-foreground text-lg mb-8">
-            Search through hundreds of profiles using natural language. Our AI
+            Search through thousands of profiles using natural language. Our AI
             understands your requirements and finds the best matches.
           </p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 mb-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="p-6 border rounded-lg bg-card text-center"
-        >
-          <HiLightningBolt className="w-8 h-8 text-primary mx-auto mb-3" />
-          <h3 className="font-semibold mb-2">AI-Powered Search</h3>
-          <p className="text-sm text-muted-foreground">
-            Natural language queries converted to precise database searches
-          </p>
-        </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="p-6 border rounded-lg bg-card text-center"
+          >
+            <HiLightningBolt className="w-8 h-8 text-primary mx-auto mb-3" />
+            <h3 className="font-semibold mb-2">AI-Powered Search</h3>
+            <p className="text-sm text-muted-foreground">
+              Natural language queries converted to precise database searches
+            </p>
+          </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="p-6 border rounded-lg bg-card text-center"
-        >
-          <HiUserGroup className="w-8 h-8 text-primary mx-auto mb-3" />
-          <h3 className="font-semibold mb-2">Smart Ranking</h3>
-          <p className="text-sm text-muted-foreground">
-            Candidates ranked by relevance with AI-generated insights
-          </p>
-        </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="p-6 border rounded-lg bg-card text-center"
+          >
+            <HiUserGroup className="w-8 h-8 text-primary mx-auto mb-3" />
+            <h3 className="font-semibold mb-2">Smart Ranking</h3>
+            <p className="text-sm text-muted-foreground">
+              Candidates ranked by relevance with AI-generated insights
+            </p>
+          </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="p-6 border rounded-lg bg-card text-center"
-        >
-          <HiSearch className="w-8 h-8 text-primary mx-auto mb-3" />
-          <h3 className="font-semibold mb-2">Rich Profiles</h3>
-          <p className="text-sm text-muted-foreground">
-            View skills, experience, connections, and more
-          </p>
-        </motion.div>
-      </div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="p-6 border rounded-lg bg-card text-center"
+          >
+            <HiSearch className="w-8 h-8 text-primary mx-auto mb-3" />
+            <h3 className="font-semibold mb-2">Rich Profiles</h3>
+            <p className="text-sm text-muted-foreground">
+              View skills, experience, connections, and more
+            </p>
+          </motion.div>
+        </div>
 
         <div className="text-left">
           <h3 className="text-lg font-semibold mb-4 text-center">
