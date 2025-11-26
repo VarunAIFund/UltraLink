@@ -13,6 +13,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { HiMail, HiCheck, HiX } from "react-icons/hi";
 
 interface IntroductionEmailDialogProps {
@@ -20,9 +27,17 @@ interface IntroductionEmailDialogProps {
   onOpenChange: (open: boolean) => void;
   connectionName: string;
   candidateName: string;
-  onGenerate: () => Promise<{ subject: string; body: string }>;
-  onSend: (subject: string, body: string) => Promise<void>;
+  onGenerate: (fromEmail: string, senderName: string) => Promise<{ subject: string; body: string }>;
+  onSend: (subject: string, body: string, fromEmail: string, senderName: string) => Promise<void>;
 }
+
+const SENDER_OPTIONS = [
+  { label: "Linda", value: "linda", email: "varun@aifund.ai" },
+  { label: "Jon", value: "jon", email: "varun@aifund.ai" },
+  { label: "Juliana", value: "juliana", email: "varun@aifund.ai" },
+  { label: "Luisana", value: "luisana", email: "varun@aifund.ai" },
+  { label: "Mary", value: "mary", email: "varun@aifund.ai" },
+];
 
 export function IntroductionEmailDialog({
   open,
@@ -32,6 +47,7 @@ export function IntroductionEmailDialog({
   onGenerate,
   onSend,
 }: IntroductionEmailDialogProps) {
+  const [selectedSender, setSelectedSender] = useState("linda");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [bodyHtml, setBodyHtml] = useState(""); // Store original HTML
@@ -67,7 +83,8 @@ export function IntroductionEmailDialog({
     setGenerated(false);
 
     try {
-      const result = await onGenerate();
+      const sender = SENDER_OPTIONS.find(s => s.value === selectedSender);
+      const result = await onGenerate(sender?.email || "varun@aifund.ai", sender?.label || "Linda");
       setSubject(result.subject);
       setBodyHtml(result.body); // Store original HTML
       setBody(htmlToPlainText(result.body)); // Convert to plain text for display
@@ -87,13 +104,15 @@ export function IntroductionEmailDialog({
     try {
       // Convert plain text back to HTML for sending
       const htmlToSend = plainTextToHtml(body);
-      await onSend(subject, htmlToSend);
+      const sender = SENDER_OPTIONS.find(s => s.value === selectedSender);
+      await onSend(subject, htmlToSend, sender?.email || "varun@aifund.ai", sender?.label || "Linda");
       setSent(true);
       // Auto-close after 2 seconds
       setTimeout(() => {
         onOpenChange(false);
         // Reset state when dialog closes
         setTimeout(() => {
+          setSelectedSender("linda");
           setSubject("");
           setBody("");
           setBodyHtml("");
@@ -113,6 +132,7 @@ export function IntroductionEmailDialog({
     onOpenChange(false);
     // Reset state after dialog close animation
     setTimeout(() => {
+      setSelectedSender("linda");
       setSubject("");
       setBody("");
       setBodyHtml("");
@@ -142,10 +162,35 @@ export function IntroductionEmailDialog({
                 email asking {connectionName} to introduce you to{" "}
                 {candidateName}.
               </p>
-              <Button onClick={handleGenerate} size="lg" className="shadow-sm">
-                <HiMail className="w-4 h-4 mr-2" />
-                Generate Email
-              </Button>
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="from-select" className="text-sm font-medium">
+                    From:
+                  </Label>
+                  <Select value={selectedSender} onValueChange={setSelectedSender}>
+                    <SelectTrigger id="from-select" className="w-[240px]">
+                      <SelectValue>
+                        {SENDER_OPTIONS.find(s => s.value === selectedSender)?.label} &lt;{SENDER_OPTIONS.find(s => s.value === selectedSender)?.email}&gt;
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SENDER_OPTIONS.map((sender) => (
+                        <SelectItem key={sender.value} value={sender.value}>
+                          {sender.label} &lt;{sender.email}&gt;
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={handleGenerate}
+                  size="lg"
+                  className="shadow-sm"
+                >
+                  <HiMail className="w-4 h-4 mr-2" />
+                  Generate Email
+                </Button>
+              </div>
             </div>
           )}
 
@@ -196,7 +241,7 @@ export function IntroductionEmailDialog({
               </div>
               <h3 className="text-lg font-semibold mb-2">Email Sent!</h3>
               <p className="text-muted-foreground">
-                Check your inbox at varun@aifund.ai
+                Check your inbox at {SENDER_OPTIONS.find(s => s.value === selectedSender)?.email || "varun@aifund.ai"}
               </p>
             </div>
           )}

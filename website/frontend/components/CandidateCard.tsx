@@ -363,16 +363,18 @@ export function CandidateCard({ candidate, searchQuery }: CandidateCardProps) {
         onOpenChange={setShowEmailDialog}
         connectionName={selectedConnection}
         candidateName={candidate.name}
-        onGenerate={async () => {
+        onGenerate={async (fromEmail: string, senderName: string) => {
           const result = await generateIntroductionEmail(
             candidate,
             searchQuery || "Opportunity at AI Fund",
-            selectedConnection
+            selectedConnection,
+            fromEmail,
+            senderName
           );
           return { subject: result.subject, body: result.body };
         }}
-        onSend={async (subject, body) => {
-          await sendIntroductionEmail(subject, body);
+        onSend={async (subject, body, fromEmail, senderName) => {
+          await sendIntroductionEmail(subject, body, fromEmail, senderName);
         }}
       />
     </motion.div>

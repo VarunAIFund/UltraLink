@@ -281,7 +281,9 @@ export interface SendEmailResponse {
 export async function generateIntroductionEmail(
   candidate: CandidateResult,
   jobDescription: string,
-  mutualConnectionName: string
+  mutualConnectionName: string,
+  fromEmail: string,
+  senderName?: string
 ): Promise<GenerateEmailResponse> {
   const response = await fetch(`${API_BASE_URL}/generate-introduction-email`, {
     method: 'POST',
@@ -293,10 +295,10 @@ export async function generateIntroductionEmail(
       job_description: jobDescription,
       mutual_connection_name: mutualConnectionName,
       sender_info: {
-        name: 'Varun Sharma',
+        name: senderName || 'Varun Sharma',
         role: 'Partner',
         company: 'AI Fund',
-        email: 'varun@aifund.ai'
+        email: fromEmail
       }
     }),
   });
@@ -310,7 +312,9 @@ export async function generateIntroductionEmail(
 
 export async function sendIntroductionEmail(
   subject: string,
-  body: string
+  body: string,
+  fromEmail: string,
+  senderName?: string
 ): Promise<SendEmailResponse> {
   const response = await fetch(`${API_BASE_URL}/send-introduction-email`, {
     method: 'POST',
@@ -322,8 +326,8 @@ export async function sendIntroductionEmail(
       subject: subject,
       body: body,
       sender_info: {
-        name: 'Varun Sharma',
-        email: 'varun@aifund.ai'
+        name: senderName || 'Varun Sharma',
+        email: fromEmail
       }
     }),
   });
