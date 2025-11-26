@@ -13,6 +13,8 @@ from ranking_gemini import rank_candidates_gemini
 from highlights import generate_highlights
 from save_search import save_search_session, get_search_session
 from add_note import update_candidate_note, get_candidate_note
+from email_intro.generate_template import generate_introduction_email
+from email_intro.send_email import send_introduction_email
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend
@@ -424,6 +426,104 @@ def add_note():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+@app.route('/generate-introduction-email', methods=['POST'])
+def generate_introduction_email_endpoint():
+    """Generate AI-powered introduction email template"""
+    data = request.json
+    candidate = data.get('candidate')
+    job_description = data.get('job_description', '').strip()
+    mutual_connection_name = data.get('mutual_connection_name', '').strip()
+    sender_info = data.get('sender_info', {})
+
+    # Validate inputs
+    if not candidate:
+        return jsonify({'error': 'Candidate data required'}), 400
+
+    if not mutual_connection_name:
+        return jsonify({'error': 'Mutual connection name required'}), 400
+
+    if not job_description:
+        return jsonify({'error': 'Job description required'}), 400
+
+    # Ensure sender_info has required fields
+    if not sender_info.get('name') or not sender_info.get('company'):
+        return jsonify({'error': 'Sender info (name, company) required'}), 400
+
+    try:
+        print(f"[DEBUG] Generating introduction email for: {candidate.get('name')} via {mutual_connection_name}")
+
+        result = generate_introduction_email(
+            candidate=candidate,
+            job_description=job_description,
+            mutual_connection_name=mutual_connection_name,
+            sender_info=sender_info
+        )
+
+        print(f"[DEBUG] Generated email with subject: {result['subject']}")
+
+        return jsonify({
+            'success': True,
+            'subject': result['subject'],
+            'body': result['body']
+        })
+
+    except Exception as e:
+        print(f"[ERROR] Email generation failed: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/send-introduction-email', methods=['POST'])
+def send_introduction_email_endpoint():
+    """Send introduction email via Resend API"""
+    data = request.json
+    to_email = data.get('to_email', '').strip()
+    subject = data.get('subject', '').strip()
+    body = data.get('body', '').strip()
+    sender_info = data.get('sender_info', {})
+
+    # Validate inputs
+    if not to_email or '@' not in to_email:
+        return jsonify({'error': 'Valid recipient email required'}), 400
+
+    if not subject:
+        return jsonify({'error': 'Email subject required'}), 400
+
+    if not body:
+        return jsonify({'error': 'Email body required'}), 400
+
+    try:
+        print(f"[DEBUG] Sending introduction email to: {to_email}")
+
+        result = send_introduction_email(
+            to_email=to_email,
+            subject=subject,
+            html_body=body,
+            sender_info=sender_info
+        )
+
+        if result['success']:
+            print(f"[DEBUG] Email sent successfully. Message ID: {result.get('message_id')}")
+            return jsonify({
+                'success': True,
+                'message': 'Email sent successfully',
+                'message_id': result.get('message_id')
+            })
+        else:
+            print(f"[ERROR] Email sending failed: {result.get('error')}")
+            return jsonify({
+                'success': False,
+                'error': result.get('error')
+            }), 500
+
+    except Exception as e:
+        print(f"[ERROR] Email sending failed: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/health', methods=['GET'])
 def health():

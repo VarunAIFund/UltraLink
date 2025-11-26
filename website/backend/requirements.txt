@@ -7,3 +7,4 @@ perplexityai==0.17.0
 google-generativeai
 packaging
 pydantic==2.10.5
+resend
