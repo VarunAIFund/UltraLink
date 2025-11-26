@@ -54,7 +54,7 @@ def generate_introduction_email(
     experience_text = '; '.join(experience_summary) if experience_summary else candidate_headline
 
     # Create prompt for GPT-4o
-    prompt = f"""Generate a professional, formal email asking a mutual connection to introduce you to a candidate.
+    prompt = f"""Generate a friendly, casual email asking a mutual connection to introduce you to a candidate.
 
 CONTEXT:
 - Sender: {sender_info.get('name')} ({sender_info.get('role')} at {sender_info.get('company')})
@@ -65,18 +65,19 @@ CONTEXT:
 - Opportunity: {job_description}
 
 EMAIL PURPOSE:
-The sender is reaching out to {mutual_connection_name} (their mutual connection) to ask for an introduction to {candidate_name}. The sender is hiring for a role and believes {candidate_name} would be a great fit.
+The sender is reaching out to {mutual_connection_name} (their mutual connection) to ask for an introduction to {candidate_name}. The sender is hiring for a role and believes {candidate_name} would be a great fit. These are colleagues/friends, so the tone should be casual and friendly, not formal.
 
 REQUIREMENTS:
-1. Professional and formal tone
-2. Address the email to {mutual_connection_name} (the mutual connection)
-3. Explain that you're reaching out because they're connected to {candidate_name}
-4. Make the candidate's name a hyperlink to their LinkedIn profile: <a href="{candidate_linkedin_url}">{candidate_name}</a>
-5. Briefly mention why {candidate_name} caught your attention (2-3 impressive highlights)
-6. Explain the opportunity/role you're hiring for (1-2 sentences)
-7. Make a clear, polite ask: "Would you be willing to introduce me to {candidate_name}?" or similar
-8. Keep email concise (3-4 short paragraphs)
-9. End with appropriate professional closing
+1. Friendly and casual tone (these are colleagues, not strangers)
+2. Address the email to {mutual_connection_name} (the mutual connection) - use "Hey" or "Hi"
+3. Skip formal greetings like "I hope this email finds you well"
+4. Explain that you're reaching out because they're connected to {candidate_name}
+5. Make the candidate's name a hyperlink to their LinkedIn profile ONLY ONCE: <a href="{candidate_linkedin_url}">{candidate_name}</a>
+6. Briefly mention why {candidate_name} caught your attention (2-3 impressive highlights)
+7. Explain the opportunity/role you're hiring for (1-2 sentences)
+8. Make a clear, casual ask: "Would you mind introducing me to [Candidate Name]?" or "Could you connect me with [Candidate Name]?" - DO NOT hyperlink the name here
+9. Keep email concise (3-4 short paragraphs)
+10. End with casual closing like "Thanks" or "Best Regards"
 
 Generate both:
 1. Subject line (e.g., "Introduction Request: [Candidate Name]")
@@ -85,7 +86,7 @@ Generate both:
 EXAMPLE STRUCTURE (DO NOT COPY - generate original content):
 {{
     "subject": "Introduction Request: [Candidate Name]",
-    "body": "<p>Hi [Connection Name],</p><p>I hope this email finds you well. I noticed you're connected to <a href=\"[LinkedIn URL]\">[Candidate Name]</a>, and I wanted to reach out.</p><p>I'm currently hiring for a [Role] at [Company]. After reviewing [Candidate's] background, I was particularly impressed by [specific highlights - e.g., their experience leading X at Y, their expertise in Z]. Their experience with [relevant skill/domain] would be a strong fit for what we're building.</p><p>Would you be willing to introduce me to <a href=\"[LinkedIn URL]\">[Candidate Name]</a>? I'd love to learn more about their work and explore if there might be mutual interest.</p><p>Best regards,<br>[Your Name]</p>"
+    "body": "<p>Hey [Connection Name],</p><p>I saw you're connected to <a href=\"[LinkedIn URL]\">[Candidate Name]</a>. I'm currently hiring for a [Role] at [Company], and [his/her] background looks like a really strong fit.</p><p>I was particularly impressed by [specific highlights - e.g., their experience leading X at Y, their expertise in Z]. The role we're building out involves [brief description], and I think [he/she] could be great for it.</p><p>Would you mind introducing me? Would love to chat with [him/her] about it.</p><p>Thanks!<br>[Your Name]</p>"
 }}
 
 Return ONLY valid JSON following this structure with original, personalized content."""
