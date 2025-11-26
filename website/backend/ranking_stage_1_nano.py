@@ -29,7 +29,7 @@ load_dotenv(env_path)
 class CandidateClassification(BaseModel):
     """Classification result with detailed analysis"""
     match_type: Literal["strong", "partial", "no_match"] = Field(
-        description="strong: closely matches query requirements | partial: some relevance but missing key elements | no_match: not relevant"
+        description="strong: closely matches query requirements (INFER skills from job descriptions, titles, and experience - not just skills array) | partial: some relevance but missing key elements | no_match: not relevant"
     )
     analysis: str = Field(
         description="""
@@ -96,7 +96,19 @@ Classify based on:
 - Does their experience/skills match the query requirements?
 - Is their seniority level appropriate?
 - Do they have relevant industry experience?
-- Are there any notable achievements or companies?"""
+- Are there any notable achievements or companies?
+
+IMPORTANT: INFER SKILLS FROM EXPERIENCE CONTEXT
+Do NOT only look at the skills array. Infer skills from:
+- Job titles and roles
+- Job descriptions and project work
+- Companies and industries they worked in
+- Technologies that are standard for their roles
+
+Use reasoning: What skills are required to do the work they describe? What technologies are commonly used in their domain?
+
+If you can reasonably infer they have the required skill from their job titles, descriptions, or experience, classify them as STRONG.
+Only mark as PARTIAL if they're truly missing key requirements despite their experience."""
 
     try:
         response = await client.responses.parse(
