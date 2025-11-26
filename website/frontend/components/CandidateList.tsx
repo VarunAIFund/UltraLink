@@ -15,9 +15,10 @@ interface CandidateListProps {
   totalCost?: number;
   totalTime?: number;
   logs?: string;
+  searchQuery?: string;
 }
 
-export function CandidateList({ results, hasSearched, loading, searchStep, totalCost, totalTime, logs }: CandidateListProps) {
+export function CandidateList({ results, hasSearched, loading, searchStep, totalCost, totalTime, logs, searchQuery }: CandidateListProps) {
   // Collapsible state for each section
   const [strongExpanded, setStrongExpanded] = useState(true);
   const [partialExpanded, setPartialExpanded] = useState(false);
@@ -104,7 +105,7 @@ export function CandidateList({ results, hasSearched, loading, searchStep, total
               {strongExpanded && (
                 <div className="space-y-4">
                   {groupedCandidates.strong.map((candidate, index) => (
-                    <CandidateCard key={index} candidate={candidate} />
+                    <CandidateCard key={index} candidate={candidate} searchQuery={searchQuery} />
                   ))}
                 </div>
               )}
@@ -133,7 +134,7 @@ export function CandidateList({ results, hasSearched, loading, searchStep, total
               {partialExpanded && (
                 <div className="space-y-4">
                   {groupedCandidates.partial.map((candidate, index) => (
-                    <CandidateCard key={index} candidate={candidate} />
+                    <CandidateCard key={index} candidate={candidate} searchQuery={searchQuery} />
                   ))}
                 </div>
               )}
@@ -162,7 +163,7 @@ export function CandidateList({ results, hasSearched, loading, searchStep, total
               {noMatchExpanded && (
                 <div className="space-y-4">
                   {groupedCandidates.noMatch.map((candidate, index) => (
-                    <CandidateCard key={index} candidate={candidate} />
+                    <CandidateCard key={index} candidate={candidate} searchQuery={searchQuery} />
                   ))}
                 </div>
               )}

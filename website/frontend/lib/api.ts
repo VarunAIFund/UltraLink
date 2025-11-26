@@ -263,3 +263,74 @@ export async function updateNoteForCandidate(linkedinUrl: string, note: string):
 
   return response.json();
 }
+
+export interface GenerateEmailResponse {
+  success: boolean;
+  subject: string;
+  body: string;
+  error?: string;
+}
+
+export interface SendEmailResponse {
+  success: boolean;
+  message: string;
+  message_id?: string;
+  error?: string;
+}
+
+export async function generateIntroductionEmail(
+  candidate: CandidateResult,
+  jobDescription: string,
+  mutualConnectionName: string
+): Promise<GenerateEmailResponse> {
+  const response = await fetch(`${API_BASE_URL}/generate-introduction-email`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      candidate: candidate,
+      job_description: jobDescription,
+      mutual_connection_name: mutualConnectionName,
+      sender_info: {
+        name: 'Varun Sharma',
+        role: 'Partner',
+        company: 'AI Fund',
+        email: 'varun@aifund.ai'
+      }
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function sendIntroductionEmail(
+  subject: string,
+  body: string
+): Promise<SendEmailResponse> {
+  const response = await fetch(`${API_BASE_URL}/send-introduction-email`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      to_email: 'varun@aifund.ai',  // Will be ignored by backend
+      subject: subject,
+      body: body,
+      sender_info: {
+        name: 'Varun Sharma',
+        email: 'varun@aifund.ai'
+      }
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}

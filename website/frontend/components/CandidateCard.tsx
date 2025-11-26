@@ -24,12 +24,15 @@ import {
 } from "@/lib/api";
 import { motion } from "framer-motion";
 import { CandidateHighlights } from "./CandidateHighlights";
+import { IntroductionEmailDialog } from "./IntroductionEmailDialog";
+import { generateIntroductionEmail, sendIntroductionEmail } from "@/lib/api";
 
 interface CandidateCardProps {
   candidate: CandidateResult;
+  searchQuery?: string;
 }
 
-export function CandidateCard({ candidate }: CandidateCardProps) {
+export function CandidateCard({ candidate, searchQuery }: CandidateCardProps) {
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [showHighlights, setShowHighlights] = useState(false);
   const [loadingHighlights, setLoadingHighlights] = useState(false);
@@ -48,6 +51,10 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
   const [noteLoaded, setNoteLoaded] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [isHoveringNote, setIsHoveringNote] = useState(false);
+
+  // Email introduction state
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [selectedConnection, setSelectedConnection] = useState<string>("");
 
   const handleToggleHighlights = async () => {
     // If already showing, just hide
@@ -178,14 +185,16 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
                 <CardDescription>{candidate.headline}</CardDescription>
               </div>
             </div>
-            {candidate.match === 'strong' && candidate.relevance_score !== null && candidate.relevance_score !== undefined && (
-              <div className="text-right">
-                <div className="text-2xl font-bold text-primary">
-                  {candidate.relevance_score}
+            {candidate.match === "strong" &&
+              candidate.relevance_score !== null &&
+              candidate.relevance_score !== undefined && (
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-primary">
+                    {candidate.relevance_score}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Score</div>
                 </div>
-                <div className="text-xs text-muted-foreground">Score</div>
-              </div>
-            )}
+              )}
           </div>
         </CardHeader>
         <CardContent>
@@ -229,12 +238,18 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
               </div>
               <div className="flex flex-wrap gap-2">
                 {candidate.connected_to.slice(0, 10).map((connection, i) => (
-                  <span
+                  <button
                     key={i}
-                    className="bg-muted text-muted-foreground px-2 py-1 rounded text-xs"
+                    onClick={() => {
+                      // Capitalize first letter of connection name
+                      const capitalizedConnection = connection.charAt(0).toUpperCase() + connection.slice(1);
+                      setSelectedConnection(capitalizedConnection);
+                      setShowEmailDialog(true);
+                    }}
+                    className="bg-muted text-muted-foreground px-2 py-1 rounded text-xs hover:bg-primary hover:text-primary-foreground transition-colors cursor-pointer"
                   >
                     {connection}
-                  </span>
+                  </button>
                 ))}
                 {candidate.connected_to.length > 10 && (
                   <span className="text-xs text-muted-foreground px-2 py-1">
@@ -341,6 +356,25 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Introduction Email Dialog */}
+      <IntroductionEmailDialog
+        open={showEmailDialog}
+        onOpenChange={setShowEmailDialog}
+        connectionName={selectedConnection}
+        candidateName={candidate.name}
+        onGenerate={async () => {
+          const result = await generateIntroductionEmail(
+            candidate,
+            searchQuery || "Opportunity at AI Fund",
+            selectedConnection
+          );
+          return { subject: result.subject, body: result.body };
+        }}
+        onSend={async (subject, body) => {
+          await sendIntroductionEmail(subject, body);
+        }}
+      />
     </motion.div>
   );
 }

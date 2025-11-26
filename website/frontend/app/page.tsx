@@ -146,6 +146,7 @@ export default function Home() {
         totalCost={totalCost}
         totalTime={totalTime}
         logs={logs}
+        searchQuery={query}
       />
     </div>
   );
