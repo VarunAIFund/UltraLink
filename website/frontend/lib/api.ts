@@ -314,7 +314,8 @@ export async function sendIntroductionEmail(
   subject: string,
   body: string,
   fromEmail: string,
-  senderName?: string
+  senderName?: string,
+  toEmail?: string
 ): Promise<SendEmailResponse> {
   const response = await fetch(`${API_BASE_URL}/send-introduction-email`, {
     method: 'POST',
@@ -322,7 +323,7 @@ export async function sendIntroductionEmail(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      to_email: 'varun@aifund.ai',  // Will be ignored by backend
+      to_email: toEmail || 'varun@aifund.ai',
       subject: subject,
       body: body,
       sender_info: {

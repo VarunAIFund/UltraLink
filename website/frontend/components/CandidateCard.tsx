@@ -373,8 +373,8 @@ export function CandidateCard({ candidate, searchQuery }: CandidateCardProps) {
           );
           return { subject: result.subject, body: result.body };
         }}
-        onSend={async (subject, body, fromEmail, senderName) => {
-          await sendIntroductionEmail(subject, body, fromEmail, senderName);
+        onSend={async (subject, body, fromEmail, senderName, toEmail) => {
+          await sendIntroductionEmail(subject, body, fromEmail, senderName, toEmail);
         }}
       />
     </motion.div>

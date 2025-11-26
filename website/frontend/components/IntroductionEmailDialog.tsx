@@ -27,17 +27,37 @@ interface IntroductionEmailDialogProps {
   onOpenChange: (open: boolean) => void;
   connectionName: string;
   candidateName: string;
-  onGenerate: (fromEmail: string, senderName: string) => Promise<{ subject: string; body: string }>;
-  onSend: (subject: string, body: string, fromEmail: string, senderName: string) => Promise<void>;
+  onGenerate: (
+    fromEmail: string,
+    senderName: string
+  ) => Promise<{ subject: string; body: string }>;
+  onSend: (
+    subject: string,
+    body: string,
+    fromEmail: string,
+    senderName: string,
+    toEmail: string
+  ) => Promise<void>;
 }
 
 const SENDER_OPTIONS = [
-  { label: "Linda", value: "linda", email: "varun@aifund.ai" },
+  { label: "Linda", value: "linda", email: "linda@aifund.ai" },
   { label: "Jon", value: "jon", email: "varun@aifund.ai" },
   { label: "Juliana", value: "juliana", email: "varun@aifund.ai" },
   { label: "Luisana", value: "luisana", email: "varun@aifund.ai" },
   { label: "Mary", value: "mary", email: "varun@aifund.ai" },
 ];
+
+// Map connection names to their email addresses
+const RECEIVER_EMAILS: Record<string, string> = {
+  dan: "dan@aifund.ai",
+  linda: "linda@aifund.ai",
+  jon: "jon@aifund.ai",
+  mary: "mary@aifund.ai",
+  eli: "eli@aifund.ai",
+  katherine: "katherine@aifund.ai",
+  rishabh: "rishabh@aifund.ai",
+};
 
 export function IntroductionEmailDialog({
   open,
@@ -83,8 +103,11 @@ export function IntroductionEmailDialog({
     setGenerated(false);
 
     try {
-      const sender = SENDER_OPTIONS.find(s => s.value === selectedSender);
-      const result = await onGenerate(sender?.email || "varun@aifund.ai", sender?.label || "Linda");
+      const sender = SENDER_OPTIONS.find((s) => s.value === selectedSender);
+      const result = await onGenerate(
+        sender?.email || "linda@aifund.ai",
+        sender?.label || "Linda"
+      );
       setSubject(result.subject);
       setBodyHtml(result.body); // Store original HTML
       setBody(htmlToPlainText(result.body)); // Convert to plain text for display
@@ -104,8 +127,19 @@ export function IntroductionEmailDialog({
     try {
       // Convert plain text back to HTML for sending
       const htmlToSend = plainTextToHtml(body);
-      const sender = SENDER_OPTIONS.find(s => s.value === selectedSender);
-      await onSend(subject, htmlToSend, sender?.email || "varun@aifund.ai", sender?.label || "Linda");
+      const sender = SENDER_OPTIONS.find((s) => s.value === selectedSender);
+
+      // Get receiver email from connection name
+      const receiverEmail =
+        RECEIVER_EMAILS[connectionName.toLowerCase()] || "varun@aifund.ai";
+
+      await onSend(
+        subject,
+        htmlToSend,
+        sender?.email || "Linda@aifund.ai",
+        sender?.label || "Linda",
+        receiverEmail
+      );
       setSent(true);
       // Auto-close after 2 seconds
       setTimeout(() => {
@@ -167,10 +201,22 @@ export function IntroductionEmailDialog({
                   <Label htmlFor="from-select" className="text-sm font-medium">
                     From:
                   </Label>
-                  <Select value={selectedSender} onValueChange={setSelectedSender}>
+                  <Select
+                    value={selectedSender}
+                    onValueChange={setSelectedSender}
+                  >
                     <SelectTrigger id="from-select" className="w-[240px]">
                       <SelectValue>
-                        {SENDER_OPTIONS.find(s => s.value === selectedSender)?.label} &lt;{SENDER_OPTIONS.find(s => s.value === selectedSender)?.email}&gt;
+                        {
+                          SENDER_OPTIONS.find((s) => s.value === selectedSender)
+                            ?.label
+                        }{" "}
+                        &lt;
+                        {
+                          SENDER_OPTIONS.find((s) => s.value === selectedSender)
+                            ?.email
+                        }
+                        &gt;
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -241,7 +287,9 @@ export function IntroductionEmailDialog({
               </div>
               <h3 className="text-lg font-semibold mb-2">Email Sent!</h3>
               <p className="text-muted-foreground">
-                Check your inbox at {SENDER_OPTIONS.find(s => s.value === selectedSender)?.email || "varun@aifund.ai"}
+                Email sent to {connectionName} at{" "}
+                {RECEIVER_EMAILS[connectionName.toLowerCase()] ||
+                  "varun@aifund.ai"}
               </p>
             </div>
           )}

@@ -44,14 +44,14 @@ def send_introduction_email(
             'error': 'RESEND_API_KEY not configured in environment variables'
         }
 
-    # Use email only (no display name)
+    # Use email only (no display name) for sender
     from_address = sender_info.get('email', 'varun@aifund.ai')
 
-    # Hard-coded recipient (for testing)
-    recipient_email = "varun@aifund.ai"
+    # Use to_email from request if provided, otherwise fallback to varun@aifund.ai
+    recipient_email = to_email if to_email else 'varun@aifund.ai'
 
     try:
-        # Send email via Resend (always to/from varun@aifund.ai)
+        # Send email via Resend (to/from selected sender's email)
         response = resend.Emails.send({
             "from": from_address,
             "to": recipient_email,
