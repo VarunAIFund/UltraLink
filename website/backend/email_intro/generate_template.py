@@ -71,13 +71,15 @@ REQUIREMENTS:
 1. Friendly and casual tone (these are colleagues, not strangers)
 2. Address the email to {mutual_connection_name} (the mutual connection) - use "Hey" or "Hi"
 3. Skip formal greetings like "I hope this email finds you well"
-4. Explain that you're reaching out because they're connected to {candidate_name}
+4. Say you noticed they're connected to {candidate_name}
 5. Make the candidate's name a hyperlink to their LinkedIn profile ONLY ONCE: <a href="{candidate_linkedin_url}">{candidate_name}</a>
-6. Briefly mention why {candidate_name} caught your attention (2-3 impressive highlights)
-7. Explain the opportunity/role you're hiring for (1-2 sentences)
-8. Make a clear, casual ask: "Would you mind introducing me to [Candidate Name]?" or "Could you connect me with [Candidate Name]?" - DO NOT hyperlink the name here
-9. Keep email concise (3-4 short paragraphs)
-10. End with casual closing like "Thanks" or "Best Regards"
+6. Say you're looking for [role] and the candidate's background "seems to be a potential fit" - DO NOT assume they are definitely a fit
+7. Mention 2-3 impressive highlights from their background
+8. Briefly describe what the opportunity involves (1-2 sentences)
+9. ASK FOR THEIR OPINION: "I was wondering if you think [he'd/she'd] be a good fit?"
+10. Give them an easy out: "If you do, could you connect me with [Name]? If you don't know [him/her] well enough, would it be ok for me to use your name as a reference if I reach out directly?"
+11. Keep email concise (3 short paragraphs)
+12. End with casual closing like "Thanks" or "Best Regards"
 
 Generate both:
 1. Subject line (e.g., "Introduction Request: [Candidate Name]")
@@ -86,7 +88,7 @@ Generate both:
 EXAMPLE STRUCTURE (DO NOT COPY - generate original content):
 {{
     "subject": "Introduction Request: [Candidate Name]",
-    "body": "<p>Hey [Connection Name],</p><p>I saw you're connected to <a href=\"[LinkedIn URL]\">[Candidate Name]</a>. I'm currently hiring for a [Role] at [Company], and [his/her] background looks like a really strong fit.</p><p>I was particularly impressed by [specific highlights - e.g., their experience leading X at Y, their expertise in Z]. The role we're building out involves [brief description], and I think [he/she] could be great for it.</p><p>Would you mind introducing me? Would love to chat with [him/her] about it.</p><p>Thanks!<br>[Your Name]</p>"
+    "body": "<p>Hey [Connection Name],</p><p>I noticed you're connected to <a href=\"[LinkedIn URL]\">[Candidate Name]</a>. I'm on the lookout for a [Role] for [Company/description], and [his/her] background seems to be a potential fit.</p><p>[Candidate's] experience [highlight 1] and [highlight 2] are particularly impressive. The opportunity involves [brief description], and I was wondering if you think [he'd/she'd] be a good fit? If you do, could you connect me with [Candidate Name]? I'd love to chat with [him/her] about this opportunity. If you don't know [him/her] well enough, would it be ok for me to use your name as a reference if I reach out to [him/her] directly?</p><p>Thanks!<br>[Your Name]</p>"
 }}
 
 Return ONLY valid JSON following this structure with original, personalized content."""
