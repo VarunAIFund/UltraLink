@@ -42,6 +42,7 @@ export interface CandidateResult {
   experiences?: Experience[];
   education?: Education[];
   notes?: string;
+  lever_opportunities?: string[];
 }
 
 export interface Highlight {

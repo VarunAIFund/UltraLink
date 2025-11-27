@@ -35,11 +35,12 @@ TABLE: candidates (987 records)
   * business_model (TEXT): e.g., "B2B", "B2C"
   * product_type (TEXT): e.g., "SaaS", "Hardware", "Platform"
 - education (JSONB): Array of education objects with school, degree, field, dates
+- lever_opportunities (TEXT[]): Array of Lever candidate URLs associated with this profile
 - created_at (TIMESTAMP): Record creation timestamp
 - updated_at (TIMESTAMP): Last update timestamp
 
 IMPORTANT QUERY RULES:
-1. ALWAYS include these core fields in SELECT: linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup, profile_pic, experiences, education
+1. ALWAYS include these core fields in SELECT: linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup, profile_pic, experiences, education, lever_opportunities
 2. For skills array searches: Use case-insensitive text search: array_to_string(skills, ',') ~* '\\mpython\\M'
 3. For COMPANY searches ("worked at X", "engineers at X", "people from X"): ONLY search the org field using JSONB array traversal:
    SELECT DISTINCT c.linkedin_url, c.name, ... FROM candidates c, jsonb_array_elements(c.experiences) AS exp
@@ -60,51 +61,51 @@ EXAMPLE_QUERIES = f"""
 EXAMPLE QUERIES:
 
 Natural: "Find Python developers in San Francisco"
-SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup, profile_pic, experiences, education
+SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup, profile_pic, experiences, education, lever_opportunities
      FROM candidates
      WHERE array_to_string(skills, ',') ~* '\\mpython\\M' AND location ILIKE '%San Francisco%'
      LIMIT {LIMIT_NUMBER};
 
 Natural: "AI engineers with 5+ years experience"
-SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup, profile_pic, experiences, education
+SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup, profile_pic, experiences, education, lever_opportunities
      FROM candidates
      WHERE years_experience >= 5
      AND (array_to_string(skills, ',') ~* '\\m(ai|artificial intelligence)\\M' OR experiences::text ~* '\\mAI\\M')
      LIMIT {LIMIT_NUMBER};
 
 Natural: "Senior engineers who worked at Google"
-SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education
+SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education, c.lever_opportunities
      FROM candidates c, jsonb_array_elements(c.experiences) AS exp
      WHERE c.seniority = 'Senior' AND exp->>'org' ~* '\\mGoogle\\M'
      LIMIT {LIMIT_NUMBER};
 
 Natural: "Startup founders with ML experience"
-SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education
+SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education, c.lever_opportunities
      FROM candidates c, jsonb_array_elements(c.experiences) AS exp
      WHERE (c.seniority = 'C-Level' OR exp->>'title' ~* '\\mfounder\\M')
      AND array_to_string(c.skills, ',') ~* '\\m(ml|machine learning)\\M'
      LIMIT {LIMIT_NUMBER};
 
 Natural: "People who worked at Stripe"
-SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education
+SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education, c.lever_opportunities
      FROM candidates c, jsonb_array_elements(c.experiences) AS exp
      WHERE exp->>'org' ~* '\\mStripe\\M'
      LIMIT {LIMIT_NUMBER};
 
 Natural: "People connected to John Smith"
-SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup, profile_pic, experiences, education
+SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup, profile_pic, experiences, education, lever_opportunities
      FROM candidates
      WHERE 'John Smith' = ANY(connected_to)
      LIMIT {LIMIT_NUMBER};
 
 Natural: "Stanford CS graduates"
-SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup, profile_pic, experiences, education
+SQL: SELECT linkedin_url, name, location, seniority, skills, headline, connected_to, years_experience, worked_at_startup, profile_pic, experiences, education, lever_opportunities
      FROM candidates
      WHERE education::text ~* '\\mStanford\\M' AND education::text ~* '\\mComputer Science\\M'
      LIMIT {LIMIT_NUMBER};
 
 Natural: "CEO at healthcare company"
-SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education
+SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education, c.lever_opportunities
      FROM candidates c, jsonb_array_elements(c.experiences) AS exp
      WHERE c.seniority = 'C-Level'
      AND exp->>'title' ~* '\\m(CEO|Chief Executive|Founder|Co-Founder)\\M'
@@ -112,7 +113,7 @@ SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, 
      LIMIT {LIMIT_NUMBER};
 
 Natural: "CTO who worked at AI startups"
-SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education
+SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education, c.lever_opportunities
      FROM candidates c, jsonb_array_elements(c.experiences) AS exp
      WHERE exp->>'title' ~* '\\m(CTO|Chief Technology Officer)\\M'
      AND exp->>'industry_tags' ~* '\\mai/ml\\M'
