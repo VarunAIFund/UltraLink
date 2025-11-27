@@ -42,10 +42,10 @@ interface IntroductionEmailDialogProps {
 
 const SENDER_OPTIONS = [
   { label: "Linda", value: "linda", email: "linda@aifund.ai" },
-  { label: "Jon", value: "jon", email: "varun@aifund.ai" },
-  { label: "Juliana", value: "juliana", email: "varun@aifund.ai" },
+  { label: "Jon", value: "jon", email: "jon@aifund.ai" },
+  { label: "Juliana", value: "juliana", email: "juliana@aifund.ai" },
   { label: "Luisana", value: "luisana", email: "varun@aifund.ai" },
-  { label: "Mary", value: "mary", email: "varun@aifund.ai" },
+  { label: "Mary", value: "mary", email: "mary@aifund.ai" },
 ];
 
 // Map connection names to their email addresses
