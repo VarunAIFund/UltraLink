@@ -76,7 +76,8 @@ def transform_profile_for_db(profile: Dict[str, Any]) -> Dict[str, Any]:
         'average_tenure': sanitized_profile.get('average_tenure'),
         'worked_at_startup': sanitized_profile.get('worked_at_startup', False),
         'experiences': sanitized_profile.get('experiences', []),  # Pass as Python object, Supabase handles JSONB conversion
-        'education': sanitized_profile.get('education', [])  # Pass as Python object, Supabase handles JSONB conversion
+        'education': sanitized_profile.get('education', []),  # Pass as Python object, Supabase handles JSONB conversion
+        'lever_opportunities': sanitized_profile.get('lever_opportunities', [])
     }
 
 def create_table_if_not_exists():

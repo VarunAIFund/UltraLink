@@ -60,3 +60,5 @@ Thumbs.db
 *.log
 
 *.jpg
+
+transform_data/lever/*.json
