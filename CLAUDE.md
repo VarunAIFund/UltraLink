@@ -34,6 +34,7 @@ UltraLink is a comprehensive LinkedIn data processing and candidate search platf
 - **HR Notes feature** for candidate annotations with edit/view modes
 - **Supabase Storage profile pictures** with automatic HiUser icon fallback for missing images (5,383 uploaded, 99.1% success rate)
 - **Real-time cost tracking** for all AI operations (SQL generation, classification, ranking) with backend logs and frontend display
+- **Introduction email requests** - AI-generated casual emails asking mutual connections for introductions, with sender selection and dynamic recipient routing
 
 ---
 
@@ -52,6 +53,9 @@ UltraLink/
 │   │   ├── highlights.py       # Perplexity + GPT-4o highlights
 │   │   ├── save_search.py      # Search session persistence
 │   │   ├── add_note.py         # HR notes for candidates
+│   │   ├── email_intro/        # Introduction email generation and sending
+│   │   │   ├── generate_template.py  # GPT-4o email generation
+│   │   │   └── send_email.py         # Resend API email sending
 │   │   ├── db_schema.py        # Database schema for AI context
 │   │   └── requirements.txt    # Python dependencies (includes google-generativeai)
 │   │
@@ -63,7 +67,8 @@ UltraLink/
 │   │   │   ├── components/
 │   │   │   ├── SearchBar.tsx           # Multi-select connection filter
 │   │   │   ├── CandidateList.tsx
-│   │   │   ├── CandidateCard.tsx       # With HR notes hover-to-edit
+│   │   │   ├── CandidateCard.tsx       # With HR notes and email intro dialog
+│   │   │   ├── IntroductionEmailDialog.tsx  # Email generation modal
 │   │   │   ├── CandidateHighlights.tsx
 │   │   │   ├── SqlDisplay.tsx
 │   │   │   └── ui/
