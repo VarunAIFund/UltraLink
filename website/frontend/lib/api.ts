@@ -23,6 +23,11 @@ export interface Education {
   field?: string;
 }
 
+export interface LeverOpportunity {
+  url: string;
+  hired: boolean;
+}
+
 export interface CandidateResult {
   name: string;
   linkedin_url: string;
@@ -42,7 +47,7 @@ export interface CandidateResult {
   experiences?: Experience[];
   education?: Education[];
   notes?: string;
-  lever_opportunities?: string[];
+  lever_opportunities?: LeverOpportunity[];
 }
 
 export interface Highlight {

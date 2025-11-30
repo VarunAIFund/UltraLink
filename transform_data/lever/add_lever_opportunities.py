@@ -2,8 +2,9 @@
 """
 Add Lever Opportunities to Structured Profiles
 
-This script reads linkedin_mapping.json and adds a lever_opportunities field
+This script reads linkedin_mapping_with_hired_status.json and adds a lever_opportunities field
 to each profile in structured_profiles.json based on LinkedIn URL matching.
+The field contains objects with {url, hired} format.
 
 Usage:
     python add_lever_opportunities.py
@@ -54,10 +55,10 @@ def normalize_linkedin_url(url: str) -> str:
 
     return normalized
 
-def load_linkedin_mapping(mapping_file: str) -> Dict[str, List[str]]:
+def load_linkedin_mapping(mapping_file: str) -> Dict[str, List[Dict[str, Any]]]:
     """
-    Load LinkedIn to Lever URL mapping
-    Returns: Dict mapping normalized LinkedIn URL -> List of Lever URLs
+    Load LinkedIn to Lever URL mapping with hired status
+    Returns: Dict mapping normalized LinkedIn URL -> List of {url, hired} objects
     """
     try:
         with open(mapping_file, 'r', encoding='utf-8') as f:
@@ -65,9 +66,9 @@ def load_linkedin_mapping(mapping_file: str) -> Dict[str, List[str]]:
 
         # Normalize all LinkedIn URLs in the mapping
         normalized_mapping = {}
-        for linkedin_url, lever_urls in raw_mapping.items():
+        for linkedin_url, lever_opportunities in raw_mapping.items():
             normalized_url = normalize_linkedin_url(linkedin_url)
-            normalized_mapping[normalized_url] = lever_urls
+            normalized_mapping[normalized_url] = lever_opportunities
 
         print(f"✅ Loaded {len(normalized_mapping)} LinkedIn URLs from mapping file")
         return normalized_mapping
@@ -98,10 +99,11 @@ def load_structured_profiles(profiles_file: str) -> List[Dict[str, Any]]:
 
 def add_lever_opportunities(
     profiles: List[Dict[str, Any]],
-    mapping: Dict[str, List[str]]
+    mapping: Dict[str, List[Dict[str, Any]]]
 ) -> tuple[List[Dict[str, Any]], Dict[str, int]]:
     """
     Add lever_opportunities field to each profile based on LinkedIn URL
+    Format: [{url: str, hired: bool}, ...]
 
     Returns:
         - Updated profiles list
@@ -112,7 +114,8 @@ def add_lever_opportunities(
         'profiles_with_lever': 0,
         'profiles_without_lever': 0,
         'missing_linkedin_url': 0,
-        'total_lever_urls': 0
+        'total_lever_urls': 0,
+        'total_hired': 0
     }
 
     for profile in profiles:
@@ -126,13 +129,15 @@ def add_lever_opportunities(
         # Normalize the LinkedIn URL for lookup
         normalized_url = normalize_linkedin_url(linkedin_url)
 
-        # Lookup Lever opportunities
-        lever_urls = mapping.get(normalized_url, [])
-        profile['lever_opportunities'] = lever_urls
+        # Lookup Lever opportunities (now list of {url, hired} objects)
+        lever_opportunities = mapping.get(normalized_url, [])
+        profile['lever_opportunities'] = lever_opportunities
 
-        if lever_urls:
+        if lever_opportunities:
             stats['profiles_with_lever'] += 1
-            stats['total_lever_urls'] += len(lever_urls)
+            stats['total_lever_urls'] += len(lever_opportunities)
+            # Count hired opportunities
+            stats['total_hired'] += sum(1 for opp in lever_opportunities if opp.get('hired', False))
         else:
             stats['profiles_without_lever'] += 1
 
@@ -163,10 +168,15 @@ def print_statistics(stats: Dict[str, int]):
     print(f"   Profiles without Lever opportunities: {stats['profiles_without_lever']:,}")
     print(f"   Missing LinkedIn URL: {stats['missing_linkedin_url']:,}")
     print(f"   Total Lever URLs added: {stats['total_lever_urls']:,}")
+    print(f"   Total hired: {stats['total_hired']:,}")
 
     if stats['total_profiles'] > 0:
         match_rate = (stats['profiles_with_lever'] / stats['total_profiles']) * 100
         print(f"   Match rate: {match_rate:.1f}%")
+
+    if stats['total_lever_urls'] > 0:
+        hired_rate = (stats['total_hired'] / stats['total_lever_urls']) * 100
+        print(f"   Hired rate: {hired_rate:.1f}%")
 
     print(f"{'='*60}\n")
 
@@ -179,7 +189,7 @@ def main():
 
     # File paths
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    mapping_file = os.path.join(script_dir, 'linkedin_mapping.json')
+    mapping_file = os.path.join(script_dir, 'linkedin_mapping_with_hired_status.json')
     profiles_file = os.path.join(script_dir, '..', 'structured_profiles_test.json')
 
     # Check if files exist

@@ -188,7 +188,14 @@ export function CandidateCard({ candidate, searchQuery }: CandidateCardProps) {
                 </div>
               )}
               <div className="flex-1">
-                <CardTitle>{candidate.name}</CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle>{candidate.name}</CardTitle>
+                  {candidate.lever_opportunities?.some(opp => opp.hired) && (
+                    <span className="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full font-medium">
+                      Hired
+                    </span>
+                  )}
+                </div>
                 <CardDescription>{candidate.headline}</CardDescription>
               </div>
             </div>
@@ -335,13 +342,13 @@ export function CandidateCard({ candidate, searchQuery }: CandidateCardProps) {
             >
               <h4 className="text-sm font-medium mb-3">Lever Opportunities</h4>
               <div className="space-y-2">
-                {candidate.lever_opportunities.map((leverUrl, index) => {
+                {candidate.lever_opportunities.map((opportunity, index) => {
                   // Extract the candidate ID from the URL for display
-                  const candidateId = leverUrl.split('/').pop() || `Opportunity ${index + 1}`;
+                  const candidateId = opportunity.url.split('/').pop() || `Opportunity ${index + 1}`;
                   return (
                     <a
                       key={index}
-                      href={leverUrl}
+                      href={opportunity.url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 text-sm text-primary hover:underline hover:bg-muted px-3 py-2 rounded-md transition-colors"

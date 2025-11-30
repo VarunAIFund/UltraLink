@@ -35,7 +35,9 @@ TABLE: candidates (987 records)
   * business_model (TEXT): e.g., "B2B", "B2C"
   * product_type (TEXT): e.g., "SaaS", "Hardware", "Platform"
 - education (JSONB): Array of education objects with school, degree, field, dates
-- lever_opportunities (TEXT[]): Array of Lever candidate URLs associated with this profile
+- lever_opportunities (JSONB): Array of Lever opportunity objects. Each object contains:
+  * url (TEXT): Lever candidate URL
+  * hired (BOOLEAN): Whether the candidate was hired for this opportunity
 - created_at (TIMESTAMP): Record creation timestamp
 - updated_at (TIMESTAMP): Last update timestamp
 
