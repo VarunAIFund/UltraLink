@@ -30,6 +30,7 @@ UltraLink is a comprehensive LinkedIn data processing and candidate search platf
 - **Web + CLI interfaces** for natural language candidate search
 - **Connection filtering** by Dan, Linda, Jon, and Mary
 - **Shareable search links** with UUID-based persistent search sessions
+- **Background search processing** with status tracking and automatic frontend polling
 - **AI-generated highlights** via Perplexity search + GPT-4o analysis
 - **HR Notes feature** for candidate annotations with edit/view modes
 - **Supabase Storage profile pictures** with automatic HiUser icon fallback for missing images (5,383 uploaded, 99.1% success rate)
@@ -659,9 +660,11 @@ python count_unique_linkedin_urls.py
 **How It Works:**
 
 1. **Auto-Save on Search**
-   - Every search is automatically saved to `search_sessions` table
-   - Returns UUID in response: `{"id": "abc-123-uuid", ...}`
-   - Frontend updates URL to `/search/[uuid]` without page reload
+   - Search session created immediately with UUID (before SQL generation)
+   - Frontend updates URL to `/search/[uuid]` instantly (<100ms)
+   - Background thread processes search (SQL → classification → ranking)
+   - Status tracked in database: 'searching' → 'classifying' → 'ranking' → 'completed'
+   - Frontend polls every 2s for status updates, continues even if user refreshes
 
 2. **URL Format**
    - New search: `ultralink.com/` → Search → `ultralink.com/search/abc-123-uuid`
@@ -919,18 +922,21 @@ CREATE TABLE search_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     query TEXT NOT NULL,
     connected_to TEXT[],
-    sql_query TEXT NOT NULL,
+    sql_query TEXT DEFAULT '',
     results JSONB NOT NULL,
     total_results INTEGER NOT NULL,
     total_cost DECIMAL(10, 6) DEFAULT 0,
+    status TEXT DEFAULT 'searching',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
-**Purpose:** Stores search sessions for shareable links
-- Each search is automatically saved with a UUID
-- URL pattern: `ultralink.com/search/[uuid]`
+**Purpose:** Stores search sessions for shareable links with background processing
+- Each search created immediately with UUID, processed in background thread
+- Status tracking: 'searching' → 'classifying' → 'ranking' → 'completed' / 'failed'
+- URL pattern: `ultralink.com/search/[uuid]` (updates instantly before SQL generation)
 - Results stored as JSONB for fast retrieval
+- Frontend polls for updates every 2s, continues even if user refreshes
 - Total cost tracked for each search (SQL + classification + ranking)
 - No user authentication required - public sharing
 
@@ -1167,15 +1173,16 @@ cp .env.example .env  # If example exists
 # 1. Create candidates table
 cat transform_data/create_candidates_table.sql
 
-# 2. Create search_sessions table (for shareable links)
+# 2. Create search_sessions table (for shareable links with background processing)
 CREATE TABLE search_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     query TEXT NOT NULL,
     connected_to TEXT[],
-    sql_query TEXT NOT NULL,
+    sql_query TEXT DEFAULT '',
     results JSONB NOT NULL,
     total_results INTEGER NOT NULL,
     total_cost DECIMAL(10, 6) DEFAULT 0,
+    status TEXT DEFAULT 'searching',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
