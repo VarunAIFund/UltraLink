@@ -105,6 +105,7 @@ export function SearchBar({
               { label: "Linda", value: "linda" },
               { label: "Jon", value: "jon" },
               { label: "Mary", value: "mary" },
+              { label: "Andy", value: "andy" },
               { label: "Eli", value: "eli" },
               { label: "Katherine", value: "katherine" },
               { label: "Rishabh", value: "rishabh" },
@@ -121,6 +122,7 @@ export function SearchBar({
               <SelectItem value="linda">Linda</SelectItem>
               <SelectItem value="jon">Jon</SelectItem>
               <SelectItem value="mary">Mary</SelectItem>
+              <SelectItem value="andy">Andy</SelectItem>
               <SelectItem value="eli">Eli</SelectItem>
               <SelectItem value="katherine">Katherine</SelectItem>
               <SelectItem value="rishabh">Rishabh</SelectItem>

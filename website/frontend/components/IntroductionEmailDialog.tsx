@@ -54,6 +54,7 @@ const RECEIVER_EMAILS: Record<string, string> = {
   linda: "linda@aifund.ai",
   jon: "jon@aifund.ai",
   mary: "mary@aifund.ai",
+  andy: "andy@aifund.ai",
   eli: "eli@aifund.ai",
   katherine: "katherine@aifund.ai",
   rishabh: "rishabh@aifund.ai",
