@@ -25,7 +25,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 # Concurrent processing configuration (based on ranking_stage_1_nano.py)
 # Fire all requests concurrently with no artificial rate limiting
 # Let OpenAI handle 429s with max_retries
-BATCH_SIZE = 200  # Process 500 profiles per batch with 500 concurrent requests
+BATCH_SIZE = 500  # Process 500 profiles per batch with 500 concurrent requests
 
 async def extract_profile_data(raw_data: dict, index: int, client: AsyncOpenAI) -> dict:
     """

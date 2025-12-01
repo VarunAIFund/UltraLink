@@ -4,10 +4,15 @@ Download Profile Pictures
 
 Downloads LinkedIn profile pictures locally and creates a mapping file.
 Falls back to default image for expired or invalid URLs.
+
+Usage:
+    python download_profile_pictures.py          # Interactive mode (asks how many to download)
+    python download_profile_pictures.py --auto   # Auto mode (downloads all profiles)
 """
 
 import json
 import os
+import sys
 import requests
 from urllib.parse import urlparse
 from datetime import datetime
@@ -214,8 +219,14 @@ def process_profile(profile, default_image_path, existing_mapping):
 def main():
     """Main download function"""
 
+    # Check for --auto flag
+    auto_mode = '--auto' in sys.argv
+
     print("📸 LinkedIn Profile Picture Downloader")
     print("=" * 60)
+
+    if auto_mode:
+        print("🤖 Running in AUTO mode (will download all profiles)")
 
     # Create output directory
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -294,7 +305,7 @@ def main():
         print(f"\n✅ All profiles already have valid images! Nothing to download.")
         return
 
-    # Ask user for confirmation and how many to process
+    # Ask user for confirmation and how many to process (or auto-download all)
     print(f"\n{'='*60}")
     print(f"READY TO DOWNLOAD")
     print(f"{'='*60}")
@@ -302,28 +313,34 @@ def main():
     print(f"⏱️  Estimated time: ~{len(profiles_to_process) * 0.2:.1f} seconds ({BATCH_SIZE} concurrent)")
     print(f"💾 Estimated storage: ~{len(profiles_to_process) * 15 / 1024:.1f} MB")
 
-    while True:
-        try:
-            user_input = input(f"\nHow many profiles to download? (1-{len(profiles_to_process):,}, or 'all' or 'cancel'): ").strip().lower()
+    if auto_mode:
+        # Auto mode - download all without prompting
+        profiles_to_download = profiles_to_process
+        print(f"\n🤖 AUTO MODE: Downloading all {len(profiles_to_download):,} profiles")
+    else:
+        # Interactive mode - ask user
+        while True:
+            try:
+                user_input = input(f"\nHow many profiles to download? (1-{len(profiles_to_process):,}, or 'all' or 'cancel'): ").strip().lower()
 
-            if user_input == 'cancel':
-                print("❌ Download cancelled by user")
-                return
-            elif user_input == 'all':
-                profiles_to_download = profiles_to_process
-                break
-            else:
-                num_to_download = int(user_input)
-                if 1 <= num_to_download <= len(profiles_to_process):
-                    profiles_to_download = profiles_to_process[:num_to_download]
-                    remaining = len(profiles_to_process) - num_to_download
-                    if remaining > 0:
-                        print(f"📋 {remaining:,} profiles will remain for next run")
+                if user_input == 'cancel':
+                    print("❌ Download cancelled by user")
+                    return
+                elif user_input == 'all':
+                    profiles_to_download = profiles_to_process
                     break
                 else:
-                    print(f"Please enter a number between 1 and {len(profiles_to_process):,}, 'all', or 'cancel'")
-        except ValueError:
-            print("Please enter a valid number, 'all', or 'cancel'")
+                    num_to_download = int(user_input)
+                    if 1 <= num_to_download <= len(profiles_to_process):
+                        profiles_to_download = profiles_to_process[:num_to_download]
+                        remaining = len(profiles_to_process) - num_to_download
+                        if remaining > 0:
+                            print(f"📋 {remaining:,} profiles will remain for next run")
+                        break
+                    else:
+                        print(f"Please enter a number between 1 and {len(profiles_to_process):,}, 'all', or 'cancel'")
+            except ValueError:
+                print("Please enter a valid number, 'all', or 'cancel'")
 
     print(f"\n🚀 Starting download of {len(profiles_to_download):,} profile pictures...")
 

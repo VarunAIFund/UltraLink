@@ -4,10 +4,15 @@ Upload Profile Pictures to Supabase Storage
 
 Uploads all downloaded LinkedIn profile pictures to Supabase Storage bucket.
 Uses existing filenames (e.g., in-johndoe.jpg) - no mapping file needed.
+
+Usage:
+    python upload_profile_pictures_to_supabase.py          # Interactive mode (asks for confirmation)
+    python upload_profile_pictures_to_supabase.py --auto   # Auto mode (skips confirmation)
 """
 
 import json
 import os
+import sys
 from pathlib import Path
 from supabase import create_client
 from dotenv import load_dotenv
@@ -184,8 +189,14 @@ def get_images_to_upload(skip_existing=True):
 def main():
     """Main upload function"""
 
+    # Check for --auto flag
+    auto_mode = '--auto' in sys.argv
+
     print("📸 Supabase Profile Picture Upload")
     print("=" * 60)
+
+    if auto_mode:
+        print("🤖 Running in AUTO mode (skipping confirmation)")
 
     # Validate environment variables
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
@@ -224,13 +235,16 @@ def main():
     size_mb = total_size / (1024 * 1024)
     print(f"📊 Total size: {size_mb:.2f} MB")
 
-    # Ask for confirmation
-    print(f"\n⚠️  About to upload {total_images:,} images ({size_mb:.2f} MB)")
-    response = input("Continue? (yes/no): ").lower().strip()
+    # Ask for confirmation (skip in auto mode)
+    if not auto_mode:
+        print(f"\n⚠️  About to upload {total_images:,} images ({size_mb:.2f} MB)")
+        response = input("Continue? (yes/no): ").lower().strip()
 
-    if response != 'yes':
-        print("❌ Upload cancelled")
-        return
+        if response != 'yes':
+            print("❌ Upload cancelled")
+            return
+    else:
+        print(f"\n⬆️  Proceeding with upload of {total_images:,} images ({size_mb:.2f} MB)...")
 
     # Upload with thread pool
     print(f"\n⬆️  Uploading images (batch size: {BATCH_SIZE})...")
