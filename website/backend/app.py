@@ -5,13 +5,14 @@ import io
 import sys
 import time
 import json
+import threading
 from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
 from search import execute_search
 from ranking import rank_candidates
 from ranking_gemini import rank_candidates_gemini
 from highlights import generate_highlights
-from save_search import save_search_session, get_search_session
+from save_search import save_search_session, update_search_session, get_search_session
 from add_note import update_candidate_note, get_candidate_note
 from email_intro.generate_template import generate_introduction_email
 from email_intro.send_email import send_introduction_email
@@ -180,6 +181,117 @@ def search_and_rank():
 
         return jsonify({'error': str(e)}), 500
 
+def process_search_background(search_id, query, connected_to, ranking):
+    """Background worker that processes search independently of SSE connection"""
+    # Capture stdout to save as logs
+    log_buffer = io.StringIO()
+    original_stdout = sys.stdout
+    sys.stdout = log_buffer
+
+    # Start timer for execution time tracking
+    start_time = time.time()
+
+    try:
+        print(f"[BACKGROUND] Starting search processing for {search_id}")
+
+        # Step 1: Generate SQL query
+        search_result = execute_search(query, connected_to)
+        search_cost = search_result.get('cost', {})
+
+        # Update search session with generated SQL
+        update_search_session(search_id, sql_query=search_result['sql'])
+        print(f"[BACKGROUND] Updated search session with SQL query")
+
+        # Step 2: Always run Stage 1 (GPT-5-nano classification)
+        update_search_session(search_id, status='classifying')
+
+        # Import stage functions
+        from ranking_stage_1_nano import classify_all_candidates
+        from ranking_stage_2_gemini import rank_all_candidates
+        import asyncio
+
+        stage_1_results = asyncio.run(classify_all_candidates(query, search_result['results']))
+        stage_1_cost = stage_1_results.get('cost', {})
+
+        # Calculate SQL + Stage 1 costs
+        sql_cost = search_cost.get('total_cost', 0.0)
+        stage_1_total = stage_1_cost.get('total_cost', 0.0)
+
+        # Conditionally run Stage 2 (Gemini ranking) based on ranking flag
+        if ranking:
+            # Step 3: Ranking matches (Stage 2 - Gemini ranking)
+            update_search_session(search_id, status='ranking')
+
+            ranked, stage_2_cost = rank_all_candidates(query, stage_1_results)
+            stage_2_total = stage_2_cost.get('total_cost', 0.0)
+            total_cost = sql_cost + stage_1_total + stage_2_total
+
+            print(f"\n{'='*60}")
+            print(f"💰 TOTAL SEARCH COST")
+            print(f"{'='*60}")
+            print(f"   • SQL Generation (GPT-4o): ${sql_cost:.4f}")
+            print(f"   • Classification (GPT-5-nano): ${stage_1_total:.4f}")
+            print(f"   • Ranking (Gemini 2.5 Pro): ${stage_2_total:.4f}")
+            print(f"   • TOTAL: ${total_cost:.4f}")
+            print(f"{'='*60}\n")
+        else:
+            # Stage 2 disabled - return Stage 1 classified results without Gemini ranking
+            print(f"\n[BACKGROUND] Stage 2 ranking disabled - returning classified results")
+
+            # Combine results from Stage 1 without Gemini ranking
+            stage_1_candidates = (
+                stage_1_results.get('strong_matches', []) +
+                stage_1_results.get('partial_matches', []) +
+                stage_1_results.get('no_matches', [])
+            )
+
+            # Flatten Stage 1 format to match Stage 2 format
+            ranked = []
+            for item in stage_1_candidates:
+                candidate = item.get('candidate', {})
+                confidence = item.get('confidence', 0)
+                candidate['match'] = item.get('match_type', 'no_match')
+                candidate['fit_description'] = item.get('analysis', '')
+                candidate['relevance_score'] = None
+                candidate['stage_1_confidence'] = confidence
+                candidate['score'] = confidence
+                ranked.append(candidate)
+
+            total_cost = sql_cost + stage_1_total
+
+            print(f"\n{'='*60}")
+            print(f"💰 TOTAL SEARCH COST (No Stage 2 Ranking)")
+            print(f"{'='*60}")
+            print(f"   • SQL Generation (GPT-4o): ${sql_cost:.4f}")
+            print(f"   • Classification (GPT-5-nano): ${stage_1_total:.4f}")
+            print(f"   • TOTAL: ${total_cost:.4f}")
+            print(f"{'='*60}\n")
+
+        # Calculate execution time
+        elapsed_time = time.time() - start_time
+
+        # Get captured logs
+        logs = log_buffer.getvalue()
+        sys.stdout = original_stdout
+        print(logs, end='')
+
+        # Update search session with final results
+        update_search_session(search_id, results=ranked, total_cost=total_cost, logs=logs, total_time=elapsed_time, status='completed')
+        print(f"[BACKGROUND] Search completed successfully: {search_id}")
+
+    except Exception as e:
+        print(f"[BACKGROUND ERROR] Exception: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+        logs = log_buffer.getvalue()
+        sys.stdout = original_stdout
+        print(logs, end='')
+
+        # Update search session status to failed
+        update_search_session(search_id, status='failed', logs=logs)
+        print(f"[BACKGROUND] Search failed: {search_id}")
+
 @app.route('/search-and-rank-stream', methods=['POST'])
 def search_and_rank_stream():
     """Combined endpoint with Server-Sent Events for real-time progress"""
@@ -192,142 +304,104 @@ def search_and_rank_stream():
         return jsonify({'error': 'Query required'}), 400
 
     def generate():
-        # Capture stdout to save as logs
-        log_buffer = io.StringIO()
-        original_stdout = sys.stdout
-        sys.stdout = log_buffer
-
-        # Start timer for execution time tracking
-        start_time = time.time()
-
         try:
-            # Step 1: Generate SQL query
-            yield format_sse({'step': 'generating_query', 'message': 'Generating search query...'})
+            # Create search session IMMEDIATELY before any processing
+            # This gives us a search_id to send to frontend right away
+            search_id = save_search_session(
+                query,
+                connected_to,
+                sql_query='',  # Will update SQL later
+                results=None,  # Empty results for now
+                total_cost=0.0,  # Will update cost later
+                logs='',  # Will update logs later
+                total_time=0.0,  # Will update time later
+                ranking=ranking,
+                status='searching'  # Initial status
+            )
+            print(f"[SSE] Created search session with ID: {search_id}")
 
-            search_result = execute_search(query, connected_to)
-            search_cost = search_result.get('cost', {})
+            # Send search_id to frontend so URL can update IMMEDIATELY
+            yield format_sse({'step': 'search_created', 'search_id': search_id})
 
-            # Step 2: Searching database
-            yield format_sse({'step': 'searching', 'message': 'Searching database...'})
+            # Launch background thread to process search
+            thread = threading.Thread(
+                target=process_search_background,
+                args=(search_id, query, connected_to, ranking),
+                daemon=True
+            )
+            thread.start()
+            print(f"[SSE] Launched background thread for search {search_id}")
 
-            # Step 3: Always run Stage 1 (GPT-5-nano classification)
-            yield format_sse({'step': 'classifying', 'message': 'Analyzing candidates...'})
+            # Poll database for status updates and stream progress
+            last_status = 'searching'
+            poll_count = 0
+            max_polls = 300  # 5 minutes max (300 * 1 second)
 
-            # Import stage functions directly for real-time progress
-            from ranking_stage_1_nano import classify_all_candidates
-            from ranking_stage_2_gemini import rank_all_candidates
-            import asyncio
+            while poll_count < max_polls:
+                time.sleep(1)  # Poll every second
+                poll_count += 1
 
-            stage_1_results = asyncio.run(classify_all_candidates(query, search_result['results']))
-            stage_1_cost = stage_1_results.get('cost', {})
+                # Get current search status from database
+                search_data = get_search_session(search_id)
+                if not search_data:
+                    break
 
-            # Calculate SQL + Stage 1 costs
-            sql_cost = search_cost.get('total_cost', 0.0)
-            stage_1_total = stage_1_cost.get('total_cost', 0.0)
+                current_status = search_data.get('status', 'searching')
 
-            # Conditionally run Stage 2 (Gemini ranking) based on ranking flag
-            if ranking:
-                # Step 4: Ranking matches (Stage 2 - Gemini ranking)
-                yield format_sse({'step': 'ranking', 'message': 'Ranking matches...'})
+                # Send progress update if status changed
+                if current_status != last_status:
+                    if current_status == 'searching':
+                        yield format_sse({'step': 'generating_query', 'message': 'Generating search query...'})
+                    elif current_status == 'classifying':
+                        yield format_sse({'step': 'classifying', 'message': 'Analyzing candidates...'})
+                    elif current_status == 'ranking':
+                        yield format_sse({'step': 'ranking', 'message': 'Ranking matches...'})
+                    last_status = current_status
 
-                ranked, stage_2_cost = rank_all_candidates(query, stage_1_results)
-                stage_2_total = stage_2_cost.get('total_cost', 0.0)
-                total_cost = sql_cost + stage_1_total + stage_2_total
+                # Check if search completed or failed
+                if current_status in ['completed', 'failed']:
+                    if current_status == 'completed':
+                        # Send final results
+                        yield format_sse({
+                            'step': 'complete',
+                            'message': 'Complete',
+                            'data': {
+                                'success': True,
+                                'id': search_id,
+                                'sql': search_data.get('sql', ''),
+                                'results': search_data.get('results', []),
+                                'total': search_data.get('total', 0),
+                                'total_cost': search_data.get('total_cost', 0),
+                                'total_time': search_data.get('total_time', 0),
+                                'logs': search_data.get('logs', '')
+                            }
+                        })
+                    else:
+                        # Search failed
+                        yield format_sse({
+                            'step': 'error',
+                            'message': 'Search failed. Check logs for details.'
+                        })
+                    break
 
-                # Print cost breakdown
-                print(f"\n{'='*60}")
-                print(f"💰 TOTAL SEARCH COST")
-                print(f"{'='*60}")
-                print(f"   • SQL Generation (GPT-4o): ${sql_cost:.4f}")
-                print(f"   • Classification (GPT-5-nano): ${stage_1_total:.4f}")
-                print(f"   • Ranking (Gemini 2.5 Pro): ${stage_2_total:.4f}")
-                print(f"   • TOTAL: ${total_cost:.4f}")
-                print(f"{'='*60}\n")
-            else:
-                # Stage 2 disabled - return Stage 1 classified results without Gemini ranking
-                print(f"\n[DEBUG] Stage 2 ranking disabled - returning classified results without Gemini ranking")
+            print(f"[SSE] Finished monitoring search {search_id}")
 
-                # Combine results from Stage 1 without Gemini ranking
-                stage_1_candidates = (
-                    stage_1_results.get('strong_matches', []) +
-                    stage_1_results.get('partial_matches', []) +
-                    stage_1_results.get('no_matches', [])
-                )
-
-                # Flatten Stage 1 format to match Stage 2 format
-                # Stage 1 has: {candidate: {...}, analysis: "...", match_type: "..."}
-                # Stage 2 expects: {name: "...", match: "...", fit_description: "...", ...}
-                ranked = []
-                for item in stage_1_candidates:
-                    # Extract the nested candidate object
-                    candidate = item.get('candidate', {})
-
-                    # Add Stage 1 classification fields to candidate
-                    confidence = item.get('confidence', 0)
-                    candidate['match'] = item.get('match_type', 'no_match')  # match_type -> match
-                    candidate['fit_description'] = item.get('analysis', '')  # analysis -> fit_description
-                    candidate['relevance_score'] = None  # No Gemini ranking
-                    candidate['stage_1_confidence'] = confidence
-                    candidate['score'] = confidence  # Use Stage 1 confidence as sortable score
-
-                    ranked.append(candidate)
-
-                total_cost = sql_cost + stage_1_total
-
-                print(f"\n{'='*60}")
-                print(f"💰 TOTAL SEARCH COST (No Stage 2 Ranking)")
-                print(f"{'='*60}")
-                print(f"   • SQL Generation (GPT-4o): ${sql_cost:.4f}")
-                print(f"   • Classification (GPT-5-nano): ${stage_1_total:.4f}")
-                print(f"   • TOTAL: ${total_cost:.4f}")
-                print(f"{'='*60}\n")
-
-            # Calculate execution time
-            elapsed_time = time.time() - start_time
-
-            # Get captured logs
-            logs = log_buffer.getvalue()
-
-            # Restore stdout
-            sys.stdout = original_stdout
-
-            # Print logs to actual stdout
-            print(logs, end='')
-
-            # Save search session
-            search_id = save_search_session(query, connected_to, search_result['sql'], ranked, total_cost, logs, elapsed_time, ranking)
-            print(f"[DEBUG] Saved search session with ID: {search_id}")
-
-            # Step 5: Complete - send final results
-            yield format_sse({
-                'step': 'complete',
-                'message': 'Complete',
-                'data': {
-                    'success': True,
-                    'id': search_id,
-                    'sql': search_result['sql'],
-                    'results': ranked,
-                    'total': len(ranked),
-                    'total_cost': total_cost,
-                    'total_time': elapsed_time,
-                    'logs': logs
-                }
-            })
+        except GeneratorExit:
+            # Client disconnected (e.g., page refresh or close)
+            # This is OK - background thread continues processing
+            print(f"[SSE] Client disconnected - background thread continues for search_id: {search_id if 'search_id' in locals() else 'unknown'}")
+            raise
 
         except Exception as e:
-            # Capture error in logs
-            print(f"[ERROR] Exception occurred: {type(e).__name__}: {str(e)}")
+            # SSE stream error (not background processing error)
+            print(f"[SSE ERROR] Exception in SSE stream: {type(e).__name__}: {str(e)}")
             import traceback
             traceback.print_exc()
 
-            logs = log_buffer.getvalue()
-            sys.stdout = original_stdout
-            print(logs, end='')
-
-            # Send error event
+            # Send error event (background thread handles search status)
             yield format_sse({
                 'step': 'error',
-                'message': str(e)
+                'message': f'SSE error: {str(e)}'
             })
 
     return Response(stream_with_context(generate()), mimetype='text/event-stream')

@@ -12,13 +12,14 @@ interface CandidateListProps {
   hasSearched: boolean;
   loading?: boolean;
   searchStep?: string;
+  searchStatus?: string;
   totalCost?: number;
   totalTime?: number;
   logs?: string;
   searchQuery?: string;
 }
 
-export function CandidateList({ results, hasSearched, loading, searchStep, totalCost, totalTime, logs, searchQuery }: CandidateListProps) {
+export function CandidateList({ results, hasSearched, loading, searchStep, searchStatus, totalCost, totalTime, logs, searchQuery }: CandidateListProps) {
   // Collapsible state for each section
   const [strongExpanded, setStrongExpanded] = useState(true);
   const [partialExpanded, setPartialExpanded] = useState(false);
@@ -60,7 +61,10 @@ export function CandidateList({ results, hasSearched, loading, searchStep, total
     return <EmptyState />;
   }
 
-  if (loading) {
+  // Show loading skeleton if search is in progress
+  const isSearchInProgress = loading || (searchStatus && searchStatus !== 'completed' && searchStatus !== 'failed');
+
+  if (isSearchInProgress) {
     return (
       <div>
         <h2 className="text-2xl font-semibold mb-4">

@@ -87,6 +87,7 @@ export interface SavedSearchResponse {
   total_time?: number;
   logs?: string;
   ranking_enabled?: boolean;
+  status?: string;
   created_at: string;
   error?: string;
 }
@@ -114,7 +115,8 @@ export async function searchAndRankStream(
   query: string,
   connectedTo: string,
   ranking: boolean,
-  onProgress: (step: string, message: string) => void
+  onProgress: (step: string, message: string) => void,
+  onSearchIdReceived?: (searchId: string) => void
 ): Promise<SearchResponse> {
   const response = await fetch(`${API_BASE_URL}/search-and-rank-stream`, {
     method: 'POST',
@@ -166,6 +168,11 @@ export async function searchAndRankStream(
             finalData = event.data;
           } else if (event.step === 'error') {
             throw new Error(event.message);
+          } else if (event.step === 'search_created' && event.search_id) {
+            // Search ID received - notify callback immediately
+            if (onSearchIdReceived) {
+              onSearchIdReceived(event.search_id);
+            }
           } else {
             // Progress update
             onProgress(event.step, event.message);

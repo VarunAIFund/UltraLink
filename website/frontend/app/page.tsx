@@ -8,6 +8,18 @@ import { SqlDisplay } from "@/components/SqlDisplay";
 import { CandidateList } from "@/components/CandidateList";
 import { motion } from "framer-motion";
 
+// Helper function to get user-friendly status messages
+function getStatusMessage(status: string): string {
+  const messages: Record<string, string> = {
+    'searching': 'Searching database...',
+    'classifying': 'Analyzing candidates...',
+    'ranking': 'Ranking matches...',
+    'completed': 'Complete',
+    'failed': 'Search failed'
+  };
+  return messages[status] || 'Processing...';
+}
+
 export default function Home() {
   const pathname = usePathname();
   const [query, setQuery] = useState("");
@@ -22,6 +34,7 @@ export default function Home() {
   const [logs, setLogs] = useState<string>("");
   const [searchStep, setSearchStep] = useState<string>("");
   const [ranking, setRanking] = useState<boolean>(true);
+  const [searchStatus, setSearchStatus] = useState<string>("completed");
 
   // Load saved search if URL contains /search/[id]
   useEffect(() => {
@@ -41,9 +54,18 @@ export default function Home() {
           setTotalTime(response.total_time || 0);
           setLogs(response.logs || "");
           setRanking(response.ranking_enabled ?? true);
+          setSearchStatus(response.status || "completed");
+
+          // If search is still in progress, show appropriate message
+          if (response.status && response.status !== "completed" && response.status !== "failed") {
+            setLoading(true);
+            setSearchStep(getStatusMessage(response.status));
+          } else {
+            // Search is completed or failed, stop loading
+            setLoading(false);
+          }
         } catch (err) {
           setError(err instanceof Error ? err.message : "Failed to load search");
-        } finally {
           setLoading(false);
         }
       }
@@ -51,6 +73,61 @@ export default function Home() {
 
     loadSavedSearch();
   }, [pathname]);
+
+  // Poll for updates when search is in progress
+  useEffect(() => {
+    // Only poll if there's a search in progress
+    if (!loading || searchStatus === "completed" || searchStatus === "failed") {
+      return;
+    }
+
+    // Extract search ID from URL
+    const searchIdMatch = pathname.match(/^\/search\/([a-f0-9-]+)$/);
+    if (!searchIdMatch) {
+      return;
+    }
+
+    const searchId = searchIdMatch[1];
+    console.log('[POLLING] Starting poll for search', searchId);
+
+    const pollInterval = setInterval(async () => {
+      try {
+        console.log('[POLLING] Checking status...');
+        const response = await getSearchSession(searchId);
+
+        // Update all state with latest data
+        setResults(response.results);
+        setSql(response.sql);
+        setTotalCost(response.total_cost || 0);
+        setTotalTime(response.total_time || 0);
+        setLogs(response.logs || "");
+
+        const newStatus = response.status || "completed";
+
+        // Only update if status changed
+        if (newStatus !== searchStatus) {
+          console.log('[POLLING] Status changed:', searchStatus, '→', newStatus);
+          setSearchStatus(newStatus);
+          setSearchStep(getStatusMessage(newStatus));
+        }
+
+        // Stop polling if completed or failed
+        if (newStatus === "completed" || newStatus === "failed") {
+          console.log('[POLLING] Search finished, stopping poll');
+          setLoading(false);
+          clearInterval(pollInterval);
+        }
+      } catch (err) {
+        console.error('[POLLING] Error:', err);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    // Cleanup on unmount
+    return () => {
+      console.log('[POLLING] Cleanup, stopping poll');
+      clearInterval(pollInterval);
+    };
+  }, [pathname, loading, searchStatus]);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -73,6 +150,12 @@ export default function Home() {
         ranking,
         (step: string, message: string) => {
           setSearchStep(message);
+        },
+        // Callback for when search_id is received (happens immediately after SQL generation)
+        (searchId: string) => {
+          console.log('[DEBUG] Search ID received early:', searchId);
+          // Update URL immediately - within ~2 seconds instead of waiting 30+ seconds
+          window.history.pushState({}, "", `/search/${searchId}`);
         }
       );
 
@@ -83,13 +166,16 @@ export default function Home() {
       setTotalTime(response.total_time || 0);
       setLogs(response.logs || "");
       setSearchStep(""); // Clear step after completion
+      setSearchStatus("completed"); // Update status to show results
 
-      // Update URL with search ID without page reload
+      // Note: URL was already updated via callback above, but we keep this
+      // for backward compatibility in case search_id comes in response
       if (response.id) {
         window.history.pushState({}, "", `/search/${response.id}`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Search failed");
+      setSearchStatus("failed"); // Update status on error
     } finally {
       setLoading(false);
     }
@@ -143,6 +229,7 @@ export default function Home() {
         hasSearched={hasSearched}
         loading={loading}
         searchStep={searchStep}
+        searchStatus={searchStatus}
         totalCost={totalCost}
         totalTime={totalTime}
         logs={logs}
