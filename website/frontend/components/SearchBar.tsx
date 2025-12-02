@@ -109,6 +109,7 @@ export function SearchBar({
               { label: "Eli", value: "eli" },
               { label: "Katherine", value: "katherine" },
               { label: "Rishabh", value: "rishabh" },
+              { label: "Juliana", value: "juliana" },
             ]}
             value={connectedTo}
             onValueChange={setConnectedTo}
@@ -126,6 +127,7 @@ export function SearchBar({
               <SelectItem value="eli">Eli</SelectItem>
               <SelectItem value="katherine">Katherine</SelectItem>
               <SelectItem value="rishabh">Rishabh</SelectItem>
+              <SelectItem value="juliana">Juliana</SelectItem>
               <SelectSeparator />
               <button
                 className="w-full px-2 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground rounded-sm cursor-pointer"

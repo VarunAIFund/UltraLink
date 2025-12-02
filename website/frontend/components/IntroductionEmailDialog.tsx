@@ -58,6 +58,7 @@ const RECEIVER_EMAILS: Record<string, string> = {
   eli: "eli@aifund.ai",
   katherine: "katherine@aifund.ai",
   rishabh: "rishabh@aifund.ai",
+  juliana: "juliana@aifund.ai",
 };
 
 export function IntroductionEmailDialog({
