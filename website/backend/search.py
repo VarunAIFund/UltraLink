@@ -4,8 +4,10 @@ Search module - Handles query generation and database search
 import os
 import re
 import psycopg2
+from psycopg2.pool import ThreadedConnectionPool
 from urllib.parse import quote_plus
 from dotenv import load_dotenv, dotenv_values
+from contextlib import contextmanager
 from openai import OpenAI
 from db_schema import get_schema_prompt
 from utils import add_profile_pic_urls
@@ -17,8 +19,16 @@ load_dotenv(env_path)
 
 client = OpenAI()
 
-def get_db_connection():
-    """Get Supabase database connection - always uses connection pooler (port 6543)"""
+# Global connection pool
+connection_pool = None
+
+def init_connection_pool():
+    """Initialize connection pool with 3-5 persistent connections"""
+    global connection_pool
+
+    if connection_pool is not None:
+        return  # Already initialized
+
     # Try Railway environment variables first, fall back to .env file
     db_password = os.getenv('SUPABASE_DB_PASSWORD')
     supabase_url = os.getenv('SUPABASE_URL')
@@ -41,7 +51,21 @@ def get_db_connection():
     # Always use connection pooler (port 6543) for better performance and stability
     conn_string = f"postgresql://postgres.{project_id}:{encoded_password}@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
 
-    return psycopg2.connect(conn_string)
+    # Create THREADED pool with 3-5 connections (thread-safe for Flask + background threads)
+    connection_pool = ThreadedConnectionPool(3, 5, conn_string)
+    print("[POOL] Thread-safe connection pool initialized (3-5 connections)")
+
+@contextmanager
+def get_pooled_connection():
+    """Get a connection from the pool, automatically return it when done"""
+    if connection_pool is None:
+        init_connection_pool()
+
+    conn = connection_pool.getconn()
+    try:
+        yield conn
+    finally:
+        connection_pool.putconn(conn)
 
 def generate_sql(query: str, connected_to: str = None) -> str:
     """Use GPT to convert natural language to SQL"""
@@ -170,63 +194,60 @@ def execute_search(query: str, connected_to: str = None, min_results: int = 10):
     # Debug: print SQL
     print(f"[SEARCH] Generated SQL:\n{sql}\n")
 
-    # Execute
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(sql)
+    # Execute with pooled connection
+    with get_pooled_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(sql)
 
-    columns = [desc[0] for desc in cursor.description]
-    rows = cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]
+        rows = cursor.fetchall()
 
-    results = []
-    for row in rows:
-        result = {}
-        for i, value in enumerate(row):
-            result[columns[i]] = value
-        results.append(result)
+        results = []
+        for row in rows:
+            result = {}
+            for i, value in enumerate(row):
+                result[columns[i]] = value
+            results.append(result)
 
-    print(f"[SEARCH] Initial search returned {len(results)} results")
+        print(f"[SEARCH] Initial search returned {len(results)} results")
 
-    # If too few results, try a more relaxed search
-    if len(results) < min_results:
-        print(f"[SEARCH] Too few results ({len(results)} < {min_results}), trying relaxed search...")
+        # If too few results, try a more relaxed search
+        if len(results) < min_results:
+            print(f"[SEARCH] Too few results ({len(results)} < {min_results}), trying relaxed search...")
 
-        try:
-            relaxed_sql, relaxed_cost = generate_relaxed_query(query, connected_to)
+            try:
+                relaxed_sql, relaxed_cost = generate_relaxed_query(query, connected_to)
 
-            # Validate relaxed query
-            if not is_safe_query(relaxed_sql):
-                print(f"[SEARCH] Relaxed query unsafe, using original results")
-            else:
-                print(f"[SEARCH] Relaxed SQL:\n{relaxed_sql}\n")
-
-                # Execute relaxed query
-                cursor.execute(relaxed_sql)
-                relaxed_rows = cursor.fetchall()
-
-                relaxed_results = []
-                for row in relaxed_rows:
-                    result = {}
-                    for i, value in enumerate(row):
-                        result[columns[i]] = value
-                    relaxed_results.append(result)
-
-                print(f"[SEARCH] Relaxed search returned {len(relaxed_results)} results")
-
-                # Use relaxed results if they're better
-                if len(relaxed_results) > len(results):
-                    print(f"[SEARCH] Using relaxed results ({len(relaxed_results)} results)")
-                    results = relaxed_results
-                    sql = relaxed_sql  # Update SQL to show the one that was actually used
-                    sql_cost = relaxed_cost  # Update cost to match the query that was used
+                # Validate relaxed query
+                if not is_safe_query(relaxed_sql):
+                    print(f"[SEARCH] Relaxed query unsafe, using original results")
                 else:
-                    print(f"[SEARCH] Keeping original results ({len(results)} results)")
+                    print(f"[SEARCH] Relaxed SQL:\n{relaxed_sql}\n")
 
-        except Exception as e:
-            print(f"[SEARCH] Relaxed search failed: {e}, using original results")
+                    # Execute relaxed query
+                    cursor.execute(relaxed_sql)
+                    relaxed_rows = cursor.fetchall()
 
-    cursor.close()
-    conn.close()
+                    relaxed_results = []
+                    for row in relaxed_rows:
+                        result = {}
+                        for i, value in enumerate(row):
+                            result[columns[i]] = value
+                        relaxed_results.append(result)
+
+                    print(f"[SEARCH] Relaxed search returned {len(relaxed_results)} results")
+
+                    # Use relaxed results if they're better
+                    if len(relaxed_results) > len(results):
+                        print(f"[SEARCH] Using relaxed results ({len(relaxed_results)} results)")
+                        results = relaxed_results
+                        sql = relaxed_sql  # Update SQL to show the one that was actually used
+                        sql_cost = relaxed_cost  # Update cost to match the query that was used
+                    else:
+                        print(f"[SEARCH] Keeping original results ({len(results)} results)")
+
+            except Exception as e:
+                print(f"[SEARCH] Relaxed search failed: {e}, using original results")
 
     # Add profile pic URLs to results
     results = add_profile_pic_urls(results)

@@ -2,17 +2,27 @@
 Save and retrieve search sessions from database
 """
 import psycopg2
+from psycopg2.pool import ThreadedConnectionPool
 import os
 import json
 from urllib.parse import quote_plus
 from dotenv import load_dotenv, dotenv_values
+from contextlib import contextmanager
 
 # Load environment
 env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 load_dotenv(env_path)
 
-def get_db_connection():
-    """Get Supabase database connection - always uses connection pooler (port 6543)"""
+# Global connection pool
+connection_pool = None
+
+def init_connection_pool():
+    """Initialize connection pool with 3-5 persistent connections"""
+    global connection_pool
+
+    if connection_pool is not None:
+        return  # Already initialized
+
     # Try Railway environment variables first, fall back to .env file
     db_password = os.getenv('SUPABASE_DB_PASSWORD')
     supabase_url = os.getenv('SUPABASE_URL')
@@ -35,21 +45,21 @@ def get_db_connection():
     # Always use connection pooler (port 6543) for better performance and stability
     conn_string = f"postgresql://postgres.{project_id}:{encoded_password}@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
 
-    return psycopg2.connect(conn_string)
+    # Create THREADED pool with 3-5 connections (thread-safe for Flask + background threads)
+    connection_pool = ThreadedConnectionPool(3, 5, conn_string)
+    print("[POOL] Thread-safe connection pool initialized (3-5 connections)")
 
-def get_db_connection_with_retry(max_retries=7):
-    """Get database connection with exponential backoff retry"""
-    import time
+@contextmanager
+def get_pooled_connection():
+    """Get a connection from the pool, automatically return it when done"""
+    if connection_pool is None:
+        init_connection_pool()
 
-    for attempt in range(max_retries):
-        try:
-            return get_db_connection()
-        except Exception as e:
-            if attempt == max_retries - 1:
-                raise  # Last attempt, give up
-            wait_time = (2 ** attempt) * 0.5  # 0.5s, 1s, 2s, 4s, 8s
-            print(f"[DB RETRY] Connection failed (attempt {attempt+1}/{max_retries}), retrying in {wait_time}s...")
-            time.sleep(wait_time)
+    conn = connection_pool.getconn()
+    try:
+        yield conn
+    finally:
+        connection_pool.putconn(conn)
 
 def save_search_session(query, connected_to, sql_query='', results=None, total_cost=0.0, logs='', total_time=0.0, ranking=True, status='searching'):
     """
@@ -72,35 +82,34 @@ def save_search_session(query, connected_to, sql_query='', results=None, total_c
     # Default results to empty list if None
     if results is None:
         results = []
-    conn = get_db_connection_with_retry()
-    cursor = conn.cursor()
 
-    # Prepare connected_to as array
-    connected_to_array = [connected_to] if connected_to != 'all' else []
+    with get_pooled_connection() as conn:
+        cursor = conn.cursor()
 
-    cursor.execute("""
-        INSERT INTO search_sessions (query, connected_to, sql_query, results, total_results, total_cost, logs, total_time, ranking_enabled, status)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        RETURNING id
-    """, (
-        query,
-        connected_to_array,
-        sql_query,
-        json.dumps(results),
-        len(results),
-        total_cost,
-        logs,
-        total_time,
-        ranking,
-        status
-    ))
+        # Prepare connected_to as array
+        connected_to_array = [connected_to] if connected_to != 'all' else []
 
-    search_id = cursor.fetchone()[0]
-    conn.commit()
-    cursor.close()
-    conn.close()
+        cursor.execute("""
+            INSERT INTO search_sessions (query, connected_to, sql_query, results, total_results, total_cost, logs, total_time, ranking_enabled, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            query,
+            connected_to_array,
+            sql_query,
+            json.dumps(results),
+            len(results),
+            total_cost,
+            logs,
+            total_time,
+            ranking,
+            status
+        ))
 
-    return str(search_id)
+        search_id = cursor.fetchone()[0]
+        conn.commit()
+
+        return str(search_id)
 
 def update_search_session(search_id, sql_query=None, results=None, total_cost=None, logs=None, total_time=None, status=None):
     """
@@ -118,9 +127,6 @@ def update_search_session(search_id, sql_query=None, results=None, total_cost=No
     Returns:
         UUID of updated search session
     """
-    conn = get_db_connection_with_retry()
-    cursor = conn.cursor()
-
     # Build dynamic UPDATE query based on what's provided
     updates = []
     params = []
@@ -156,19 +162,20 @@ def update_search_session(search_id, sql_query=None, results=None, total_cost=No
     # Add search_id to params
     params.append(search_id)
 
-    cursor.execute(f"""
-        UPDATE search_sessions
-        SET {', '.join(updates)}
-        WHERE id = %s
-        RETURNING id
-    """, params)
+    with get_pooled_connection() as conn:
+        cursor = conn.cursor()
 
-    updated_id = cursor.fetchone()
-    conn.commit()
-    cursor.close()
-    conn.close()
+        cursor.execute(f"""
+            UPDATE search_sessions
+            SET {', '.join(updates)}
+            WHERE id = %s
+            RETURNING id
+        """, params)
 
-    return str(updated_id[0]) if updated_id else None
+        updated_id = cursor.fetchone()
+        conn.commit()
+
+        return str(updated_id[0]) if updated_id else None
 
 def get_search_session(search_id):
     """
@@ -180,35 +187,33 @@ def get_search_session(search_id):
     Returns:
         Dict with search data or None if not found
     """
-    conn = get_db_connection_with_retry()
-    cursor = conn.cursor()
+    with get_pooled_connection() as conn:
+        cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT query, connected_to, sql_query, results, total_results, total_cost, logs, total_time, ranking_enabled, status, created_at
-        FROM search_sessions
-        WHERE id = %s
-    """, (search_id,))
+        cursor.execute("""
+            SELECT query, connected_to, sql_query, results, total_results, total_cost, logs, total_time, ranking_enabled, status, created_at
+            FROM search_sessions
+            WHERE id = %s
+        """, (search_id,))
 
-    result = cursor.fetchone()
-    cursor.close()
-    conn.close()
+        result = cursor.fetchone()
 
-    if not result:
-        return None
+        if not result:
+            return None
 
-    query, connected_to, sql_query, results, total_results, total_cost, logs, total_time, ranking_enabled, status, created_at = result
+        query, connected_to, sql_query, results, total_results, total_cost, logs, total_time, ranking_enabled, status, created_at = result
 
-    return {
-        'id': search_id,
-        'query': query,
-        'connected_to': connected_to[0] if connected_to else 'all',
-        'sql': sql_query,
-        'results': results,
-        'total': total_results,
-        'total_cost': float(total_cost) if total_cost else 0.0,
-        'logs': logs if logs else '',
-        'total_time': float(total_time) if total_time else 0.0,
-        'ranking_enabled': ranking_enabled if ranking_enabled is not None else True,
-        'status': status if status else 'searching',
-        'created_at': created_at.isoformat()
-    }
+        return {
+            'id': search_id,
+            'query': query,
+            'connected_to': connected_to[0] if connected_to else 'all',
+            'sql': sql_query,
+            'results': results,
+            'total': total_results,
+            'total_cost': float(total_cost) if total_cost else 0.0,
+            'logs': logs if logs else '',
+            'total_time': float(total_time) if total_time else 0.0,
+            'ranking_enabled': ranking_enabled if ranking_enabled is not None else True,
+            'status': status if status else 'searching',
+            'created_at': created_at.isoformat()
+        }
