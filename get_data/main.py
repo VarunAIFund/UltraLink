@@ -121,15 +121,15 @@ def main():
         print("\n❌ Pipeline stopped at step 3")
         return
 
-    # Step 4: Enrich connections (commented out)
-    # step4 = run_script(
-    #     os.path.join(current_dir, "enrich_connections_with_company_descriptions.py"),
-    #     "4/4: Enriching profiles with company descriptions"
-    # )
+    # Step 4: Enrich connections
+    step4 = run_script(
+        os.path.join(current_dir, "enrich_connections_with_company_descriptions.py"),
+        "4/4: Enriching profiles with company descriptions"
+    )
 
-    # if not step4:
-    #     print("\n❌ Pipeline stopped at step 4")
-    #     return
+    if not step4:
+        print("\n❌ Pipeline stopped at step 4")
+        return
 
     # All steps complete
     print("\n" + "="*80)
