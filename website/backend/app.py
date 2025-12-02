@@ -335,12 +335,12 @@ def search_and_rank_stream():
             # Poll database for status updates and stream progress
             last_status = 'searching'
             poll_count = 0
-            max_polls = 300  # 5 minutes max (300 * 1 second)
+            max_polls = 150  # 5 minutes max (150 * 2 seconds)
             consecutive_errors = 0
             max_consecutive_errors = 5  # Stop after 5 consecutive errors
 
             while poll_count < max_polls:
-                time.sleep(1)  # Poll every second
+                time.sleep(2)  # Poll every 2 seconds
                 poll_count += 1
 
                 # Get current search status from database with retry logic
@@ -432,27 +432,45 @@ def search_and_rank_stream():
 @app.route('/search/<search_id>', methods=['GET'])
 def get_search(search_id):
     """Retrieve saved search by UUID"""
-    try:
-        result = get_search_session(search_id)
+    max_retries = 3
+    retry_count = 0
 
-        if not result:
-            return jsonify({'error': 'Search not found'}), 404
+    while retry_count < max_retries:
+        try:
+            result = get_search_session(search_id)
 
-        # Add profile_pic URLs to saved results (for backward compatibility)
-        from utils import add_profile_pic_urls
-        if 'results' in result and result['results']:
-            result['results'] = add_profile_pic_urls(result['results'])
-            print(f"[DEBUG] Added profile_pic URLs to {len(result['results'])} saved candidates")
+            if not result:
+                return jsonify({'error': 'Search not found'}), 404
 
-        return jsonify({
-            'success': True,
-            **result
-        })
-    except Exception as e:
-        print(f"[ERROR] Exception occurred: {type(e).__name__}: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+            # Add profile_pic URLs to saved results (for backward compatibility)
+            from utils import add_profile_pic_urls
+            if 'results' in result and result['results']:
+                result['results'] = add_profile_pic_urls(result['results'])
+                print(f"[DEBUG] Added profile_pic URLs to {len(result['results'])} saved candidates")
+
+            return jsonify({
+                'success': True,
+                **result
+            })
+        except Exception as e:
+            retry_count += 1
+            error_name = type(e).__name__
+
+            # Only retry on connection errors
+            if 'Connection' in error_name or 'Operational' in error_name:
+                if retry_count < max_retries:
+                    print(f"[GET /search] Connection error (attempt {retry_count}/{max_retries}), retrying...")
+                    time.sleep(0.5)  # Brief pause before retry
+                    continue
+
+            # Non-connection error or max retries exceeded
+            print(f"[ERROR] Exception occurred: {error_name}: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'error': str(e)}), 500
+
+    # Max retries exceeded
+    return jsonify({'error': 'Database connection failed after retries'}), 503
 
 @app.route('/generate-highlights', methods=['POST'])
 def generate_highlights_endpoint():

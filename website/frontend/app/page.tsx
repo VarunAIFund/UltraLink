@@ -79,8 +79,8 @@ export default function Home() {
   useEffect(() => {
     // Only poll if there's a search in progress AND no active SSE connection
     // This prevents double-polling when SSE is already monitoring the search
-    if (!loading || searchStatus === "completed" || searchStatus === "failed") {
-      return;
+    if (searchStatus !== "searching" && searchStatus !== "classifying" && searchStatus !== "ranking") {
+      return; // Don't poll completed/failed searches
     }
 
     if (hasActiveSSE) {

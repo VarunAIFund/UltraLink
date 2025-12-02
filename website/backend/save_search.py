@@ -37,6 +37,20 @@ def get_db_connection():
 
     return psycopg2.connect(conn_string)
 
+def get_db_connection_with_retry(max_retries=7):
+    """Get database connection with exponential backoff retry"""
+    import time
+
+    for attempt in range(max_retries):
+        try:
+            return get_db_connection()
+        except Exception as e:
+            if attempt == max_retries - 1:
+                raise  # Last attempt, give up
+            wait_time = (2 ** attempt) * 0.5  # 0.5s, 1s, 2s, 4s, 8s
+            print(f"[DB RETRY] Connection failed (attempt {attempt+1}/{max_retries}), retrying in {wait_time}s...")
+            time.sleep(wait_time)
+
 def save_search_session(query, connected_to, sql_query='', results=None, total_cost=0.0, logs='', total_time=0.0, ranking=True, status='searching'):
     """
     Save search session to database
@@ -58,7 +72,7 @@ def save_search_session(query, connected_to, sql_query='', results=None, total_c
     # Default results to empty list if None
     if results is None:
         results = []
-    conn = get_db_connection()
+    conn = get_db_connection_with_retry()
     cursor = conn.cursor()
 
     # Prepare connected_to as array
@@ -104,7 +118,7 @@ def update_search_session(search_id, sql_query=None, results=None, total_cost=No
     Returns:
         UUID of updated search session
     """
-    conn = get_db_connection()
+    conn = get_db_connection_with_retry()
     cursor = conn.cursor()
 
     # Build dynamic UPDATE query based on what's provided
@@ -166,7 +180,7 @@ def get_search_session(search_id):
     Returns:
         Dict with search data or None if not found
     """
-    conn = get_db_connection()
+    conn = get_db_connection_with_retry()
     cursor = conn.cursor()
 
     cursor.execute("""
