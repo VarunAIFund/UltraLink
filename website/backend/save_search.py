@@ -34,7 +34,6 @@ def get_db_connection():
 
     # Always use connection pooler (port 6543) for better performance and stability
     conn_string = f"postgresql://postgres.{project_id}:{encoded_password}@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
-    print(f"[DEBUG] Using pooler: postgresql://postgres.{project_id}:****@aws-1-us-east-2.pooler.supabase.com:6543/postgres")
 
     return psycopg2.connect(conn_string)
 
