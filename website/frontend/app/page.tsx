@@ -35,6 +35,7 @@ export default function Home() {
   const [searchStep, setSearchStep] = useState<string>("");
   const [ranking, setRanking] = useState<boolean>(true);
   const [searchStatus, setSearchStatus] = useState<string>("completed");
+  const [hasActiveSSE, setHasActiveSSE] = useState<boolean>(false); // Track if SSE connection is active
 
   // Load saved search if URL contains /search/[id]
   useEffect(() => {
@@ -74,10 +75,16 @@ export default function Home() {
     loadSavedSearch();
   }, [pathname]);
 
-  // Poll for updates when search is in progress
+  // Poll for updates when search is in progress (only if no active SSE connection)
   useEffect(() => {
-    // Only poll if there's a search in progress
+    // Only poll if there's a search in progress AND no active SSE connection
+    // This prevents double-polling when SSE is already monitoring the search
     if (!loading || searchStatus === "completed" || searchStatus === "failed") {
+      return;
+    }
+
+    if (hasActiveSSE) {
+      console.log('[POLLING] Skipping poll - SSE connection is active');
       return;
     }
 
@@ -88,7 +95,7 @@ export default function Home() {
     }
 
     const searchId = searchIdMatch[1];
-    console.log('[POLLING] Starting poll for search', searchId);
+    console.log('[POLLING] Starting poll for search', searchId, '(no active SSE)');
 
     const pollInterval = setInterval(async () => {
       try {
@@ -127,7 +134,7 @@ export default function Home() {
       console.log('[POLLING] Cleanup, stopping poll');
       clearInterval(pollInterval);
     };
-  }, [pathname, loading, searchStatus]);
+  }, [pathname, loading, searchStatus, hasActiveSSE]);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -138,6 +145,7 @@ export default function Home() {
     setSql("");
     setHasSearched(false);
     setSearchStep("");
+    setHasActiveSSE(true); // Mark SSE connection as active to prevent polling
 
     try {
       // If nothing selected, default to 'all'
@@ -178,6 +186,7 @@ export default function Home() {
       setSearchStatus("failed"); // Update status on error
     } finally {
       setLoading(false);
+      setHasActiveSSE(false); // SSE connection closed, allow polling for refreshes
     }
   };
 

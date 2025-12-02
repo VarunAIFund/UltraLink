@@ -11,16 +11,13 @@ env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 load_dotenv(env_path)
 
 def get_db_connection():
-    """Get Supabase database connection - uses different URLs for local vs Railway"""
-    # Detect if running on Railway (Railway sets RAILWAY_ENVIRONMENT_NAME)
-    is_railway = os.getenv('RAILWAY_ENVIRONMENT_NAME') is not None
+    """Get Supabase database connection - always uses connection pooler (port 6543)"""
+    # Try Railway environment variables first, fall back to .env file
+    db_password = os.getenv('SUPABASE_DB_PASSWORD')
+    supabase_url = os.getenv('SUPABASE_URL')
 
-    if is_railway:
-        # Railway: Use os.getenv() which reads from Railway environment variables
-        db_password = os.getenv('SUPABASE_DB_PASSWORD')
-        supabase_url = os.getenv('SUPABASE_URL', '')
-    else:
-        # Local: Use dotenv_values() to read directly from .env file
+    if not db_password or not supabase_url:
+        # Fall back to .env file for local development
         env_vars = dotenv_values(env_path)
         db_password = env_vars.get('SUPABASE_DB_PASSWORD')
         supabase_url = env_vars.get('SUPABASE_URL', '')
@@ -34,14 +31,9 @@ def get_db_connection():
     project_id = supabase_url.replace('https://', '').replace('.supabase.co', '')
     encoded_password = quote_plus(db_password)
 
-    if is_railway:
-        # Railway: Use connection pooler (port 6543)
-        conn_string = f"postgresql://postgres.{project_id}:{encoded_password}@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
-        print(f"[DEBUG] Railway detected - Using pooler: postgresql://postgres.{project_id}:****@aws-1-us-east-2.pooler.supabase.com:6543/postgres")
-    else:
-        # Local: Use direct connection (port 5432)
-        conn_string = f"postgresql://postgres:{encoded_password}@db.{project_id}.supabase.co:5432/postgres"
-        print(f"[DEBUG] Local detected - Using direct: postgresql://postgres:****@db.{project_id}.supabase.co:5432/postgres")
+    # Always use connection pooler (port 6543) for better performance and stability
+    conn_string = f"postgresql://postgres.{project_id}:{encoded_password}@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
+    print(f"[DEBUG] Using pooler: postgresql://postgres.{project_id}:****@aws-1-us-east-2.pooler.supabase.com:6543/postgres")
 
     return psycopg2.connect(conn_string)
 
