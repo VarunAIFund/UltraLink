@@ -336,53 +336,76 @@ def search_and_rank_stream():
             last_status = 'searching'
             poll_count = 0
             max_polls = 300  # 5 minutes max (300 * 1 second)
+            consecutive_errors = 0
+            max_consecutive_errors = 5  # Stop after 5 consecutive errors
 
             while poll_count < max_polls:
                 time.sleep(1)  # Poll every second
                 poll_count += 1
 
-                # Get current search status from database
-                search_data = get_search_session(search_id)
-                if not search_data:
-                    break
+                # Get current search status from database with retry logic
+                try:
+                    search_data = get_search_session(search_id)
+                    consecutive_errors = 0  # Reset error counter on success
 
-                current_status = search_data.get('status', 'searching')
+                    if not search_data:
+                        print(f"[SSE] Search session {search_id} not found in database")
+                        break
 
-                # Send progress update if status changed
-                if current_status != last_status:
-                    if current_status == 'searching':
-                        yield format_sse({'step': 'generating_query', 'message': 'Generating search query...'})
-                    elif current_status == 'classifying':
-                        yield format_sse({'step': 'classifying', 'message': 'Analyzing candidates...'})
-                    elif current_status == 'ranking':
-                        yield format_sse({'step': 'ranking', 'message': 'Ranking matches...'})
-                    last_status = current_status
+                    current_status = search_data.get('status', 'searching')
 
-                # Check if search completed or failed
-                if current_status in ['completed', 'failed']:
-                    if current_status == 'completed':
-                        # Send final results
-                        yield format_sse({
-                            'step': 'complete',
-                            'message': 'Complete',
-                            'data': {
-                                'success': True,
-                                'id': search_id,
-                                'sql': search_data.get('sql', ''),
-                                'results': search_data.get('results', []),
-                                'total': search_data.get('total', 0),
-                                'total_cost': search_data.get('total_cost', 0),
-                                'total_time': search_data.get('total_time', 0),
-                                'logs': search_data.get('logs', '')
-                            }
-                        })
-                    else:
-                        # Search failed
+                    # Send progress update if status changed
+                    if current_status != last_status:
+                        if current_status == 'searching':
+                            yield format_sse({'step': 'generating_query', 'message': 'Generating search query...'})
+                        elif current_status == 'classifying':
+                            yield format_sse({'step': 'classifying', 'message': 'Analyzing candidates...'})
+                        elif current_status == 'ranking':
+                            yield format_sse({'step': 'ranking', 'message': 'Ranking matches...'})
+                        last_status = current_status
+
+                    # Check if search completed or failed
+                    if current_status in ['completed', 'failed']:
+                        if current_status == 'completed':
+                            # Send final results
+                            yield format_sse({
+                                'step': 'complete',
+                                'message': 'Complete',
+                                'data': {
+                                    'success': True,
+                                    'id': search_id,
+                                    'sql': search_data.get('sql', ''),
+                                    'results': search_data.get('results', []),
+                                    'total': search_data.get('total', 0),
+                                    'total_cost': search_data.get('total_cost', 0),
+                                    'total_time': search_data.get('total_time', 0),
+                                    'logs': search_data.get('logs', '')
+                                }
+                            })
+                        else:
+                            # Search failed
+                            yield format_sse({
+                                'step': 'error',
+                                'message': 'Search failed. Check logs for details.'
+                            })
+                        break
+
+                except Exception as poll_error:
+                    # Database connection error during polling - retry instead of crashing
+                    consecutive_errors += 1
+                    print(f"[SSE] Polling error #{consecutive_errors} (will retry): {type(poll_error).__name__}: {str(poll_error)}")
+
+                    # If too many consecutive errors, give up
+                    if consecutive_errors >= max_consecutive_errors:
+                        print(f"[SSE] Too many consecutive polling errors ({max_consecutive_errors}), stopping poll for {search_id}")
                         yield format_sse({
                             'step': 'error',
-                            'message': 'Search failed. Check logs for details.'
+                            'message': 'Database connection issues. Search may still be processing in background.'
                         })
-                    break
+                        break
+
+                    # Otherwise continue polling (background thread likely still working)
+                    continue
 
             print(f"[SSE] Finished monitoring search {search_id}")
 
