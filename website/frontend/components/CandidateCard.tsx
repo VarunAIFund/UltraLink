@@ -287,7 +287,7 @@ export function CandidateCard({ candidate, searchQuery, userName }: CandidateCar
               ))}
             </div>
           )}
-          {candidate.connected_to && candidate.connected_to.length > 0 && (
+          {userName && candidate.connected_to && candidate.connected_to.length > 0 && (
             <div className="mt-4 border-t pt-4">
               <div className="flex items-center gap-2 text-sm font-medium mb-2">
                 <HiUserGroup className="text-muted-foreground" />
@@ -464,6 +464,7 @@ export function CandidateCard({ candidate, searchQuery, userName }: CandidateCar
         onOpenChange={setShowEmailDialog}
         connectionName={selectedConnection}
         candidateName={candidate.name}
+        currentUserName={userName || ""}
         onGenerate={async (fromEmail: string, senderName: string) => {
           const result = await generateIntroductionEmail(
             candidate,

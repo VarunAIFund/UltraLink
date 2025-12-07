@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,20 +13,15 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { HiMail, HiCheck, HiX } from "react-icons/hi";
+import { getUser, getReceiver, type User, type Receiver } from "@/lib/api";
 
 interface IntroductionEmailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   connectionName: string;
   candidateName: string;
+  currentUserName: string; // Username of current user
   onGenerate: (
     fromEmail: string,
     senderName: string
@@ -40,36 +35,20 @@ interface IntroductionEmailDialogProps {
   ) => Promise<void>;
 }
 
-const SENDER_OPTIONS = [
-  { label: "Linda", value: "linda", email: "linda@aifund.ai" },
-  { label: "Jon", value: "jon", email: "jon@aifund.ai" },
-  { label: "Juliana", value: "juliana", email: "juliana@aifund.ai" },
-  { label: "Luisana", value: "luisana", email: "varun@aifund.ai" },
-  { label: "Mary", value: "mary", email: "mary@aifund.ai" },
-];
-
-// Map connection names to their email addresses
-const RECEIVER_EMAILS: Record<string, string> = {
-  dan: "dan@aifund.ai",
-  linda: "linda@aifund.ai",
-  jon: "jon@aifund.ai",
-  mary: "mary@aifund.ai",
-  andy: "andy@aifund.ai",
-  eli: "eli@aifund.ai",
-  katherine: "katherine@aifund.ai",
-  rishabh: "rishabh@aifund.ai",
-  juliana: "juliana@aifund.ai",
-};
-
 export function IntroductionEmailDialog({
   open,
   onOpenChange,
   connectionName,
   candidateName,
+  currentUserName,
   onGenerate,
   onSend,
 }: IntroductionEmailDialogProps) {
-  const [selectedSender, setSelectedSender] = useState("linda");
+  // Fetch current user (from users table) and receiver (from receivers table)
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [receiverUser, setReceiverUser] = useState<Receiver | null>(null);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [bodyHtml, setBodyHtml] = useState(""); // Store original HTML
@@ -78,6 +57,58 @@ export function IntroductionEmailDialog({
   const [generated, setGenerated] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch current user and receiver user info
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setLoadingUsers(true);
+      setCurrentUser(null);
+      setReceiverUser(null);
+
+      try {
+        console.log('[EMAIL DIALOG] Fetching users:', {
+          currentUserName,
+          connectionName,
+          currentUserNameLower: currentUserName.toLowerCase(),
+          connectionNameLower: connectionName.toLowerCase()
+        });
+
+        // Fetch current user from users table, receiver from receivers table
+        const [currentUserRes, receiverRes] = await Promise.all([
+          getUser(currentUserName.toLowerCase()),
+          getReceiver(connectionName.toLowerCase())
+        ]);
+
+        console.log('[EMAIL DIALOG] Fetch results:', {
+          currentUserSuccess: currentUserRes.success,
+          receiverSuccess: receiverRes.success
+        });
+
+        if (currentUserRes.success) {
+          setCurrentUser(currentUserRes.user);
+        }
+        if (receiverRes.success) {
+          setReceiverUser(receiverRes.receiver);
+        }
+      } catch (err) {
+        console.error("Failed to fetch user info:", err);
+        setError("Failed to load user information. Please try again.");
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    if (open && currentUserName && connectionName) {
+      fetchUsers();
+    } else if (open) {
+      // Dialog opened but missing user info
+      console.log('[EMAIL DIALOG] Dialog opened without user info:', {
+        currentUserName,
+        connectionName
+      });
+      setLoadingUsers(false);
+    }
+  }, [open, currentUserName, connectionName]);
 
   // Convert HTML to plain text for display
   const htmlToPlainText = (html: string): string => {
@@ -100,15 +131,16 @@ export function IntroductionEmailDialog({
   };
 
   const handleGenerate = async () => {
+    if (!currentUser) return;
+
     setLoading(true);
     setError(null);
     setGenerated(false);
 
     try {
-      const sender = SENDER_OPTIONS.find((s) => s.value === selectedSender);
       const result = await onGenerate(
-        sender?.email || "linda@aifund.ai",
-        sender?.label || "Linda"
+        currentUser.email,
+        currentUser.display_name
       );
       setSubject(result.subject);
       setBodyHtml(result.body); // Store original HTML
@@ -123,24 +155,21 @@ export function IntroductionEmailDialog({
   };
 
   const handleSend = async () => {
+    if (!currentUser || !receiverUser) return;
+
     setSending(true);
     setError(null);
 
     try {
       // Convert plain text back to HTML for sending
       const htmlToSend = plainTextToHtml(body);
-      const sender = SENDER_OPTIONS.find((s) => s.value === selectedSender);
-
-      // Get receiver email from connection name
-      const receiverEmail =
-        RECEIVER_EMAILS[connectionName.toLowerCase()] || "varun@aifund.ai";
 
       await onSend(
         subject,
         htmlToSend,
-        sender?.email || "Linda@aifund.ai",
-        sender?.label || "Linda",
-        receiverEmail
+        currentUser.email,
+        currentUser.display_name,
+        receiverUser.email
       );
       setSent(true);
       // Auto-close after 2 seconds
@@ -148,7 +177,6 @@ export function IntroductionEmailDialog({
         onOpenChange(false);
         // Reset state when dialog closes
         setTimeout(() => {
-          setSelectedSender("linda");
           setSubject("");
           setBody("");
           setBodyHtml("");
@@ -168,7 +196,6 @@ export function IntroductionEmailDialog({
     onOpenChange(false);
     // Reset state after dialog close animation
     setTimeout(() => {
-      setSelectedSender("linda");
       setSubject("");
       setBody("");
       setBodyHtml("");
@@ -193,52 +220,33 @@ export function IntroductionEmailDialog({
         <div className="space-y-4 py-4">
           {!generated && !loading && (
             <div className="text-center py-6">
-              <p className="text-muted-foreground mb-6">
+              <p className="text-muted-foreground mb-2">
                 Click the button below to generate a personalized introduction
                 email asking {connectionName} to introduce you to{" "}
                 {candidateName}.
               </p>
-              <div className="flex flex-col items-center gap-4">
-                <div className="flex items-center gap-3">
-                  <Label htmlFor="from-select" className="text-sm font-medium">
-                    From:
-                  </Label>
-                  <Select
-                    value={selectedSender}
-                    onValueChange={setSelectedSender}
-                  >
-                    <SelectTrigger id="from-select" className="w-[240px]">
-                      <SelectValue>
-                        {
-                          SENDER_OPTIONS.find((s) => s.value === selectedSender)
-                            ?.label
-                        }{" "}
-                        &lt;
-                        {
-                          SENDER_OPTIONS.find((s) => s.value === selectedSender)
-                            ?.email
-                        }
-                        &gt;
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SENDER_OPTIONS.map((sender) => (
-                        <SelectItem key={sender.value} value={sender.value}>
-                          {sender.label} &lt;{sender.email}&gt;
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  onClick={handleGenerate}
-                  size="lg"
-                  className="shadow-sm"
-                >
-                  <HiMail className="w-4 h-4 mr-2" />
-                  Generate Email
-                </Button>
-              </div>
+              {loadingUsers ? (
+                <p className="text-sm text-muted-foreground mb-6">
+                  Loading user information...
+                </p>
+              ) : currentUser ? (
+                <p className="text-sm text-muted-foreground mb-6">
+                  From: {currentUser.display_name} &lt;{currentUser.email}&gt;
+                </p>
+              ) : (
+                <p className="text-sm text-destructive mb-6">
+                  Unable to load user information
+                </p>
+              )}
+              <Button
+                onClick={handleGenerate}
+                size="lg"
+                className="shadow-sm"
+                disabled={loadingUsers || !currentUser}
+              >
+                <HiMail className="w-4 h-4 mr-2" />
+                Generate Email
+              </Button>
             </div>
           )}
 
@@ -289,9 +297,8 @@ export function IntroductionEmailDialog({
               </div>
               <h3 className="text-lg font-semibold mb-2">Email Sent!</h3>
               <p className="text-muted-foreground">
-                Email sent to {connectionName} at{" "}
-                {RECEIVER_EMAILS[connectionName.toLowerCase()] ||
-                  "varun@aifund.ai"}
+                Email sent to {receiverUser?.display_name || connectionName} at{" "}
+                {receiverUser?.email || ""}
               </p>
             </div>
           )}

@@ -20,6 +20,7 @@ from email_intro.generate_template import generate_introduction_email
 from email_intro.send_email import send_introduction_email
 from users import validate_user, get_all_users, get_db_connection
 from bookmarks import add_bookmark, remove_bookmark, get_user_bookmarks, is_bookmarked
+from receivers import get_receiver, get_all_receivers
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend
@@ -865,6 +866,49 @@ def check_bookmark(username, linkedin_url):
         return jsonify({
             'success': True,
             'is_bookmarked': bookmarked
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ========================
+# RECEIVER ENDPOINTS
+# ========================
+
+@app.route('/receivers', methods=['GET'])
+def list_receivers():
+    """Get all receivers (connection owners)"""
+    try:
+        receivers = get_all_receivers()
+        return jsonify({
+            'success': True,
+            'receivers': receivers,
+            'total': len(receivers)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/receivers/<username>', methods=['GET'])
+def get_receiver_info(username):
+    """Get receiver information by username"""
+    try:
+        receiver = get_receiver(username)
+        if not receiver:
+            return jsonify({
+                'success': False,
+                'error': 'Receiver not found'
+            }), 404
+
+        return jsonify({
+            'success': True,
+            'receiver': receiver
         })
     except Exception as e:
         return jsonify({

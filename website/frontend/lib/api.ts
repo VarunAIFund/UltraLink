@@ -312,7 +312,7 @@ export async function generateIntroductionEmail(
       job_description: jobDescription,
       mutual_connection_name: mutualConnectionName,
       sender_info: {
-        name: senderName || 'Varun Sharma',
+        name: senderName || '',
         role: 'Partner',
         company: 'AI Fund',
         email: fromEmail
@@ -340,11 +340,11 @@ export async function sendIntroductionEmail(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      to_email: toEmail || 'varun@aifund.ai',
+      to_email: toEmail || '',
       subject: subject,
       body: body,
       sender_info: {
-        name: senderName || 'Varun Sharma',
+        name: senderName || '',
         email: fromEmail
       }
     }),
@@ -397,6 +397,59 @@ export async function getAllUsers(): Promise<UsersResponse> {
 
 export async function getUser(userName: string): Promise<UserResponse> {
   const response = await fetch(`${API_BASE_URL}/users/${userName}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+// ========================
+// RECEIVERS API (Connection Owners)
+// ========================
+
+export interface Receiver {
+  username: string;
+  display_name: string;
+  email: string;
+}
+
+export interface ReceiversResponse {
+  success: boolean;
+  receivers: Receiver[];
+  total: number;
+  error?: string;
+}
+
+export interface ReceiverResponse {
+  success: boolean;
+  receiver: Receiver;
+  error?: string;
+}
+
+export async function getAllReceivers(): Promise<ReceiversResponse> {
+  const response = await fetch(`${API_BASE_URL}/receivers`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function getReceiver(username: string): Promise<ReceiverResponse> {
+  const response = await fetch(`${API_BASE_URL}/receivers/${username}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
