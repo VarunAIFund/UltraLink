@@ -287,7 +287,7 @@ export function CandidateCard({ candidate, searchQuery, userName }: CandidateCar
               ))}
             </div>
           )}
-          {userName && candidate.connected_to && candidate.connected_to.length > 0 && (
+          {candidate.connected_to && candidate.connected_to.length > 0 && (
             <div className="mt-4 border-t pt-4">
               <div className="flex items-center gap-2 text-sm font-medium mb-2">
                 <HiUserGroup className="text-muted-foreground" />
@@ -296,20 +296,31 @@ export function CandidateCard({ candidate, searchQuery, userName }: CandidateCar
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {candidate.connected_to.slice(0, 10).map((connection, i) => (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      // Capitalize first letter of connection name
-                      const capitalizedConnection = connection.charAt(0).toUpperCase() + connection.slice(1);
-                      setSelectedConnection(capitalizedConnection);
-                      setShowEmailDialog(true);
-                    }}
-                    className="bg-muted text-muted-foreground px-2 py-1 rounded text-xs hover:bg-primary hover:text-primary-foreground transition-colors cursor-pointer"
-                  >
-                    {connection}
-                  </button>
-                ))}
+                {candidate.connected_to.slice(0, 10).map((connection, i) =>
+                  userName ? (
+                    // User workspace: clickable button to request intro
+                    <button
+                      key={i}
+                      onClick={() => {
+                        // Capitalize first letter of connection name
+                        const capitalizedConnection = connection.charAt(0).toUpperCase() + connection.slice(1);
+                        setSelectedConnection(capitalizedConnection);
+                        setShowEmailDialog(true);
+                      }}
+                      className="bg-muted text-muted-foreground px-2 py-1 rounded text-xs hover:bg-primary hover:text-primary-foreground transition-colors cursor-pointer"
+                    >
+                      {connection}
+                    </button>
+                  ) : (
+                    // No user context: display-only badge (not clickable)
+                    <span
+                      key={i}
+                      className="bg-muted text-muted-foreground px-2 py-1 rounded text-xs"
+                    >
+                      {connection}
+                    </span>
+                  )
+                )}
                 {candidate.connected_to.length > 10 && (
                   <span className="text-xs text-muted-foreground px-2 py-1">
                     +{candidate.connected_to.length - 10} more
