@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { getUserBookmarks, getUser, type Bookmark } from "@/lib/api";
 import HamburgerMenu from "@/components/HamburgerMenu";
 import Sidebar from "@/components/Sidebar";
-import { CandidateCard } from "@/components/CandidateCard";
+import { BookmarkedCandidateCard } from "@/components/BookmarkedCandidateCard";
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
 
@@ -60,7 +60,7 @@ export default function BookmarksPage() {
   }, [userName]);
 
   return (
-    <div className="min-h-screen p-8 max-w-5xl mx-auto">
+    <div className="min-h-screen p-8 max-w-7xl mx-auto">
       {/* Hamburger Menu */}
       <HamburgerMenu onOpen={() => setSidebarOpen(true)} />
 
@@ -96,10 +96,10 @@ export default function BookmarksPage() {
       )}
 
       {loading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="animate-pulse">
-              <div className="h-48 bg-muted rounded-lg"></div>
+              <div className="h-64 bg-muted rounded-xl"></div>
             </div>
           ))}
         </div>
@@ -121,10 +121,10 @@ export default function BookmarksPage() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <h2 className="text-2xl font-semibold mb-4">
+          <h2 className="text-2xl font-semibold mb-6">
             {bookmarks.length} Bookmarked Candidate{bookmarks.length !== 1 ? 's' : ''}
           </h2>
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {bookmarks.map((bookmark, index) => (
               <motion.div
                 key={bookmark.id}
@@ -132,15 +132,10 @@ export default function BookmarksPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.05 }}
               >
-                <CandidateCard
-                  candidate={{
-                    ...bookmark.candidate,
-                    linkedin_url: bookmark.linkedin_url,
-                    relevance_score: 0,
-                    fit_description: bookmark.notes || '',
-                    match: 'strong' as const
-                  }}
+                <BookmarkedCandidateCard
+                  bookmark={bookmark}
                   userName={userName}
+                  onRemove={loadBookmarks}
                 />
               </motion.div>
             ))}
