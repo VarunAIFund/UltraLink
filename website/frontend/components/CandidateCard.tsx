@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -16,11 +16,15 @@ import {
   HiSparkles,
   HiPencil,
 } from "react-icons/hi";
+import { Star } from "lucide-react";
 import type { CandidateResult, Highlight } from "@/lib/api";
 import {
   generateHighlights,
   getNoteForCandidate,
   updateNoteForCandidate,
+  checkBookmark,
+  addBookmark,
+  removeBookmark,
 } from "@/lib/api";
 import { motion } from "framer-motion";
 import { CandidateHighlights } from "./CandidateHighlights";
@@ -30,9 +34,10 @@ import { generateIntroductionEmail, sendIntroductionEmail } from "@/lib/api";
 interface CandidateCardProps {
   candidate: CandidateResult;
   searchQuery?: string;
+  userName?: string;
 }
 
-export function CandidateCard({ candidate, searchQuery }: CandidateCardProps) {
+export function CandidateCard({ candidate, searchQuery, userName }: CandidateCardProps) {
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [showHighlights, setShowHighlights] = useState(false);
   const [loadingHighlights, setLoadingHighlights] = useState(false);
@@ -40,6 +45,11 @@ export function CandidateCard({ candidate, searchQuery }: CandidateCardProps) {
 
   // Profile picture error state
   const [imageError, setImageError] = useState(false);
+
+  // Bookmark state
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
+  const [bookmarkChecked, setBookmarkChecked] = useState(false);
 
   // Notes state
   const [note, setNote] = useState<string>("");
@@ -61,6 +71,50 @@ export function CandidateCard({ candidate, searchQuery }: CandidateCardProps) {
 
   const handleToggleLeverOpportunities = () => {
     setShowLeverOpportunities(!showLeverOpportunities);
+  };
+
+  const handleBookmarkToggle = async () => {
+    if (!userName) return;
+
+    setBookmarkLoading(true);
+    try {
+      // If we haven't checked yet, check first
+      if (!bookmarkChecked) {
+        const checkResult = await checkBookmark(userName, candidate.linkedin_url);
+        setIsBookmarked(checkResult.is_bookmarked);
+        setBookmarkChecked(true);
+
+        // Now toggle based on the checked status
+        if (checkResult.is_bookmarked) {
+          await removeBookmark(userName, candidate.linkedin_url);
+          setIsBookmarked(false);
+        } else {
+          await addBookmark(userName, {
+            linkedin_url: candidate.linkedin_url,
+            candidate_name: candidate.name,
+            candidate_headline: candidate.headline,
+          });
+          setIsBookmarked(true);
+        }
+      } else {
+        // We already know the status, just toggle
+        if (isBookmarked) {
+          await removeBookmark(userName, candidate.linkedin_url);
+          setIsBookmarked(false);
+        } else {
+          await addBookmark(userName, {
+            linkedin_url: candidate.linkedin_url,
+            candidate_name: candidate.name,
+            candidate_headline: candidate.headline,
+          });
+          setIsBookmarked(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling bookmark:', error);
+    } finally {
+      setBookmarkLoading(false);
+    }
   };
 
   const handleToggleHighlights = async () => {
@@ -190,6 +244,18 @@ export function CandidateCard({ candidate, searchQuery }: CandidateCardProps) {
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <CardTitle>{candidate.name}</CardTitle>
+                  {userName && (
+                    <button
+                      onClick={handleBookmarkToggle}
+                      disabled={bookmarkLoading}
+                      className="text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                      aria-label={isBookmarked ? "Remove bookmark" : "Add bookmark"}
+                    >
+                      <Star
+                        className={`w-5 h-5 ${isBookmarked ? 'fill-primary text-primary' : ''}`}
+                      />
+                    </button>
+                  )}
                   {candidate.lever_opportunities?.some(opp => opp.hired) && (
                     <span className="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full font-medium">
                       Hired

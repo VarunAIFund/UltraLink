@@ -92,7 +92,7 @@ export interface SavedSearchResponse {
   error?: string;
 }
 
-export async function searchAndRank(query: string, connectedTo?: string): Promise<SearchResponse> {
+export async function searchAndRank(query: string, connectedTo?: string, userName?: string): Promise<SearchResponse> {
   const response = await fetch(`${API_BASE_URL}/search-and-rank`, {
     method: 'POST',
     headers: {
@@ -100,7 +100,8 @@ export async function searchAndRank(query: string, connectedTo?: string): Promis
     },
     body: JSON.stringify({
       query,
-      connected_to: connectedTo || 'all'
+      connected_to: connectedTo || 'all',
+      user_name: userName
     }),
   });
 
@@ -116,7 +117,8 @@ export async function searchAndRankStream(
   connectedTo: string,
   ranking: boolean,
   onProgress: (step: string, message: string) => void,
-  onSearchIdReceived?: (searchId: string) => void
+  onSearchIdReceived?: (searchId: string) => void,
+  userName?: string
 ): Promise<SearchResponse> {
   const response = await fetch(`${API_BASE_URL}/search-and-rank-stream`, {
     method: 'POST',
@@ -126,7 +128,8 @@ export async function searchAndRankStream(
     body: JSON.stringify({
       query,
       connected_to: connectedTo || 'all',
-      ranking: ranking
+      ranking: ranking,
+      user_name: userName
     }),
   });
 
@@ -344,6 +347,197 @@ export async function sendIntroductionEmail(
         email: fromEmail
       }
     }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+// ========================
+// USER MANAGEMENT API
+// ========================
+
+export interface User {
+  username: string;
+  display_name: string;
+  email: string;
+}
+
+export interface UsersResponse {
+  success: boolean;
+  users: User[];
+  total: number;
+  error?: string;
+}
+
+export interface UserResponse {
+  success: boolean;
+  user: User;
+  error?: string;
+}
+
+export async function getAllUsers(): Promise<UsersResponse> {
+  const response = await fetch(`${API_BASE_URL}/users`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function getUser(userName: string): Promise<UserResponse> {
+  const response = await fetch(`${API_BASE_URL}/users/${userName}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+// ========================
+// SEARCH HISTORY API
+// ========================
+
+export interface SearchHistoryItem {
+  id: string;
+  query: string;
+  total_results: number;
+  created_at: string;
+  status: string;
+}
+
+export interface SearchHistoryResponse {
+  success: boolean;
+  searches: SearchHistoryItem[];
+  total: number;
+  error?: string;
+}
+
+export async function getUserSearches(userName: string): Promise<SearchHistoryResponse> {
+  const response = await fetch(`${API_BASE_URL}/users/${userName}/searches`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+// ========================
+// BOOKMARKS API
+// ========================
+
+export interface Bookmark {
+  id: string;
+  user_name: string;
+  linkedin_url: string;
+  bookmarked_at: string;
+  notes: string | null;
+  candidate: CandidateResult;
+}
+
+export interface BookmarksResponse {
+  success: boolean;
+  bookmarks: Bookmark[];
+  total: number;
+  error?: string;
+}
+
+export interface BookmarkStatusResponse {
+  success: boolean;
+  is_bookmarked: boolean;
+  error?: string;
+}
+
+export interface BookmarkActionResponse {
+  success: boolean;
+  message: string;
+  bookmark_id?: string;
+  error?: string;
+}
+
+export async function getUserBookmarks(userName: string): Promise<BookmarksResponse> {
+  const response = await fetch(`${API_BASE_URL}/users/${userName}/bookmarks`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function addBookmark(
+  userName: string,
+  data: {
+    linkedin_url: string;
+    candidate_name?: string;
+    candidate_headline?: string;
+    notes?: string;
+  }
+): Promise<BookmarkActionResponse> {
+  const response = await fetch(`${API_BASE_URL}/users/${userName}/bookmarks`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function removeBookmark(userName: string, linkedinUrl: string): Promise<BookmarkActionResponse> {
+  const encodedUrl = encodeURIComponent(linkedinUrl);
+  const response = await fetch(`${API_BASE_URL}/users/${userName}/bookmarks/${encodedUrl}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function checkBookmark(userName: string, linkedinUrl: string): Promise<BookmarkStatusResponse> {
+  const encodedUrl = encodeURIComponent(linkedinUrl);
+  const response = await fetch(`${API_BASE_URL}/users/${userName}/bookmarks/check/${encodedUrl}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
   });
 
   if (!response.ok) {

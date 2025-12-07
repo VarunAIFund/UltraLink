@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getUser } from "@/lib/api";
 
 interface SearchBarProps {
   query: string;
@@ -20,6 +21,7 @@ interface SearchBarProps {
   setConnectedTo: (value: string) => void;
   ranking: boolean;
   setRanking: (value: boolean) => void;
+  userName?: string;
 }
 
 export function SearchBar({
@@ -31,8 +33,25 @@ export function SearchBar({
   setConnectedTo,
   ranking,
   setRanking,
+  userName,
 }: SearchBarProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [userDisplayName, setUserDisplayName] = useState<string | null>(null);
+
+  // Fetch user display name if userName is provided
+  useEffect(() => {
+    if (userName) {
+      getUser(userName)
+        .then((data) => {
+          if (data.success) {
+            setUserDisplayName(data.user.display_name);
+          }
+        })
+        .catch((err) => {
+          console.error('Error fetching user info:', err);
+        });
+    }
+  }, [userName]);
 
   // Auto-resize textarea based on content
   useEffect(() => {
@@ -51,7 +70,11 @@ export function SearchBar({
         <div className="mb-6">
           <textarea
             ref={textareaRef}
-            placeholder="Search for candidates (e.g., CEO in healthcare with startup experience)"
+            placeholder={
+              userName && userDisplayName
+                ? `Search ${userDisplayName}'s network with natural language`
+                : "Search for candidates (e.g., CEO in healthcare with startup experience)"
+            }
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
