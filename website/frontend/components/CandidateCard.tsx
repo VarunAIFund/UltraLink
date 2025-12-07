@@ -22,7 +22,6 @@ import {
   generateHighlights,
   getNoteForCandidate,
   updateNoteForCandidate,
-  checkBookmark,
   addBookmark,
   removeBookmark,
 } from "@/lib/api";
@@ -46,10 +45,9 @@ export function CandidateCard({ candidate, searchQuery, userName }: CandidateCar
   // Profile picture error state
   const [imageError, setImageError] = useState(false);
 
-  // Bookmark state
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  // Bookmark state - initialize from candidate prop
+  const [isBookmarked, setIsBookmarked] = useState(candidate.is_bookmarked || false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
-  const [bookmarkChecked, setBookmarkChecked] = useState(false);
 
   // Notes state
   const [note, setNote] = useState<string>("");
@@ -78,37 +76,18 @@ export function CandidateCard({ candidate, searchQuery, userName }: CandidateCar
 
     setBookmarkLoading(true);
     try {
-      // If we haven't checked yet, check first
-      if (!bookmarkChecked) {
-        const checkResult = await checkBookmark(userName, candidate.linkedin_url);
-        setIsBookmarked(checkResult.is_bookmarked);
-        setBookmarkChecked(true);
-
-        // Now toggle based on the checked status
-        if (checkResult.is_bookmarked) {
-          await removeBookmark(userName, candidate.linkedin_url);
-          setIsBookmarked(false);
-        } else {
-          await addBookmark(userName, {
-            linkedin_url: candidate.linkedin_url,
-            candidate_name: candidate.name,
-            candidate_headline: candidate.headline,
-          });
-          setIsBookmarked(true);
-        }
+      if (isBookmarked) {
+        // Remove bookmark
+        await removeBookmark(userName, candidate.linkedin_url);
+        setIsBookmarked(false);
       } else {
-        // We already know the status, just toggle
-        if (isBookmarked) {
-          await removeBookmark(userName, candidate.linkedin_url);
-          setIsBookmarked(false);
-        } else {
-          await addBookmark(userName, {
-            linkedin_url: candidate.linkedin_url,
-            candidate_name: candidate.name,
-            candidate_headline: candidate.headline,
-          });
-          setIsBookmarked(true);
-        }
+        // Add bookmark
+        await addBookmark(userName, {
+          linkedin_url: candidate.linkedin_url,
+          candidate_name: candidate.name,
+          candidate_headline: candidate.headline,
+        });
+        setIsBookmarked(true);
       }
     } catch (error) {
       console.error('Error toggling bookmark:', error);

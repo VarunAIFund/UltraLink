@@ -192,6 +192,47 @@ def update_search_session(search_id, sql_query=None, results=None, total_cost=No
 
         return str(updated_id[0]) if updated_id else None
 
+def refresh_bookmark_status(results, user_name):
+    """
+    Update is_bookmarked field for all candidates based on current database state
+
+    Args:
+        results: List of candidate dicts
+        user_name: Username to check bookmarks for
+
+    Returns:
+        Updated results list with fresh is_bookmarked values
+    """
+    if not user_name or not results:
+        return results
+
+    # Get all linkedin URLs from results
+    linkedin_urls = [c.get('linkedin_url') for c in results if c.get('linkedin_url')]
+
+    if not linkedin_urls:
+        return results
+
+    # Query database for bookmarks in a single efficient query
+    with get_pooled_connection() as conn:
+        cursor = conn.cursor()
+
+        # Use ANY to check multiple URLs at once
+        cursor.execute("""
+            SELECT linkedin_url
+            FROM user_bookmarks
+            WHERE user_name = %s
+            AND linkedin_url = ANY(%s)
+        """, (user_name, linkedin_urls))
+
+        bookmarked_urls = {row[0] for row in cursor.fetchall()}
+
+    # Update is_bookmarked field for each candidate
+    for candidate in results:
+        linkedin_url = candidate.get('linkedin_url')
+        candidate['is_bookmarked'] = linkedin_url in bookmarked_urls
+
+    return results
+
 def get_search_session(search_id):
     """
     Retrieve saved search session by UUID
@@ -217,6 +258,10 @@ def get_search_session(search_id):
             return None
 
         query, connected_to, sql_query, results, total_results, total_cost, logs, total_time, ranking_enabled, status, created_at, user_name = result
+
+        # Refresh bookmark status with current data before returning
+        if user_name and results:
+            results = refresh_bookmark_status(results, user_name)
 
         return {
             'id': search_id,

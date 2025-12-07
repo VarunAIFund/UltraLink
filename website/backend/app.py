@@ -125,8 +125,8 @@ def search_and_rank():
     try:
         print(f"[DEBUG] Starting search for query: {query}")
 
-        # Search with connection filter
-        search_result = execute_search(query, connected_to)
+        # Search with connection filter and user_name for bookmark status
+        search_result = execute_search(query, connected_to, user_name=user_name)
         search_cost = search_result.get('cost', {})
         print(f"[DEBUG] Search completed. Found {len(search_result['results'])} results")
 
@@ -195,7 +195,7 @@ def search_and_rank():
 
         return jsonify({'error': str(e)}), 500
 
-def process_search_background(search_id, query, connected_to, ranking):
+def process_search_background(search_id, query, connected_to, ranking, user_name=None):
     """Background worker that processes search independently of SSE connection"""
     # Capture stdout to save as logs
     log_buffer = io.StringIO()
@@ -208,8 +208,8 @@ def process_search_background(search_id, query, connected_to, ranking):
     try:
         print(f"[BACKGROUND] Starting search processing for {search_id}")
 
-        # Step 1: Generate SQL query
-        search_result = execute_search(query, connected_to)
+        # Step 1: Generate SQL query with optional bookmark status
+        search_result = execute_search(query, connected_to, user_name=user_name)
         search_cost = search_result.get('cost', {})
 
         # Update search session with generated SQL
@@ -351,7 +351,7 @@ def search_and_rank_stream():
             # Launch background thread to process search
             thread = threading.Thread(
                 target=process_search_background,
-                args=(search_id, query, connected_to, ranking),
+                args=(search_id, query, connected_to, ranking, user_name),
                 daemon=True
             )
             thread.start()

@@ -194,8 +194,31 @@ Generate a broader SQL query for: {original_query}"""
 
     return generate_sql(relaxation_prompt, connected_to)
 
-def execute_search(query: str, connected_to: str = None, min_results: int = 10):
-    """Main search function with progressive relaxation if results are too few"""
+def wrap_sql_with_bookmark_check(sql: str, user_name: str) -> str:
+    """Wrap SQL query with LEFT JOIN to user_bookmarks to get is_bookmarked status"""
+    # Remove trailing semicolon if present (causes syntax error in subquery)
+    sql = sql.rstrip().rstrip(';')
+
+    return f"""
+SELECT candidate_data.*,
+       CASE WHEN ub.id IS NOT NULL THEN true ELSE false END as is_bookmarked
+FROM (
+    {sql}
+) AS candidate_data
+LEFT JOIN user_bookmarks ub
+    ON candidate_data.linkedin_url = ub.linkedin_url
+    AND ub.user_name = '{user_name}'
+"""
+
+def execute_search(query: str, connected_to: str = None, min_results: int = 10, user_name: str = None):
+    """Main search function with progressive relaxation if results are too few
+
+    Args:
+        query: Natural language search query
+        connected_to: Filter by connection (e.g., 'linda', 'dan', 'all')
+        min_results: Minimum results threshold for relaxed search
+        user_name: Optional username to check bookmark status
+    """
 
     # Generate SQL
     sql, sql_cost = generate_sql(query, connected_to)
@@ -203,6 +226,10 @@ def execute_search(query: str, connected_to: str = None, min_results: int = 10):
     # Validate
     if not is_safe_query(sql):
         raise ValueError(f"Unsafe SQL query generated:\n{sql}")
+
+    # Wrap SQL with bookmark check if user_name provided
+    if user_name:
+        sql = wrap_sql_with_bookmark_check(sql, user_name)
 
     # Debug: print SQL
     print(f"[SEARCH] Generated SQL:\n{sql}\n")
@@ -235,6 +262,10 @@ def execute_search(query: str, connected_to: str = None, min_results: int = 10):
                 if not is_safe_query(relaxed_sql):
                     print(f"[SEARCH] Relaxed query unsafe, using original results")
                 else:
+                    # Wrap relaxed SQL with bookmark check if user_name provided
+                    if user_name:
+                        relaxed_sql = wrap_sql_with_bookmark_check(relaxed_sql, user_name)
+
                     print(f"[SEARCH] Relaxed SQL:\n{relaxed_sql}\n")
 
                     # Execute relaxed query

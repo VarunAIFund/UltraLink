@@ -48,6 +48,7 @@ export interface CandidateResult {
   education?: Education[];
   notes?: string;
   lever_opportunities?: LeverOpportunity[];
+  is_bookmarked?: boolean;  // Bookmark status from database JOIN
 }
 
 export interface Highlight {
