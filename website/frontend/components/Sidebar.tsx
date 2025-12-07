@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { X, Search, Star } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { Button } from './ui/button';
-import { getUser } from '@/lib/api';
+import { X, Search, Star } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { Button } from "./ui/button";
+import { getUser } from "@/lib/api";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -20,13 +20,13 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
   useEffect(() => {
     if (userName) {
       getUser(userName)
-        .then(data => {
+        .then((data) => {
           if (data.success) {
             setUserDisplayName(data.user.display_name);
           }
         })
-        .catch(err => {
-          console.error('Error fetching user info:', err);
+        .catch((err) => {
+          console.error("Error fetching user info:", err);
         });
     }
   }, [userName]);
@@ -46,18 +46,18 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
 
           {/* Sidebar */}
           <motion.div
-            initial={{ x: '-100%' }}
+            initial={{ x: "-100%" }}
             animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed top-0 left-0 h-full w-80 bg-white dark:bg-gray-900 shadow-xl z-50 p-6"
+            exit={{ x: "-100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="fixed top-0 left-0 h-full w-80 bg-sidebar text-sidebar-foreground shadow-xl z-50 p-6 border-r border-sidebar-border"
           >
             {/* Close button */}
             <Button
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="absolute top-4 right-4"
+              className="absolute top-4 right-4 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               aria-label="Close menu"
             >
               <X className="h-6 w-6" />
@@ -65,7 +65,9 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
 
             {/* User display name */}
             <div className="mt-2 mb-8">
-              <h2 className="text-2xl font-bold">{userDisplayName}</h2>
+              <h2 className="text-2xl font-bold text-sidebar-foreground">
+                {userDisplayName}
+              </h2>
             </div>
 
             {/* Navigation links */}
@@ -73,16 +75,16 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
               <Link
                 href={`/${userName}/searches`}
                 onClick={onClose}
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                className="flex items-center gap-3 p-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
               >
                 <Search className="h-5 w-5" />
-                <span className="text-lg">Searches</span>
+                <span className="text-lg">Past Searches</span>
               </Link>
 
               <Link
                 href={`/${userName}/bookmarks`}
                 onClick={onClose}
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                className="flex items-center gap-3 p-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
               >
                 <Star className="h-5 w-5" />
                 <span className="text-lg">Bookmarks</span>
@@ -94,7 +96,7 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
               <Link
                 href={`/${userName}`}
                 onClick={onClose}
-                className="block w-full p-3 text-center rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                className="block w-full p-3 text-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90 transition-colors"
               >
                 Back to Search
               </Link>
