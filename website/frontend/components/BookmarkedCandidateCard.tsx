@@ -23,7 +23,7 @@ export function BookmarkedCandidateCard({
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3 }}
-      className="relative bg-card border border-border rounded-xl shadow-sm hover:shadow-md transition-all p-6 flex flex-col"
+      className="relative bg-card border border-border rounded-xl shadow-sm hover:shadow-md transition-all p-6 flex flex-col h-full"
     >
       {/* Filled Star Icon - Top Right */}
       <div className="absolute top-4 right-4">
@@ -67,12 +67,10 @@ export function BookmarkedCandidateCard({
         {candidate.name}
       </h3>
 
-      {/* Headline */}
-      {candidate.headline && (
-        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-          {candidate.headline}
-        </p>
-      )}
+      {/* Headline - Fixed height for 2 lines */}
+      <p className="text-sm text-muted-foreground mb-4 line-clamp-2 h-10">
+        {candidate.headline || " "}
+      </p>
 
       {/* Spacer */}
       <div className="flex-grow" />
