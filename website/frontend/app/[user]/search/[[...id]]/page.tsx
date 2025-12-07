@@ -34,7 +34,7 @@ export default function UserSearchResultsPage() {
   const [error, setError] = useState("");
   const [sql, setSql] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
-  const [connectedTo, setConnectedTo] = useState(userName || "all");
+  const [connectedTo, setConnectedTo] = useState("all");
   const [totalCost, setTotalCost] = useState<number>(0);
   const [totalTime, setTotalTime] = useState<number>(0);
   const [logs, setLogs] = useState<string>("");
