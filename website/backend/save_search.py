@@ -74,7 +74,7 @@ def get_pooled_connection():
     finally:
         connection_pool.putconn(conn)
 
-def save_search_session(query, connected_to, sql_query='', results=None, total_cost=0.0, logs='', total_time=0.0, ranking=True, status='searching'):
+def save_search_session(query, connected_to, sql_query='', results=None, total_cost=0.0, logs='', total_time=0.0, ranking=True, status='searching', user_name=None):
     """
     Save search session to database
 
@@ -88,6 +88,7 @@ def save_search_session(query, connected_to, sql_query='', results=None, total_c
         total_time: Total execution time in seconds (default: 0.0)
         ranking: Whether Stage 2 ranking was enabled (default: True)
         status: Current status of search (default: 'searching')
+        user_name: Optional user identifier (linda, dan, jon, mary)
 
     Returns:
         UUID of saved search session
@@ -103,8 +104,8 @@ def save_search_session(query, connected_to, sql_query='', results=None, total_c
         connected_to_array = [connected_to] if connected_to != 'all' else []
 
         cursor.execute("""
-            INSERT INTO search_sessions (query, connected_to, sql_query, results, total_results, total_cost, logs, total_time, ranking_enabled, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO search_sessions (query, connected_to, sql_query, results, total_results, total_cost, logs, total_time, ranking_enabled, status, user_name)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
             query,
@@ -116,7 +117,8 @@ def save_search_session(query, connected_to, sql_query='', results=None, total_c
             logs,
             total_time,
             ranking,
-            status
+            status,
+            user_name
         ))
 
         search_id = cursor.fetchone()[0]
@@ -204,7 +206,7 @@ def get_search_session(search_id):
         cursor = conn.cursor()
 
         cursor.execute("""
-            SELECT query, connected_to, sql_query, results, total_results, total_cost, logs, total_time, ranking_enabled, status, created_at
+            SELECT query, connected_to, sql_query, results, total_results, total_cost, logs, total_time, ranking_enabled, status, created_at, user_name
             FROM search_sessions
             WHERE id = %s
         """, (search_id,))
@@ -214,7 +216,7 @@ def get_search_session(search_id):
         if not result:
             return None
 
-        query, connected_to, sql_query, results, total_results, total_cost, logs, total_time, ranking_enabled, status, created_at = result
+        query, connected_to, sql_query, results, total_results, total_cost, logs, total_time, ranking_enabled, status, created_at, user_name = result
 
         return {
             'id': search_id,
@@ -228,5 +230,6 @@ def get_search_session(search_id):
             'total_time': float(total_time) if total_time else 0.0,
             'ranking_enabled': ranking_enabled if ranking_enabled is not None else True,
             'status': status if status else 'searching',
-            'created_at': created_at.isoformat()
+            'created_at': created_at.isoformat(),
+            'user_name': user_name
         }

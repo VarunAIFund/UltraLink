@@ -5,6 +5,8 @@ import io
 import sys
 import time
 import json
+import os
+import psycopg2
 import threading
 from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
@@ -16,6 +18,8 @@ from save_search import save_search_session, update_search_session, get_search_s
 from add_note import update_candidate_note, get_candidate_note
 from email_intro.generate_template import generate_introduction_email
 from email_intro.send_email import send_introduction_email
+from users import validate_user, get_all_users, get_db_connection
+from bookmarks import add_bookmark, remove_bookmark, get_user_bookmarks, is_bookmarked
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend
@@ -96,9 +100,19 @@ def search_and_rank():
     data = request.json
     query = data.get('query', '').strip()
     connected_to = data.get('connected_to', 'all')
+    user_name = data.get('user_name')  # NEW: Optional user parameter
 
     if not query:
         return jsonify({'error': 'Query required'}), 400
+
+    # Validate user_name if provided (database lookup instead of hardcoded list)
+    if user_name:
+        user = validate_user(user_name)
+        if not user:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid or inactive user'
+            }), 400
 
     # Capture stdout to save as logs
     log_buffer = io.StringIO()
@@ -150,7 +164,7 @@ def search_and_rank():
         print(logs, end='')
 
         # Save search session with logs and execution time
-        search_id = save_search_session(query, connected_to, search_result['sql'], ranked, total_cost, logs, elapsed_time, ranking=True)
+        search_id = save_search_session(query, connected_to, search_result['sql'], ranked, total_cost, logs, elapsed_time, ranking=True, user_name=user_name)
         print(f"[DEBUG] Saved search session with ID: {search_id}")
         print(f"[DEBUG] Total execution time: {elapsed_time:.2f} seconds")
 
@@ -299,9 +313,19 @@ def search_and_rank_stream():
     query = data.get('query', '').strip()
     connected_to = data.get('connected_to', 'all')
     ranking = data.get('ranking', True)  # Default to True for backward compatibility
+    user_name = data.get('user_name')  # NEW: Optional user parameter
 
     if not query:
         return jsonify({'error': 'Query required'}), 400
+
+    # Validate user_name if provided (database lookup instead of hardcoded list)
+    if user_name:
+        user = validate_user(user_name)
+        if not user:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid or inactive user'
+            }), 400
 
     def generate():
         try:
@@ -316,7 +340,8 @@ def search_and_rank_stream():
                 logs='',  # Will update logs later
                 total_time=0.0,  # Will update time later
                 ranking=ranking,
-                status='searching'  # Initial status
+                status='searching',  # Initial status
+                user_name=user_name  # NEW: Pass user_name
             )
             print(f"[SSE] Created search session with ID: {search_id}")
 
@@ -638,6 +663,214 @@ def send_introduction_email_endpoint():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+
+# ========================
+# USER MANAGEMENT ENDPOINTS
+# ========================
+
+@app.route('/users', methods=['GET'])
+def list_users():
+    """Get all active users"""
+    try:
+        users = get_all_users()
+        return jsonify({
+            'success': True,
+            'users': users,
+            'total': len(users)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/users/<username>', methods=['GET'])
+def get_user(username):
+    """Get user information"""
+    try:
+        user = validate_user(username)
+        if not user:
+            return jsonify({
+                'success': False,
+                'error': 'User not found'
+            }), 404
+
+        return jsonify({
+            'success': True,
+            'user': user
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/users/<username>/searches', methods=['GET'])
+def get_user_searches(username):
+    """Get all searches for a user"""
+    try:
+        # Validate username (database lookup)
+        user = validate_user(username)
+        if not user:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid username'
+            }), 404
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT id, query, total_results, created_at, status
+            FROM search_sessions
+            WHERE user_name = %s
+            ORDER BY created_at DESC
+            LIMIT 50
+        """, (username,))
+
+        searches = []
+        for row in cursor.fetchall():
+            searches.append({
+                'id': row[0],
+                'query': row[1],
+                'total_results': row[2],
+                'created_at': row[3].isoformat() if row[3] else None,
+                'status': row[4]
+            })
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'searches': searches,
+            'total': len(searches)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ========================
+# BOOKMARK ENDPOINTS
+# ========================
+
+@app.route('/users/<username>/bookmarks', methods=['POST'])
+def add_user_bookmark(username):
+    """Add a bookmark for a user"""
+    try:
+        # Validate username (database lookup)
+        user = validate_user(username)
+        if not user:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid username'
+            }), 404
+
+        data = request.json
+        linkedin_url = data.get('linkedin_url')
+        candidate_name = data.get('candidate_name')
+        candidate_headline = data.get('candidate_headline')
+        notes = data.get('notes')
+
+        if not linkedin_url:
+            return jsonify({
+                'success': False,
+                'error': 'linkedin_url is required'
+            }), 400
+
+        result = add_bookmark(username, linkedin_url, candidate_name, candidate_headline, notes)
+
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/users/<username>/bookmarks/<path:linkedin_url>', methods=['DELETE'])
+def remove_user_bookmark(username, linkedin_url):
+    """Remove a bookmark"""
+    try:
+        # Validate username (database lookup)
+        user = validate_user(username)
+        if not user:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid username'
+            }), 404
+
+        result = remove_bookmark(username, linkedin_url)
+
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 404
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/users/<username>/bookmarks', methods=['GET'])
+def get_user_bookmarks_endpoint(username):
+    """Get all bookmarks for a user"""
+    try:
+        # Validate username (database lookup)
+        user = validate_user(username)
+        if not user:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid username'
+            }), 404
+
+        bookmarks = get_user_bookmarks(username)
+
+        return jsonify({
+            'success': True,
+            'bookmarks': bookmarks,
+            'total': len(bookmarks)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/users/<username>/bookmarks/check/<path:linkedin_url>', methods=['GET'])
+def check_bookmark(username, linkedin_url):
+    """Check if a candidate is bookmarked"""
+    try:
+        # Validate username (database lookup)
+        user = validate_user(username)
+        if not user:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid username'
+            }), 404
+
+        bookmarked = is_bookmarked(username, linkedin_url)
+
+        return jsonify({
+            'success': True,
+            'is_bookmarked': bookmarked
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 @app.route('/health', methods=['GET'])
