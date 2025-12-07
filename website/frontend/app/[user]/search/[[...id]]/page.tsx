@@ -216,7 +216,7 @@ export default function UserSearchResultsPage() {
         className="mb-8 mt-12 text-center"
       >
         <h1 className="text-5xl font-bold mb-2">
-          {userDisplayName ? `${userDisplayName}'s Workspace` : 'UltraLink'}
+          UltraLink
         </h1>
         <p className="text-muted-foreground">
           AI-powered candidate search and ranking

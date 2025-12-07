@@ -222,9 +222,7 @@ export default function UserSearchPage() {
         transition={{ duration: 0.5 }}
         className="mb-8 mt-12 text-center"
       >
-        <h1 className="text-5xl font-bold mb-2">
-          {userDisplayName ? `${userDisplayName}'s Workspace` : 'UltraLink'}
-        </h1>
+        <h1 className="text-5xl font-bold mb-2">UltraLink</h1>
         <p className="text-muted-foreground">
           AI-powered candidate search and ranking
         </p>
