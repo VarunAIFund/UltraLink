@@ -58,15 +58,22 @@ def get_pooled_connection():
     conn = connection_pool.getconn()
 
     # Test if connection is stale (closed by database server)
+    # Catch DatabaseError (parent of OperationalError) and InterfaceError for closed connections
     try:
         cursor = conn.cursor()
         cursor.execute("SELECT 1")
         cursor.close()
-    except psycopg2.OperationalError:
+    except (psycopg2.DatabaseError, psycopg2.InterfaceError) as e:
         # Connection is stale, close it and get a fresh one
-        print("[POOL] Detected stale connection, getting fresh one...")
-        conn.close()
-        connection_pool.putconn(conn, close=True)
+        print(f"[POOL] Detected stale connection ({type(e).__name__}), getting fresh one...")
+        try:
+            conn.close()
+        except Exception:
+            pass  # Connection may already be closed
+        try:
+            connection_pool.putconn(conn, close=True)
+        except Exception:
+            pass  # Pool may have already removed it
         conn = connection_pool.getconn()
 
     try:

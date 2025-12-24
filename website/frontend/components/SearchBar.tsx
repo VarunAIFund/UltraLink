@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getUser } from "@/lib/api";
+import { getUser, getAllReceivers, type Receiver } from "@/lib/api";
 
 interface SearchBarProps {
   query: string;
@@ -37,6 +37,24 @@ export function SearchBar({
 }: SearchBarProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [userDisplayName, setUserDisplayName] = useState<string | null>(null);
+  const [receivers, setReceivers] = useState<Receiver[]>([]);
+  const [loadingReceivers, setLoadingReceivers] = useState(true);
+
+  // Fetch receivers for connection filter
+  useEffect(() => {
+    getAllReceivers()
+      .then((data) => {
+        if (data.success) {
+          setReceivers(data.receivers);
+        }
+      })
+      .catch((err) => {
+        console.error('Error fetching receivers:', err);
+      })
+      .finally(() => {
+        setLoadingReceivers(false);
+      });
+  }, []);
 
   // Fetch user display name if userName is provided
   useEffect(() => {
@@ -123,34 +141,20 @@ export function SearchBar({
           {/* Connection Dropdown */}
           <Select
             multiple
-            options={[
-              { label: "Dan", value: "dan" },
-              { label: "Linda", value: "linda" },
-              { label: "Jon", value: "jon" },
-              { label: "Mary", value: "mary" },
-              { label: "Andy", value: "andy" },
-              { label: "Eli", value: "eli" },
-              { label: "Katherine", value: "katherine" },
-              { label: "Rishabh", value: "rishabh" },
-              { label: "Juliana", value: "juliana" },
-            ]}
+            options={receivers.map(r => ({ label: r.display_name, value: r.username }))}
             value={connectedTo}
             onValueChange={setConnectedTo}
           >
             <SelectTrigger className="w-[180px] md:w-[200px] h-11 rounded-full border-2 bg-background">
-              <SelectValue placeholder="Connected to" />
+              <SelectValue placeholder={loadingReceivers ? "Loading..." : "Connected to"} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
-              <SelectItem value="dan">Dan</SelectItem>
-              <SelectItem value="linda">Linda</SelectItem>
-              <SelectItem value="jon">Jon</SelectItem>
-              <SelectItem value="mary">Mary</SelectItem>
-              <SelectItem value="andy">Andy</SelectItem>
-              <SelectItem value="eli">Eli</SelectItem>
-              <SelectItem value="katherine">Katherine</SelectItem>
-              <SelectItem value="rishabh">Rishabh</SelectItem>
-              <SelectItem value="juliana">Juliana</SelectItem>
+              {receivers.map((receiver) => (
+                <SelectItem key={receiver.username} value={receiver.username}>
+                  {receiver.display_name}
+                </SelectItem>
+              ))}
               <SelectSeparator />
               <button
                 className="w-full px-2 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground rounded-sm cursor-pointer"
