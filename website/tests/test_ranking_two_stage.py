@@ -138,7 +138,7 @@ async def test_two_stage_pipeline(query: str, connected_to: str = 'all', limit: 
     # Step 3: Stage 2 - Gemini Ranking + Rule Scoring
     print("STEP 3: Stage 2 Ranking & Scoring...")
     start_stage_2 = time.time()
-    final_results = rank_all_candidates(query, stage_1_results)
+    final_results, gemini_cost = rank_all_candidates(query, stage_1_results)
     stage_2_time = time.time() - start_stage_2
 
     print(f"   Time: {stage_2_time:.2f}s")
@@ -352,7 +352,7 @@ async def compare_with_current(query: str, connected_to: str = 'all', limit: int
     print("\nTesting NEW two-stage approach...")
     start_new = time.time()
     stage_1_results = await classify_all_candidates(query, candidates)
-    final_results = rank_all_candidates(query, stage_1_results)
+    final_results, gemini_cost_new = rank_all_candidates(query, stage_1_results)
     new_time = time.time() - start_new
     new_costs = estimate_cost(len(candidates), len(stage_1_results['strong_matches']))
 
