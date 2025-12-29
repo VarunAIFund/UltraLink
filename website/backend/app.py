@@ -25,6 +25,58 @@ from receivers import get_receiver, get_all_receivers
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend
 
+
+# =============================================================================
+# THREAD-SAFE LOGGING
+# =============================================================================
+# Each search thread gets its own isolated log buffer using threading.local()
+# This prevents logs from concurrent searches from mixing together.
+
+_thread_local = threading.local()
+_original_stdout = sys.stdout
+
+
+class ThreadLocalStdout:
+    """
+    Custom stdout that routes writes to thread-local buffers.
+    If a thread has set up a log buffer, writes go there.
+    Otherwise, writes go to the original stdout.
+    """
+    def write(self, text):
+        buffer = getattr(_thread_local, 'log_buffer', None)
+        if buffer is not None:
+            buffer.write(text)
+        else:
+            _original_stdout.write(text)
+    
+    def flush(self):
+        buffer = getattr(_thread_local, 'log_buffer', None)
+        if buffer is not None:
+            buffer.flush()
+        else:
+            _original_stdout.flush()
+
+
+# Install thread-safe stdout globally
+sys.stdout = ThreadLocalStdout()
+
+
+def start_log_capture():
+    """Start capturing logs for the current thread."""
+    _thread_local.log_buffer = io.StringIO()
+
+
+def stop_log_capture():
+    """Stop capturing and return logs for the current thread."""
+    buffer = getattr(_thread_local, 'log_buffer', None)
+    if buffer is not None:
+        logs = buffer.getvalue()
+        _thread_local.log_buffer = None
+        # Also print to original stdout for debugging
+        _original_stdout.write(logs)
+        return logs
+    return ""
+
 def format_sse(data: dict) -> str:
     """Format data as Server-Sent Event message"""
     return f"data: {json.dumps(data)}\n\n"
@@ -115,10 +167,8 @@ def search_and_rank():
                 'error': 'Invalid or inactive user'
             }), 400
 
-    # Capture stdout to save as logs
-    log_buffer = io.StringIO()
-    original_stdout = sys.stdout
-    sys.stdout = log_buffer
+    # Start thread-safe log capture (isolated per thread/request)
+    start_log_capture()
 
     # Start timer for execution time tracking
     start_time = time.time()
@@ -155,14 +205,8 @@ def search_and_rank():
         # Calculate total execution time
         elapsed_time = time.time() - start_time
 
-        # Get captured logs
-        logs = log_buffer.getvalue()
-
-        # Restore stdout
-        sys.stdout = original_stdout
-
-        # Also print logs to actual stdout for real-time monitoring
-        print(logs, end='')
+        # Get captured logs (thread-safe)
+        logs = stop_log_capture()
 
         # Save search session with logs and execution time
         search_id = save_search_session(query, connected_to, search_result['sql'], ranked, total_cost, logs, elapsed_time, ranking=True, user_name=user_name)
@@ -185,29 +229,22 @@ def search_and_rank():
         import traceback
         traceback.print_exc()
 
-        # Get captured logs (including error)
-        logs = log_buffer.getvalue()
-
-        # Restore stdout
-        sys.stdout = original_stdout
-
-        # Print error to actual stdout
-        print(logs, end='')
+        # Get captured logs (thread-safe)
+        logs = stop_log_capture()
 
         return jsonify({'error': str(e)}), 500
 
 def process_search_background(search_id, query, connected_to, ranking, user_name=None):
     """Background worker that processes search independently of SSE connection"""
-    # Capture stdout to save as logs
-    log_buffer = io.StringIO()
-    original_stdout = sys.stdout
-    sys.stdout = log_buffer
+    # Start thread-safe log capture (isolated per thread)
+    start_log_capture()
 
     # Start timer for execution time tracking
     start_time = time.time()
 
     try:
         print(f"[BACKGROUND] Starting search processing for {search_id}")
+        print(f"[BACKGROUND] Query: {query[:50]}...")  # Log query to identify which search
 
         # Step 1: Generate SQL query with optional bookmark status
         search_result = execute_search(query, connected_to, user_name=user_name)
@@ -217,20 +254,22 @@ def process_search_background(search_id, query, connected_to, ranking, user_name
         update_search_session(search_id, sql_query=search_result['sql'])
         print(f"[BACKGROUND] Updated search session with SQL query")
 
-        # Step 2: Always run Stage 1 (GPT-5-nano classification)
+        # Step 2: Two-pass classification (cost optimized)
         update_search_session(search_id, status='classifying')
 
-        # Import stage functions
-        from ranking_stage_1_nano import classify_all_candidates
+        # Import stage functions - use two-pass for cost savings
+        from ranking_stage_1_two_pass import classify_candidates_two_pass
         from ranking_stage_2_gemini import rank_all_candidates
         import asyncio
 
-        stage_1_results = asyncio.run(classify_all_candidates(query, search_result['results']))
+        stage_1_results = asyncio.run(classify_candidates_two_pass(query, search_result['results']))
         stage_1_cost = stage_1_results.get('cost', {})
 
-        # Calculate SQL + Stage 1 costs
+        # Calculate SQL + Classification costs (two-pass)
         sql_cost = search_cost.get('total_cost', 0.0)
-        stage_1_total = stage_1_cost.get('total_cost', 0.0)
+        pass_1_cost = stage_1_cost.get('pass_1', {}).get('cost', 0.0)
+        pass_2_cost = stage_1_cost.get('pass_2', {}).get('cost', 0.0)
+        classification_total = stage_1_cost.get('total_cost', 0.0)
 
         # Conditionally run Stage 2 (Gemini ranking) based on ranking flag
         if ranking:
@@ -239,28 +278,30 @@ def process_search_background(search_id, query, connected_to, ranking, user_name
 
             ranked, stage_2_cost = rank_all_candidates(query, stage_1_results)
             stage_2_total = stage_2_cost.get('total_cost', 0.0)
-            total_cost = sql_cost + stage_1_total + stage_2_total
+            total_cost = sql_cost + classification_total + stage_2_total
 
             print(f"\n{'='*60}")
-            print(f"💰 TOTAL SEARCH COST")
+            print(f"💰 TOTAL SEARCH COST (Two-Pass Pipeline)")
             print(f"{'='*60}")
             print(f"   • SQL Generation (GPT-4o): ${sql_cost:.4f}")
-            print(f"   • Classification (GPT-5-nano): ${stage_1_total:.4f}")
+            print(f"   • Classification:")
+            print(f"      - Pass 1 (quick):  ${pass_1_cost:.4f}")
+            print(f"      - Pass 2 (desc):   ${pass_2_cost:.4f}")
             print(f"   • Ranking (Gemini 2.5 Pro): ${stage_2_total:.4f}")
             print(f"   • TOTAL: ${total_cost:.4f}")
             print(f"{'='*60}\n")
         else:
-            # Stage 2 disabled - return Stage 1 classified results without Gemini ranking
+            # Stage 2 disabled - return classified results without Gemini ranking
             print(f"\n[BACKGROUND] Stage 2 ranking disabled - returning classified results")
 
-            # Combine results from Stage 1 without Gemini ranking
+            # Combine results from classification without Gemini ranking
             stage_1_candidates = (
                 stage_1_results.get('strong_matches', []) +
                 stage_1_results.get('partial_matches', []) +
                 stage_1_results.get('no_matches', [])
             )
 
-            # Flatten Stage 1 format to match Stage 2 format
+            # Flatten classification format to match Stage 2 format
             ranked = []
             for item in stage_1_candidates:
                 candidate = item.get('candidate', {})
@@ -272,23 +313,23 @@ def process_search_background(search_id, query, connected_to, ranking, user_name
                 candidate['score'] = confidence
                 ranked.append(candidate)
 
-            total_cost = sql_cost + stage_1_total
+            total_cost = sql_cost + classification_total
 
             print(f"\n{'='*60}")
-            print(f"💰 TOTAL SEARCH COST (No Stage 2 Ranking)")
+            print(f"💰 TOTAL SEARCH COST (No Gemini Ranking)")
             print(f"{'='*60}")
             print(f"   • SQL Generation (GPT-4o): ${sql_cost:.4f}")
-            print(f"   • Classification (GPT-5-nano): ${stage_1_total:.4f}")
+            print(f"   • Classification:")
+            print(f"      - Pass 1 (quick):  ${pass_1_cost:.4f}")
+            print(f"      - Pass 2 (desc):   ${pass_2_cost:.4f}")
             print(f"   • TOTAL: ${total_cost:.4f}")
             print(f"{'='*60}\n")
 
         # Calculate execution time
         elapsed_time = time.time() - start_time
 
-        # Get captured logs
-        logs = log_buffer.getvalue()
-        sys.stdout = original_stdout
-        print(logs, end='')
+        # Get captured logs (thread-safe)
+        logs = stop_log_capture()
 
         # Update search session with final results
         update_search_session(search_id, results=ranked, total_cost=total_cost, logs=logs, total_time=elapsed_time, status='completed')
@@ -299,9 +340,8 @@ def process_search_background(search_id, query, connected_to, ranking, user_name
         import traceback
         traceback.print_exc()
 
-        logs = log_buffer.getvalue()
-        sys.stdout = original_stdout
-        print(logs, end='')
+        # Get captured logs (thread-safe)
+        logs = stop_log_capture()
 
         # Update search session status to failed
         update_search_session(search_id, status='failed', logs=logs)
