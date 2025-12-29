@@ -5,9 +5,10 @@ UltraLink Transform Data Pipeline Runner
 Runs the complete data transformation pipeline in sequential order:
 1. AI-powered profile transformation (GPT-5-nano)
 2. Add Lever opportunities to profiles
-3. Upload to Supabase database
-4. Download profile pictures from LinkedIn
-5. Upload profile pictures to Supabase Storage
+3. Add portfolio company hired status to profiles
+4. Upload to Supabase database
+5. Download profile pictures from LinkedIn
+6. Upload profile pictures to Supabase Storage
 
 Prerequisites:
 - Run get_data pipeline to scrape LinkedIn profiles
@@ -53,9 +54,10 @@ def run_pipeline():
     print("\nThis pipeline will:")
     print("  1. AI-transform profiles with GPT-5-nano")
     print("  2. Add Lever opportunities to profiles")
-    print("  3. Upload to Supabase database")
-    print("  4. Download profile pictures from LinkedIn")
-    print("  5. Upload profile pictures to Supabase Storage")
+    print("  3. Add portfolio company hired status to profiles")
+    print("  4. Upload to Supabase database")
+    print("  5. Download profile pictures from LinkedIn")
+    print("  6. Upload profile pictures to Supabase Storage")
     print("\n" + "=" * 60)
 
     # Step 1: AI-powered transformation
@@ -80,9 +82,21 @@ def run_pipeline():
     # Matches profiles with Lever hiring data (URLs and hired status)
     # Updates: structured_profiles_test.json
 
-    # Step 3: Upload to Supabase
+    # Step 3: Add portfolio company hired status
     run_step(
         3,
+        "🏢",
+        "python3 portfolio_companies/add_portfolio_company_hired_status.py",
+        "Adding portfolio company hired status to profiles"
+    )
+    # Checks each profile's experiences for AI Fund portfolio companies
+    # Marks candidates as hired if they worked at portfolio companies
+    # Adds {hired: true} entries to lever_opportunities (no URL field)
+    # Updates: structured_profiles_test.json
+
+    # Step 4: Upload to Supabase
+    run_step(
+        4,
         "☁️",
         "python3 upload_to_supabase.py",
         "Uploading to Supabase database"
@@ -91,9 +105,9 @@ def run_pipeline():
     # Handles duplicates via linkedin_url primary key
     # Output: Database records in candidates table
 
-    # Step 4: Download profile pictures
+    # Step 5: Download profile pictures
     run_step(
-        4,
+        5,
         "📥",
         "python3 download_profile_pictures.py --auto",
         "Downloading profile pictures from LinkedIn"
@@ -103,9 +117,9 @@ def run_pipeline():
     # Uses --auto flag to download all without prompting
     # Output: profile_pictures/ directory and profile_picture_mapping.json
 
-    # Step 5: Upload profile pictures
+    # Step 6: Upload profile pictures
     run_step(
-        5,
+        6,
         "📸",
         "python3 upload_pictures/upload_profile_pictures_to_supabase.py --auto",
         "Uploading profile pictures to Supabase Storage"
