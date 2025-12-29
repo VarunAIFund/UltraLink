@@ -48,7 +48,7 @@ class CandidateClassification(BaseModel):
     )
 
 
-async def classify_single_candidate_nano(query: str, candidate: dict, index: int, client: AsyncOpenAI):
+async def classify_single_candidate_nano(query: str, candidate: dict, index: int, client: AsyncOpenAI, describe_partial: bool = True):
     """
     Classify a single candidate using GPT-5-nano with detailed analysis
 
@@ -57,12 +57,13 @@ async def classify_single_candidate_nano(query: str, candidate: dict, index: int
         candidate: Full candidate profile dict
         index: Index in original list
         client: AsyncOpenAI client instance
+        describe_partial: If True, generate descriptions for partial matches too. 
+                          If False, only strong matches get descriptions.
 
     Returns:
         Dict with: index, match_type, analysis, confidence, candidate
     """
     # Prepare profile summary for GPT-5-nano
-    # Include full profile data - GPT-5-nano is cheap and we're running in parallel
     profile = {
         'name': candidate.get('name'),
         'headline': candidate.get('headline'),
@@ -75,6 +76,12 @@ async def classify_single_candidate_nano(query: str, candidate: dict, index: int
         'education': candidate.get('education', [])
     }
 
+    # Adjust instructions based on whether we want partial descriptions
+    if describe_partial:
+        partial_instruction = "2. For PARTIAL matches: Write 1-2 sentences explaining what they HAVE that's relevant and what key elements they're MISSING"
+    else:
+        partial_instruction = "2. For PARTIAL matches: Leave analysis empty (\"\")"
+
     prompt = f"""Query: "{query}"
 
 Analyze this candidate and classify as strong/partial/no_match.
@@ -86,7 +93,7 @@ CLASSIFICATION CRITERIA:
 
 IMPORTANT INSTRUCTIONS:
 1. For STRONG matches: Start with the candidate's name. Write 2-3 sentences explaining why they're a strong fit for the query. Include relevant experience, key skills, years of experience, and notable accomplishments that match the query criteria.
-2. For PARTIAL matches: Write 1-2 sentences explaining what they HAVE that's relevant and what key elements they're MISSING
+{partial_instruction}
 3. For NO MATCH: Leave analysis empty ("")
 
 Candidate Profile:
@@ -117,7 +124,8 @@ Only mark as PARTIAL if they're truly missing key requirements despite their exp
                 {"role": "system", "content": "You are an expert recruiting analyst. Analyze candidates objectively and provide detailed insights."},
                 {"role": "user", "content": prompt}
             ],
-            text_format=CandidateClassification
+            text_format=CandidateClassification,
+            reasoning={"effort": "low"}
         )
 
         result = response.output_parsed  # Correct attribute for GPT-5-nano structured outputs
@@ -185,7 +193,15 @@ async def classify_all_candidates(query: str, candidates: list):
     import time
     start_time = time.time()
 
+    # If < 100 candidates, generate descriptions for both strong AND partial
+    # If >= 100 candidates, only generate descriptions for strong matches
+    describe_partial = len(candidates) < 100
+    
     print(f"\n🔍 Stage 1: Classifying {len(candidates)} candidates with GPT-5-nano...")
+    if describe_partial:
+        print(f"   📝 Small result set (<100): descriptions for strong + partial")
+    else:
+        print(f"   📝 Large result set (≥100): descriptions for strong only")
     print(f"   🚀 Firing all {len(candidates)} requests concurrently (no rate limiting)")
 
     # Create fresh httpx client for this request (supports concurrent Flask requests)
@@ -203,9 +219,9 @@ async def classify_all_candidates(query: str, candidates: list):
             max_retries=8
         )
 
-        # First pass: classify all candidates concurrently
+        # Classify all candidates concurrently
         tasks = [
-            classify_single_candidate_nano(query, candidate, i, client)
+            classify_single_candidate_nano(query, candidate, i, client, describe_partial)
             for i, candidate in enumerate(candidates)
         ]
 
@@ -225,7 +241,7 @@ async def classify_all_candidates(query: str, candidates: list):
         if failed_indices:
             print(f"\n🔄 Retrying {len(failed_indices)} failed requests...")
             retry_tasks = [
-                classify_single_candidate_nano(query, candidates[i], i, client)
+                classify_single_candidate_nano(query, candidates[i], i, client, describe_partial)
                 for i in failed_indices
             ]
             retry_results = await asyncio.gather(*retry_tasks, return_exceptions=True)
