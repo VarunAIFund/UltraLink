@@ -36,7 +36,11 @@ interface CandidateCardProps {
   userName?: string;
 }
 
-export function CandidateCard({ candidate, searchQuery, userName }: CandidateCardProps) {
+export function CandidateCard({
+  candidate,
+  searchQuery,
+  userName,
+}: CandidateCardProps) {
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [showHighlights, setShowHighlights] = useState(false);
   const [loadingHighlights, setLoadingHighlights] = useState(false);
@@ -46,7 +50,9 @@ export function CandidateCard({ candidate, searchQuery, userName }: CandidateCar
   const [imageError, setImageError] = useState(false);
 
   // Bookmark state - initialize from candidate prop
-  const [isBookmarked, setIsBookmarked] = useState(candidate.is_bookmarked || false);
+  const [isBookmarked, setIsBookmarked] = useState(
+    candidate.is_bookmarked || false
+  );
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
 
   // Notes state
@@ -90,7 +96,7 @@ export function CandidateCard({ candidate, searchQuery, userName }: CandidateCar
         setIsBookmarked(true);
       }
     } catch (error) {
-      console.error('Error toggling bookmark:', error);
+      console.error("Error toggling bookmark:", error);
     } finally {
       setBookmarkLoading(false);
     }
@@ -228,14 +234,18 @@ export function CandidateCard({ candidate, searchQuery, userName }: CandidateCar
                       onClick={handleBookmarkToggle}
                       disabled={bookmarkLoading}
                       className="text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
-                      aria-label={isBookmarked ? "Remove bookmark" : "Add bookmark"}
+                      aria-label={
+                        isBookmarked ? "Remove bookmark" : "Add bookmark"
+                      }
                     >
                       <Star
-                        className={`w-5 h-5 ${isBookmarked ? 'fill-primary text-primary' : ''}`}
+                        className={`w-5 h-5 ${
+                          isBookmarked ? "fill-primary text-primary" : ""
+                        }`}
                       />
                     </button>
                   )}
-                  {candidate.lever_opportunities?.some(opp => opp.hired) && (
+                  {candidate.lever_opportunities?.some((opp) => opp.hired) && (
                     <span className="px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full font-medium">
                       Hired
                     </span>
@@ -303,7 +313,9 @@ export function CandidateCard({ candidate, searchQuery, userName }: CandidateCar
                       key={i}
                       onClick={() => {
                         // Capitalize first letter of connection name
-                        const capitalizedConnection = connection.charAt(0).toUpperCase() + connection.slice(1);
+                        const capitalizedConnection =
+                          connection.charAt(0).toUpperCase() +
+                          connection.slice(1);
                         setSelectedConnection(capitalizedConnection);
                         setShowEmailDialog(true);
                       }}
@@ -352,16 +364,22 @@ export function CandidateCard({ candidate, searchQuery, userName }: CandidateCar
                   ? "Hide Notes"
                   : "Notes"}
               </Button>
-              {candidate.lever_opportunities && candidate.lever_opportunities.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleToggleLeverOpportunities}
-                >
-                  <HiBriefcase className="w-4 h-4 mr-2" />
-                  {showLeverOpportunities ? "Hide Lever" : `Lever (${candidate.lever_opportunities.length})`}
-                </Button>
-              )}
+              {candidate.lever_opportunities &&
+                candidate.lever_opportunities.some((opp) => opp.url) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleToggleLeverOpportunities}
+                  >
+                    <HiBriefcase className="w-4 h-4 mr-2" />
+                    {showLeverOpportunities
+                      ? "Hide Lever"
+                      : `Lever (${
+                          candidate.lever_opportunities.filter((opp) => opp.url)
+                            .length
+                        })`}
+                  </Button>
+                )}
               <Button
                 variant="outline"
                 size="sm"
@@ -389,37 +407,55 @@ export function CandidateCard({ candidate, searchQuery, userName }: CandidateCar
             />
           )}
 
-          {showLeverOpportunities && candidate.lever_opportunities && candidate.lever_opportunities.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-4 border-t pt-4"
-            >
-              <h4 className="text-sm font-medium mb-3">Lever Opportunities</h4>
-              <div className="space-y-2">
-                {candidate.lever_opportunities.map((opportunity, index) => {
-                  // Extract the candidate ID from the URL for display
-                  const candidateId = opportunity.url.split('/').pop() || `Opportunity ${index + 1}`;
-                  return (
-                    <a
-                      key={index}
-                      href={opportunity.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-primary hover:underline hover:bg-muted px-3 py-2 rounded-md transition-colors"
-                    >
-                      <HiBriefcase className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">{candidateId}</span>
-                      <svg className="w-3 h-3 ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </a>
-                  );
-                })}
-              </div>
-            </motion.div>
-          )}
+          {showLeverOpportunities &&
+            candidate.lever_opportunities &&
+            candidate.lever_opportunities.some((opp) => opp.url) && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-4 border-t pt-4"
+              >
+                <h4 className="text-sm font-medium mb-3">
+                  Lever Opportunities
+                </h4>
+                <div className="space-y-2">
+                  {candidate.lever_opportunities
+                    .filter((opp) => opp.url)
+                    .map((opportunity, index) => {
+                      // Extract the candidate ID from the URL for display
+                      const candidateId =
+                        opportunity.url.split("/").pop() ||
+                        `Opportunity ${index + 1}`;
+                      return (
+                        <a
+                          key={index}
+                          href={opportunity.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-sm text-primary hover:underline hover:bg-muted px-3 py-2 rounded-md transition-colors"
+                        >
+                          <HiBriefcase className="w-4 h-4 flex-shrink-0" />
+                          <span className="truncate">{candidateId}</span>
+                          <svg
+                            className="w-3 h-3 ml-auto flex-shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                            />
+                          </svg>
+                        </a>
+                      );
+                    })}
+                </div>
+              </motion.div>
+            )}
 
           {showNotes && (
             <motion.div
@@ -487,7 +523,13 @@ export function CandidateCard({ candidate, searchQuery, userName }: CandidateCar
           return { subject: result.subject, body: result.body };
         }}
         onSend={async (subject, body, fromEmail, senderName, toEmail) => {
-          await sendIntroductionEmail(subject, body, fromEmail, senderName, toEmail);
+          await sendIntroductionEmail(
+            subject,
+            body,
+            fromEmail,
+            senderName,
+            toEmail
+          );
         }}
       />
     </motion.div>
