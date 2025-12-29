@@ -9,6 +9,20 @@ from urllib.parse import quote_plus
 from dotenv import load_dotenv, dotenv_values
 from contextlib import contextmanager
 
+def sanitize_for_json(data):
+    """
+    Recursively remove null bytes from data structure before JSON serialization.
+    PostgreSQL cannot store null bytes in text/JSON fields.
+    """
+    if isinstance(data, str):
+        return data.replace('\u0000', '').replace('\x00', '')
+    elif isinstance(data, dict):
+        return {k: sanitize_for_json(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [sanitize_for_json(item) for item in data]
+    else:
+        return data
+
 # Load environment
 env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 load_dotenv(env_path)
@@ -118,7 +132,7 @@ def save_search_session(query, connected_to, sql_query='', results=None, total_c
             query,
             connected_to_array,
             sql_query,
-            json.dumps(results),
+            json.dumps(sanitize_for_json(results)),
             len(results),
             total_cost,
             logs,
@@ -158,8 +172,10 @@ def update_search_session(search_id, sql_query=None, results=None, total_cost=No
         params.append(sql_query)
 
     if results is not None:
+        # Sanitize results to remove null bytes before JSON serialization
+        sanitized_results = sanitize_for_json(results)
         updates.extend(["results = %s", "total_results = %s"])
-        params.extend([json.dumps(results), len(results)])
+        params.extend([json.dumps(sanitized_results), len(sanitized_results)])
 
     if total_cost is not None:
         updates.append("total_cost = %s")
