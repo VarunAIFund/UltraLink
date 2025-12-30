@@ -37,7 +37,7 @@ TABLE: candidates (987 records)
 - education (JSONB): Array of education objects with school, degree, field, dates
 - lever_opportunities (JSONB): Array of Lever opportunity objects. Each object contains:
   * url (TEXT): Lever candidate URL
-  * hired (BOOLEAN): Whether the candidate was hired for this opportunity
+  * hired (BOOLEAN): Whether the candidate was hired for this opportunity. If hired=true, they are "in the ecosystem" (meaning they joined one of our portfolio companies)
 - created_at (TIMESTAMP): Record creation timestamp
 - updated_at (TIMESTAMP): Last update timestamp
 
@@ -119,6 +119,15 @@ SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, 
      FROM candidates c, jsonb_array_elements(c.experiences) AS exp
      WHERE exp->>'title' ~* '\\m(CTO|Chief Technology Officer)\\M'
      AND exp->>'industry_tags' ~* '\\mai/ml\\M'
+     LIMIT {LIMIT_NUMBER};
+
+Natural: "CEOs with AI experience in the ecosystem"
+SQL: SELECT DISTINCT c.linkedin_url, c.name, c.location, c.seniority, c.skills, c.headline, c.connected_to, c.years_experience, c.worked_at_startup, c.profile_pic, c.experiences, c.education, c.lever_opportunities
+     FROM candidates c, jsonb_array_elements(c.experiences) AS exp, jsonb_array_elements(c.lever_opportunities) AS opp
+     WHERE c.seniority = 'C-Level'
+     AND exp->>'title' ~* '\\m(CEO|Chief Executive|Founder)\\M'
+     AND (array_to_string(c.skills, ',') ~* '\\m(ai|artificial intelligence)\\M' OR exp->>'industry_tags' ~* '\\mai\\M')
+     AND (opp->>'hired')::boolean = true
      LIMIT {LIMIT_NUMBER};
 """
 
