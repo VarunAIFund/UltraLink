@@ -3,7 +3,6 @@ Search module - Handles query generation and database search
 """
 import os
 import re
-import time
 import psycopg2
 from psycopg2.pool import ThreadedConnectionPool
 from urllib.parse import quote_plus
@@ -242,39 +241,22 @@ def execute_search(query: str, connected_to: str = None, min_results: int = 10, 
     # Debug: print SQL
     print(f"[SEARCH] Generated SQL:\n{sql}\n")
 
-    # Execute with pooled connection (with retry on connection errors)
-    max_retries = 3
-    retry_count = 0
-    results = []
-    
-    while retry_count < max_retries:
-        try:
-            with get_pooled_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(sql)
+    # Execute with pooled connection
+    with get_pooled_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(sql)
 
-                columns = [desc[0] for desc in cursor.description]
-                rows = cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]
+        rows = cursor.fetchall()
 
-                for row in rows:
-                    result = {}
-                    for i, value in enumerate(row):
-                        result[columns[i]] = value
-                    results.append(result)
+        results = []
+        for row in rows:
+            result = {}
+            for i, value in enumerate(row):
+                result[columns[i]] = value
+            results.append(result)
 
-                print(f"[SEARCH] Initial search returned {len(results)} results")
-                break  # Success, exit retry loop
-                
-        except (psycopg2.DatabaseError, psycopg2.InterfaceError, psycopg2.OperationalError) as e:
-            retry_count += 1
-            error_name = type(e).__name__
-            
-            if retry_count < max_retries:
-                print(f"[SEARCH] Database error ({error_name}) on attempt {retry_count}/{max_retries}, retrying...")
-                time.sleep(0.5)  # Brief pause before retry
-            else:
-                print(f"[SEARCH] Database error after {max_retries} attempts: {error_name}")
-                raise  # Re-raise if max retries exceeded
+        print(f"[SEARCH] Initial search returned {len(results)} results")
 
         # If too few results, try a more relaxed search
         if len(results) < min_results:
@@ -293,38 +275,18 @@ def execute_search(query: str, connected_to: str = None, min_results: int = 10, 
 
                     print(f"[SEARCH] Relaxed SQL:\n{relaxed_sql}\n")
 
-                    # Execute relaxed query with retry logic
-                    relaxed_retry_count = 0
+                    # Execute relaxed query
+                    cursor.execute(relaxed_sql)
+                    relaxed_rows = cursor.fetchall()
+
                     relaxed_results = []
-                    
-                    while relaxed_retry_count < max_retries:
-                        try:
-                            with get_pooled_connection() as relaxed_conn:
-                                relaxed_cursor = relaxed_conn.cursor()
-                                relaxed_cursor.execute(relaxed_sql)
-                                
-                                relaxed_columns = [desc[0] for desc in relaxed_cursor.description]
-                                relaxed_rows = relaxed_cursor.fetchall()
+                    for row in relaxed_rows:
+                        result = {}
+                        for i, value in enumerate(row):
+                            result[columns[i]] = value
+                        relaxed_results.append(result)
 
-                                for row in relaxed_rows:
-                                    result = {}
-                                    for i, value in enumerate(row):
-                                        result[relaxed_columns[i]] = value
-                                    relaxed_results.append(result)
-
-                                print(f"[SEARCH] Relaxed search returned {len(relaxed_results)} results")
-                                break  # Success, exit retry loop
-                                
-                        except (psycopg2.DatabaseError, psycopg2.InterfaceError, psycopg2.OperationalError) as e:
-                            relaxed_retry_count += 1
-                            error_name = type(e).__name__
-                            
-                            if relaxed_retry_count < max_retries:
-                                print(f"[SEARCH] Relaxed query database error ({error_name}) on attempt {relaxed_retry_count}/{max_retries}, retrying...")
-                                time.sleep(0.5)
-                            else:
-                                print(f"[SEARCH] Relaxed query failed after {max_retries} attempts: {error_name}")
-                                raise  # Re-raise if max retries exceeded
+                    print(f"[SEARCH] Relaxed search returned {len(relaxed_results)} results")
 
                     # Use relaxed results if they're better
                     if len(relaxed_results) > len(results):
