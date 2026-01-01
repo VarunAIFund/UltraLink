@@ -33,7 +33,8 @@ class CandidateClassification(BaseModel):
     )
     analysis: str = Field(
         description="""
-        If strong match: Start with the candidate's full name. Write 3-4 sentences explaining why they're a strong fit for the query.
+        If strong match: Start with the candidate's full name followed by the rest of the sentence (name should be part of the first sentence, not standalone).
+                        Write 3-4 sentences explaining why they're a strong fit for the query.
                         Include relevant experience, key skills, years of experience, and notable accomplishments that directly match the query criteria.
 
         If partial match: Write 1-2 sentences explaining what they HAVE that's relevant and what key elements they're MISSING.
@@ -92,7 +93,7 @@ CLASSIFICATION CRITERIA:
 - NO MATCH: Candidate is not relevant to any of the query requirements
 
 IMPORTANT INSTRUCTIONS:
-1. For STRONG matches: Start with the candidate's name. Write 2-3 sentences explaining why they're a strong fit for the query. Include relevant experience, key skills, years of experience, and notable accomplishments that match the query criteria.
+1. For STRONG matches: Start with the candidate's full name followed by the rest of the sentence (name should be part of the first sentence, not standalone). Write 2-3 sentences explaining why they're a strong fit for the query. Include relevant experience, key skills, years of experience, and notable accomplishments that match the query criteria.
 {partial_instruction}
 3. For NO MATCH: Leave analysis empty ("")
 
