@@ -1,15 +1,15 @@
 """
 Ranking module - Two-stage pipeline orchestrator
 
-Combines GPT-5-nano classification with Gemini ranking for optimal cost/quality:
+Combines GPT-5-nano classification with GPT-5-nano ranking for optimal cost/quality:
 - Stage 1: GPT-5-nano classifies all candidates (strong/partial/no_match)
-- Stage 2: Gemini ranks strong matches, rules score partial matches
+- Stage 2: GPT-5-nano ranks strong matches, rules score partial matches
 
 This is the main ranking interface used by app.py endpoints.
 """
 import asyncio
 from ranking_stage_1_nano import classify_all_candidates
-from ranking_stage_2_gemini import rank_all_candidates
+from ranking_stage_2_nano import rank_all_candidates_sync as rank_all_candidates
 
 
 def rank_candidates(query: str, candidates: list, progress_callback=None):
@@ -23,7 +23,7 @@ def rank_candidates(query: str, candidates: list, progress_callback=None):
 
     Returns:
         List of ranked candidates with relevance scores and fit descriptions
-        Ordered by: strong matches (Gemini ranked) → partial matches (rule scored) → no matches
+        Ordered by: strong matches (GPT-5-nano ranked) → partial matches (rule scored) → no matches
 
     Performance (414 candidates):
         - Time: ~30-35 seconds
@@ -56,11 +56,11 @@ def rank_candidates(query: str, candidates: list, progress_callback=None):
 
     print(f"[RANKING] Stage 1 complete: {num_strong} strong, {num_partial} partial, {num_no_match} no_match")
 
-    # Stage 2: Gemini ranking (strong) + rule scoring (partial)
+    # Stage 2: GPT-5-nano ranking (strong) + rule scoring (partial)
     if progress_callback:
         progress_callback('ranking', 'Ranking matches...')
 
-    print(f"[RANKING] Stage 2: Gemini ranking + rule scoring...")
+    print(f"[RANKING] Stage 2: GPT-5-nano ranking + rule scoring...")
     final_results, stage_2_cost = rank_all_candidates(query, stage_1_results)
 
     print(f"[RANKING] Pipeline complete: {len(final_results)} candidates ranked\n")

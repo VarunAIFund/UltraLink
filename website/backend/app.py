@@ -222,7 +222,7 @@ def process_search_background(search_id, query, connected_to, ranking, user_name
 
         # Import stage functions
         from ranking_stage_1_nano import classify_all_candidates
-        from ranking_stage_2_gemini import rank_all_candidates
+        from ranking_stage_2_nano import rank_all_candidates_sync as rank_all_candidates
         import asyncio
 
         stage_1_results = asyncio.run(classify_all_candidates(query, search_result['results']))
@@ -246,7 +246,7 @@ def process_search_background(search_id, query, connected_to, ranking, user_name
             print(f"{'='*60}")
             print(f"   • SQL Generation (GPT-4o): ${sql_cost:.4f}")
             print(f"   • Classification (GPT-5-nano): ${stage_1_total:.4f}")
-            print(f"   • Ranking (Gemini 2.5 Pro): ${stage_2_total:.4f}")
+            print(f"   • Ranking (GPT-5-nano): ${stage_2_total:.4f}")
             print(f"   • TOTAL: ${total_cost:.4f}")
             print(f"{'='*60}\n")
         else:
