@@ -3,6 +3,7 @@ Search module - Handles query generation and database search
 """
 import os
 import re
+import time
 import psycopg2
 from psycopg2.pool import ThreadedConnectionPool
 from urllib.parse import quote_plus
@@ -61,31 +62,40 @@ def get_pooled_connection():
     if connection_pool is None:
         init_connection_pool()
 
-    conn = connection_pool.getconn()
-
-    # Test if connection is stale (closed by database server)
-    # Catch DatabaseError (parent of OperationalError) and InterfaceError for closed connections
+    conn = None
     try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1")
-        cursor.close()
-    except (psycopg2.DatabaseError, psycopg2.InterfaceError) as e:
-        # Connection is stale, close it and get a fresh one
-        print(f"[POOL] Detected stale connection ({type(e).__name__}), getting fresh one...")
-        try:
-            conn.close()
-        except Exception:
-            pass  # Connection may already be closed
-        try:
-            connection_pool.putconn(conn, close=True)
-        except Exception:
-            pass  # Pool may have already removed it
         conn = connection_pool.getconn()
 
-    try:
+        # Test if connection is stale (closed by database server)
+        # Catch DatabaseError (parent of OperationalError) and InterfaceError for closed connections
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1")
+            cursor.close()
+        except (psycopg2.DatabaseError, psycopg2.InterfaceError) as e:
+            # Connection is stale, close it and get a fresh one
+            print(f"[POOL] Detected stale connection ({type(e).__name__}), getting fresh one...")
+            try:
+                conn.close()
+            except Exception:
+                pass  # Connection may already be closed
+            try:
+                connection_pool.putconn(conn, close=True)
+            except Exception:
+                pass  # Pool may have already removed it or connection is unkeyed
+            conn = connection_pool.getconn()
+
         yield conn
     finally:
-        connection_pool.putconn(conn)
+        if conn:
+            try:
+                connection_pool.putconn(conn)
+            except psycopg2.pool.PoolError:
+                # Connection is unkeyed or invalid, just close it
+                try:
+                    conn.close()
+                except Exception:
+                    pass
 
 def generate_sql(query: str, connected_to: str = None) -> str:
     """Use GPT to convert natural language to SQL"""
@@ -241,22 +251,39 @@ def execute_search(query: str, connected_to: str = None, min_results: int = 10, 
     # Debug: print SQL
     print(f"[SEARCH] Generated SQL:\n{sql}\n")
 
-    # Execute with pooled connection
-    with get_pooled_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(sql)
+    # Execute with pooled connection (with retry on connection errors)
+    max_retries = 3
+    retry_count = 0
+    results = []
+    
+    while retry_count < max_retries:
+        try:
+            with get_pooled_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(sql)
 
-        columns = [desc[0] for desc in cursor.description]
-        rows = cursor.fetchall()
+                columns = [desc[0] for desc in cursor.description]
+                rows = cursor.fetchall()
 
-        results = []
-        for row in rows:
-            result = {}
-            for i, value in enumerate(row):
-                result[columns[i]] = value
-            results.append(result)
+                for row in rows:
+                    result = {}
+                    for i, value in enumerate(row):
+                        result[columns[i]] = value
+                    results.append(result)
 
-        print(f"[SEARCH] Initial search returned {len(results)} results")
+                print(f"[SEARCH] Initial search returned {len(results)} results")
+                break  # Success, exit retry loop
+                
+        except (psycopg2.DatabaseError, psycopg2.InterfaceError, psycopg2.OperationalError) as e:
+            retry_count += 1
+            error_name = type(e).__name__
+            
+            if retry_count < max_retries:
+                print(f"[SEARCH] Database error ({error_name}) on attempt {retry_count}/{max_retries}, retrying...")
+                time.sleep(0.5)  # Brief pause before retry
+            else:
+                print(f"[SEARCH] Database error after {max_retries} attempts: {error_name}")
+                raise  # Re-raise if max retries exceeded
 
         # If too few results, try a more relaxed search
         if len(results) < min_results:
@@ -275,18 +302,38 @@ def execute_search(query: str, connected_to: str = None, min_results: int = 10, 
 
                     print(f"[SEARCH] Relaxed SQL:\n{relaxed_sql}\n")
 
-                    # Execute relaxed query
-                    cursor.execute(relaxed_sql)
-                    relaxed_rows = cursor.fetchall()
-
+                    # Execute relaxed query with retry logic
+                    relaxed_retry_count = 0
                     relaxed_results = []
-                    for row in relaxed_rows:
-                        result = {}
-                        for i, value in enumerate(row):
-                            result[columns[i]] = value
-                        relaxed_results.append(result)
+                    
+                    while relaxed_retry_count < max_retries:
+                        try:
+                            with get_pooled_connection() as relaxed_conn:
+                                relaxed_cursor = relaxed_conn.cursor()
+                                relaxed_cursor.execute(relaxed_sql)
+                                
+                                relaxed_columns = [desc[0] for desc in relaxed_cursor.description]
+                                relaxed_rows = relaxed_cursor.fetchall()
 
-                    print(f"[SEARCH] Relaxed search returned {len(relaxed_results)} results")
+                                for row in relaxed_rows:
+                                    result = {}
+                                    for i, value in enumerate(row):
+                                        result[relaxed_columns[i]] = value
+                                    relaxed_results.append(result)
+
+                                print(f"[SEARCH] Relaxed search returned {len(relaxed_results)} results")
+                                break  # Success, exit retry loop
+                                
+                        except (psycopg2.DatabaseError, psycopg2.InterfaceError, psycopg2.OperationalError) as e:
+                            relaxed_retry_count += 1
+                            error_name = type(e).__name__
+                            
+                            if relaxed_retry_count < max_retries:
+                                print(f"[SEARCH] Relaxed query database error ({error_name}) on attempt {relaxed_retry_count}/{max_retries}, retrying...")
+                                time.sleep(0.5)
+                            else:
+                                print(f"[SEARCH] Relaxed query failed after {max_retries} attempts: {error_name}")
+                                raise  # Re-raise if max retries exceeded
 
                     # Use relaxed results if they're better
                     if len(relaxed_results) > len(results):
