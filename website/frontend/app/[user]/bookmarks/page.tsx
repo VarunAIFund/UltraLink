@@ -29,7 +29,7 @@ export default function BookmarksPage() {
           }
         })
         .catch((err) => {
-          console.error('Error fetching user info:', err);
+          console.error("Error fetching user info:", err);
         });
     }
   }, [userName]);
@@ -47,7 +47,9 @@ export default function BookmarksPage() {
           }
         })
         .catch((err) => {
-          setError(err instanceof Error ? err.message : "Failed to load bookmarks");
+          setError(
+            err instanceof Error ? err.message : "Failed to load bookmarks"
+          );
         })
         .finally(() => {
           setLoading(false);
@@ -56,7 +58,7 @@ export default function BookmarksPage() {
   };
 
   // Remove a single bookmark from state (no reload needed)
-  const handleRemoveBookmark = (bookmarkId: number) => {
+  const handleRemoveBookmark = (bookmarkId: string) => {
     setBookmarks((prev) => prev.filter((b) => b.id !== bookmarkId));
   };
 
@@ -83,7 +85,7 @@ export default function BookmarksPage() {
         className="mb-8 mt-12"
       >
         <h1 className="text-4xl font-bold mb-2">
-          {userDisplayName ? `${userDisplayName}'s Bookmarks` : 'Bookmarks'}
+          {userDisplayName ? `${userDisplayName}'s Bookmarks` : "Bookmarks"}
         </h1>
         <p className="text-muted-foreground">
           Your saved candidates for easy access
@@ -127,7 +129,8 @@ export default function BookmarksPage() {
           transition={{ duration: 0.5, delay: 0.2 }}
         >
           <h2 className="text-2xl font-semibold mb-6">
-            {bookmarks.length} Bookmarked Candidate{bookmarks.length !== 1 ? 's' : ''}
+            {bookmarks.length} Bookmarked Candidate
+            {bookmarks.length !== 1 ? "s" : ""}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {bookmarks.map((bookmark, index) => (

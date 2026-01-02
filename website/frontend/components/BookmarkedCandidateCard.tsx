@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import { Star, ExternalLink, User as UserIcon } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import type { Bookmark } from "@/lib/api";
 import { removeBookmark } from "@/lib/api";
 
 interface BookmarkedCandidateCardProps {
   bookmark: Bookmark;
   userName?: string;
-  onRemove?: (bookmarkId: number) => void;
+  onRemove?: (bookmarkId: string) => void;
 }
 
 export function BookmarkedCandidateCard({
@@ -71,7 +71,11 @@ export function BookmarkedCandidateCard({
         aria-label="Remove bookmark"
         title="Remove bookmark"
       >
-        <Star className={`w-6 h-6 fill-primary text-primary ${isRemoving ? 'animate-pulse' : ''}`} />
+        <Star
+          className={`w-6 h-6 fill-primary text-primary ${
+            isRemoving ? "animate-pulse" : ""
+          }`}
+        />
       </button>
 
       {/* Profile Picture */}
