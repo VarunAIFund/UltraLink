@@ -13,6 +13,7 @@ from openai import OpenAI
 from db_schema import get_schema_prompt
 from utils import add_profile_pic_urls
 from constants import SQL_GENERATION_MODEL, SQL_QUERY_LIMIT
+from location import expand_location_query
 
 # Load environment - .env is in website directory
 env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
@@ -237,8 +238,11 @@ def execute_search(query: str, connected_to: str = None, min_results: int = 10, 
         user_name: Optional username to check bookmark status
     """
 
-    # Generate SQL
-    sql, sql_cost = generate_sql(query, connected_to)
+    # Expand location terms (e.g., "Bay Area" -> list of cities)
+    expanded_query = expand_location_query(query)
+
+    # Generate SQL with expanded query
+    sql, sql_cost = generate_sql(expanded_query, connected_to)
 
     # Validate
     if not is_safe_query(sql):
