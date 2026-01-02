@@ -55,6 +55,11 @@ export default function BookmarksPage() {
     }
   };
 
+  // Remove a single bookmark from state (no reload needed)
+  const handleRemoveBookmark = (bookmarkId: number) => {
+    setBookmarks((prev) => prev.filter((b) => b.id !== bookmarkId));
+  };
+
   useEffect(() => {
     loadBookmarks();
   }, [userName]);
@@ -135,7 +140,7 @@ export default function BookmarksPage() {
                 <BookmarkedCandidateCard
                   bookmark={bookmark}
                   userName={userName}
-                  onRemove={loadBookmarks}
+                  onRemove={handleRemoveBookmark}
                 />
               </motion.div>
             ))}
