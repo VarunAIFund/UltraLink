@@ -3,6 +3,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime
 from urllib.parse import quote_plus
+from utils import generate_profile_pic_url
 
 def get_db_connection():
     """Get database connection (Railway vs local)"""
@@ -150,10 +151,14 @@ def get_user_bookmarks(user_name):
         # Convert to list of dicts
         result = []
         for bookmark in bookmarks:
+            # Generate profile pic URL from linkedin_url (like search results do)
+            linkedin_url = bookmark['linkedin_url']
+            profile_pic_url = generate_profile_pic_url(linkedin_url)
+            
             result.append({
                 'id': str(bookmark['id']),
                 'user_name': bookmark['user_name'],
-                'linkedin_url': bookmark['linkedin_url'],
+                'linkedin_url': linkedin_url,
                 'bookmarked_at': bookmark['bookmarked_at'].isoformat() if bookmark['bookmarked_at'] else None,
                 'notes': bookmark['notes'],
                 'candidate': {
@@ -165,7 +170,7 @@ def get_user_bookmarks(user_name):
                     'years_experience': bookmark['years_experience'],
                     'experiences': bookmark['experiences'],
                     'education': bookmark['education'],
-                    'profile_pic': bookmark['profile_pic']
+                    'profile_pic': profile_pic_url
                 }
             })
 
