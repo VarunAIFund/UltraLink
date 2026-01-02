@@ -78,25 +78,29 @@ export function CandidateCard({
   };
 
   const handleBookmarkToggle = async () => {
-    if (!userName) return;
+    if (!userName || bookmarkLoading) return;
 
+    // Optimistic UI update - toggle immediately
+    const previousState = isBookmarked;
+    setIsBookmarked(!isBookmarked);
     setBookmarkLoading(true);
+
     try {
-      if (isBookmarked) {
-        // Remove bookmark
+      if (previousState) {
+        // Was bookmarked, remove it
         await removeBookmark(userName, candidate.linkedin_url);
-        setIsBookmarked(false);
       } else {
-        // Add bookmark
+        // Was not bookmarked, add it
         await addBookmark(userName, {
           linkedin_url: candidate.linkedin_url,
           candidate_name: candidate.name,
           candidate_headline: candidate.headline,
         });
-        setIsBookmarked(true);
       }
     } catch (error) {
+      // Revert on error
       console.error("Error toggling bookmark:", error);
+      setIsBookmarked(previousState);
     } finally {
       setBookmarkLoading(false);
     }
