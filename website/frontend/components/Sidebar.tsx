@@ -1,11 +1,11 @@
 "use client";
 
-import { X, Search, Star } from "lucide-react";
+import { X, Search, Star, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "./ui/button";
-import { getUser } from "@/lib/api";
+import { getUser, checkIsAdmin } from "@/lib/api";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -15,6 +15,7 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
   const [userDisplayName, setUserDisplayName] = useState(userName);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Fetch user info to get display name
   useEffect(() => {
@@ -27,6 +28,17 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
         })
         .catch((err) => {
           console.error("Error fetching user info:", err);
+        });
+
+      // Check if user is admin
+      checkIsAdmin(userName)
+        .then((data) => {
+          if (data.success) {
+            setIsAdmin(data.is_admin);
+          }
+        })
+        .catch((err) => {
+          console.error("Error checking admin status:", err);
         });
     }
   }, [userName]);
@@ -89,6 +101,18 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
                 <Star className="h-5 w-5" />
                 <span className="text-lg">Bookmarks</span>
               </Link>
+
+              {/* Admin link - only visible to admin users */}
+              {isAdmin && (
+                <Link
+                  href={`/${userName}/admin`}
+                  onClick={onClose}
+                  className="flex items-center gap-3 p-3 rounded-lg text-amber-500 hover:bg-amber-500/10 hover:text-amber-400 transition-colors border border-amber-500/30"
+                >
+                  <Shield className="h-5 w-5" />
+                  <span className="text-lg font-medium">Admin</span>
+                </Link>
+              )}
             </nav>
 
             {/* Back to search */}

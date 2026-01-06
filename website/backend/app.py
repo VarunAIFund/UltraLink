@@ -917,6 +917,97 @@ def get_receiver_info(username):
         }), 500
 
 
+# ========================
+# ADMIN ENDPOINTS
+# ========================
+
+
+@app.route('/admin/searches', methods=['GET'])
+def get_all_searches():
+    """Get all searches from all users (admin only)"""
+    try:
+        # Check if requesting user is admin
+        requesting_user = request.args.get('user')
+        
+        # Validate user and check role from database
+        if not requesting_user:
+             return jsonify({
+                'success': False,
+                'error': 'Unauthorized: User required'
+            }), 403
+            
+        user = validate_user(requesting_user)
+        if not user or user.get('role') != 'admin':
+            return jsonify({
+                'success': False,
+                'error': 'Unauthorized: Admin access required'
+            }), 403
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT id, query, total_results, created_at, status, user_name
+            FROM search_sessions
+            ORDER BY created_at DESC
+            LIMIT 200
+        """)
+
+        searches = []
+        for row in cursor.fetchall():
+            searches.append({
+                'id': row[0],
+                'query': row[1],
+                'total_results': row[2],
+                'created_at': row[3].isoformat() if row[3] else None,
+                'status': row[4],
+                'user_name': row[5]
+            })
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'searches': searches,
+            'total': len(searches)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/admin/check', methods=['GET'])
+def check_admin():
+    """Check if a user is an admin"""
+    username = request.args.get('user')
+    
+    if not username:
+        return jsonify({
+            'success': False,
+            'is_admin': False
+        })
+        
+    try:
+        user = validate_user(username)
+        # Check role from database
+        is_admin = user is not None and user.get('role') == 'admin'
+        
+        return jsonify({
+            'success': True,
+            'is_admin': is_admin
+        })
+    except Exception as e:
+        print(f"Error checking admin status: {e}")
+        return jsonify({
+            'success': False,
+            'is_admin': False,
+            'error': str(e)
+        })
+
+
 @app.route('/health', methods=['GET'])
 def health():
     """Health check"""

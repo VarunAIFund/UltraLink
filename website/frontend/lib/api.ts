@@ -2,7 +2,7 @@
  * API client for Flask backend
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export interface Experience {
   org: string;
@@ -33,12 +33,12 @@ export interface CandidateResult {
   linkedin_url: string;
   headline?: string;
   location?: string;
-  match?: 'strong' | 'partial' | 'no_match';
+  match?: "strong" | "partial" | "no_match";
   relevance_score: number;
   fit_description: string;
   ranking_rationale?: string;
   stage_1_confidence?: number;
-  score?: number;  // Stage 1 confidence score used for sorting when ranking is off
+  score?: number; // Stage 1 confidence score used for sorting when ranking is off
   seniority?: string;
   years_experience?: number;
   skills?: string[];
@@ -48,7 +48,7 @@ export interface CandidateResult {
   education?: Education[];
   notes?: string;
   lever_opportunities?: LeverOpportunity[];
-  is_bookmarked?: boolean;  // Bookmark status from database JOIN
+  is_bookmarked?: boolean; // Bookmark status from database JOIN
 }
 
 export interface Highlight {
@@ -93,16 +93,20 @@ export interface SavedSearchResponse {
   error?: string;
 }
 
-export async function searchAndRank(query: string, connectedTo?: string, userName?: string): Promise<SearchResponse> {
+export async function searchAndRank(
+  query: string,
+  connectedTo?: string,
+  userName?: string
+): Promise<SearchResponse> {
   const response = await fetch(`${API_BASE_URL}/search-and-rank`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       query,
-      connected_to: connectedTo || 'all',
-      user_name: userName
+      connected_to: connectedTo || "all",
+      user_name: userName,
     }),
   });
 
@@ -122,15 +126,15 @@ export async function searchAndRankStream(
   userName?: string
 ): Promise<SearchResponse> {
   const response = await fetch(`${API_BASE_URL}/search-and-rank-stream`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       query,
-      connected_to: connectedTo || 'all',
+      connected_to: connectedTo || "all",
       ranking: ranking,
-      user_name: userName
+      user_name: userName,
     }),
   });
 
@@ -142,10 +146,10 @@ export async function searchAndRankStream(
   const decoder = new TextDecoder();
 
   if (!reader) {
-    throw new Error('Response body is not readable');
+    throw new Error("Response body is not readable");
   }
 
-  let buffer = '';
+  let buffer = "";
   let finalData: SearchResponse | null = null;
 
   while (true) {
@@ -156,8 +160,8 @@ export async function searchAndRankStream(
     buffer += decoder.decode(value, { stream: true });
 
     // Process complete SSE messages (ending with \n\n)
-    const messages = buffer.split('\n\n');
-    buffer = messages.pop() || ''; // Keep incomplete message in buffer
+    const messages = buffer.split("\n\n");
+    buffer = messages.pop() || ""; // Keep incomplete message in buffer
 
     for (const message of messages) {
       if (!message.trim()) continue;
@@ -168,11 +172,11 @@ export async function searchAndRankStream(
         try {
           const event = JSON.parse(dataMatch[1]);
 
-          if (event.step === 'complete' && event.data) {
+          if (event.step === "complete" && event.data) {
             finalData = event.data;
-          } else if (event.step === 'error') {
+          } else if (event.step === "error") {
             throw new Error(event.message);
-          } else if (event.step === 'search_created' && event.search_id) {
+          } else if (event.step === "search_created" && event.search_id) {
             // Search ID received - notify callback immediately
             if (onSearchIdReceived) {
               onSearchIdReceived(event.search_id);
@@ -182,24 +186,26 @@ export async function searchAndRankStream(
             onProgress(event.step, event.message);
           }
         } catch (e) {
-          console.error('Failed to parse SSE message:', e);
+          console.error("Failed to parse SSE message:", e);
         }
       }
     }
   }
 
   if (!finalData) {
-    throw new Error('No final data received from server');
+    throw new Error("No final data received from server");
   }
 
   return finalData;
 }
 
-export async function generateHighlights(candidate: CandidateResult): Promise<HighlightsResponse> {
+export async function generateHighlights(
+  candidate: CandidateResult
+): Promise<HighlightsResponse> {
   const response = await fetch(`${API_BASE_URL}/generate-highlights`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ candidate }),
   });
@@ -211,11 +217,13 @@ export async function generateHighlights(candidate: CandidateResult): Promise<Hi
   return response.json();
 }
 
-export async function getSearchSession(searchId: string): Promise<SavedSearchResponse> {
+export async function getSearchSession(
+  searchId: string
+): Promise<SavedSearchResponse> {
   const response = await fetch(`${API_BASE_URL}/search/${searchId}`, {
-    method: 'GET',
+    method: "GET",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
   });
 
@@ -246,12 +254,14 @@ export interface UpdateNoteResponse {
   error?: string;
 }
 
-export async function getNoteForCandidate(linkedinUrl: string): Promise<NoteResponse> {
+export async function getNoteForCandidate(
+  linkedinUrl: string
+): Promise<NoteResponse> {
   const encodedUrl = encodeURIComponent(linkedinUrl);
   const response = await fetch(`${API_BASE_URL}/notes/${encodedUrl}`, {
-    method: 'GET',
+    method: "GET",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
   });
 
@@ -262,15 +272,18 @@ export async function getNoteForCandidate(linkedinUrl: string): Promise<NoteResp
   return response.json();
 }
 
-export async function updateNoteForCandidate(linkedinUrl: string, note: string): Promise<UpdateNoteResponse> {
+export async function updateNoteForCandidate(
+  linkedinUrl: string,
+  note: string
+): Promise<UpdateNoteResponse> {
   const response = await fetch(`${API_BASE_URL}/notes`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       linkedin_url: linkedinUrl,
-      note: note
+      note: note,
     }),
   });
 
@@ -303,20 +316,20 @@ export async function generateIntroductionEmail(
   senderName?: string
 ): Promise<GenerateEmailResponse> {
   const response = await fetch(`${API_BASE_URL}/generate-introduction-email`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       candidate: candidate,
       job_description: jobDescription,
       mutual_connection_name: mutualConnectionName,
       sender_info: {
-        name: senderName || '',
-        role: 'Partner',
-        company: 'AI Fund',
-        email: fromEmail
-      }
+        name: senderName || "",
+        role: "Partner",
+        company: "AI Fund",
+        email: fromEmail,
+      },
     }),
   });
 
@@ -335,18 +348,18 @@ export async function sendIntroductionEmail(
   toEmail?: string
 ): Promise<SendEmailResponse> {
   const response = await fetch(`${API_BASE_URL}/send-introduction-email`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      to_email: toEmail || '',
+      to_email: toEmail || "",
       subject: subject,
       body: body,
       sender_info: {
-        name: senderName || '',
-        email: fromEmail
-      }
+        name: senderName || "",
+        email: fromEmail,
+      },
     }),
   });
 
@@ -382,9 +395,9 @@ export interface UserResponse {
 
 export async function getAllUsers(): Promise<UsersResponse> {
   const response = await fetch(`${API_BASE_URL}/users`, {
-    method: 'GET',
+    method: "GET",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
   });
 
@@ -397,9 +410,9 @@ export async function getAllUsers(): Promise<UsersResponse> {
 
 export async function getUser(userName: string): Promise<UserResponse> {
   const response = await fetch(`${API_BASE_URL}/users/${userName}`, {
-    method: 'GET',
+    method: "GET",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
   });
 
@@ -435,9 +448,9 @@ export interface ReceiverResponse {
 
 export async function getAllReceivers(): Promise<ReceiversResponse> {
   const response = await fetch(`${API_BASE_URL}/receivers`, {
-    method: 'GET',
+    method: "GET",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
   });
 
@@ -450,9 +463,9 @@ export async function getAllReceivers(): Promise<ReceiversResponse> {
 
 export async function getReceiver(username: string): Promise<ReceiverResponse> {
   const response = await fetch(`${API_BASE_URL}/receivers/${username}`, {
-    method: 'GET',
+    method: "GET",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
   });
 
@@ -482,11 +495,13 @@ export interface SearchHistoryResponse {
   error?: string;
 }
 
-export async function getUserSearches(userName: string): Promise<SearchHistoryResponse> {
+export async function getUserSearches(
+  userName: string
+): Promise<SearchHistoryResponse> {
   const response = await fetch(`${API_BASE_URL}/users/${userName}/searches`, {
-    method: 'GET',
+    method: "GET",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
   });
 
@@ -530,11 +545,13 @@ export interface BookmarkActionResponse {
   error?: string;
 }
 
-export async function getUserBookmarks(userName: string): Promise<BookmarksResponse> {
+export async function getUserBookmarks(
+  userName: string
+): Promise<BookmarksResponse> {
   const response = await fetch(`${API_BASE_URL}/users/${userName}/bookmarks`, {
-    method: 'GET',
+    method: "GET",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
   });
 
@@ -555,9 +572,9 @@ export async function addBookmark(
   }
 ): Promise<BookmarkActionResponse> {
   const response = await fetch(`${API_BASE_URL}/users/${userName}/bookmarks`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(data),
   });
@@ -569,12 +586,82 @@ export async function addBookmark(
   return response.json();
 }
 
-export async function removeBookmark(userName: string, linkedinUrl: string): Promise<BookmarkActionResponse> {
+export async function removeBookmark(
+  userName: string,
+  linkedinUrl: string
+): Promise<BookmarkActionResponse> {
   const encodedUrl = encodeURIComponent(linkedinUrl);
-  const response = await fetch(`${API_BASE_URL}/users/${userName}/bookmarks/${encodedUrl}`, {
-    method: 'DELETE',
+  const response = await fetch(
+    `${API_BASE_URL}/users/${userName}/bookmarks/${encodedUrl}`,
+    {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function checkBookmark(
+  userName: string,
+  linkedinUrl: string
+): Promise<BookmarkStatusResponse> {
+  const encodedUrl = encodeURIComponent(linkedinUrl);
+  const response = await fetch(
+    `${API_BASE_URL}/users/${userName}/bookmarks/check/${encodedUrl}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+// ========================
+// ADMIN API
+// ========================
+
+export interface AdminSearchItem {
+  id: string;
+  query: string;
+  total_results: number;
+  created_at: string;
+  status: string;
+  user_name: string;
+}
+
+export interface AdminSearchesResponse {
+  success: boolean;
+  searches: AdminSearchItem[];
+  total: number;
+  error?: string;
+}
+
+export interface AdminCheckResponse {
+  success: boolean;
+  is_admin: boolean;
+}
+
+export async function checkIsAdmin(
+  userName: string
+): Promise<AdminCheckResponse> {
+  const response = await fetch(`${API_BASE_URL}/admin/check?user=${userName}`, {
+    method: "GET",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
   });
 
@@ -585,14 +672,18 @@ export async function removeBookmark(userName: string, linkedinUrl: string): Pro
   return response.json();
 }
 
-export async function checkBookmark(userName: string, linkedinUrl: string): Promise<BookmarkStatusResponse> {
-  const encodedUrl = encodeURIComponent(linkedinUrl);
-  const response = await fetch(`${API_BASE_URL}/users/${userName}/bookmarks/check/${encodedUrl}`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
+export async function getAdminSearches(
+  userName: string
+): Promise<AdminSearchesResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/admin/searches?user=${userName}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
 
   if (!response.ok) {
     throw new Error(`API error: ${response.statusText}`);

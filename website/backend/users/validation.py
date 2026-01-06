@@ -43,7 +43,7 @@ def validate_user(username):
         cursor = conn.cursor(cursor_factory=RealDictCursor)
 
         cursor.execute("""
-            SELECT username, display_name, email
+            SELECT username, display_name, email, role
             FROM users
             WHERE username = %s
         """, (username,))
