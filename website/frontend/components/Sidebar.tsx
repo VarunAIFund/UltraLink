@@ -1,6 +1,7 @@
 "use client";
 
-import { X, Search, Star, Shield } from "lucide-react";
+import { X, Search, Star } from "lucide-react";
+import { Shield } from "lucide-react"; // Admin icon - uncomment when re-enabling admin
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -30,7 +31,8 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
           console.error("Error fetching user info:", err);
         });
 
-      // Check if user is admin
+      // Check if user is admin - commented out for now
+      /*
       checkIsAdmin(userName)
         .then((data) => {
           if (data.success) {
@@ -40,6 +42,7 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
         .catch((err) => {
           console.error("Error checking admin status:", err);
         });
+      */
     }
   }, [userName]);
 
@@ -102,7 +105,7 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
                 <span className="text-lg">Bookmarks</span>
               </Link>
 
-              {/* Admin link - only visible to admin users */}
+              {/* Admin link - commented out for now
               {isAdmin && (
                 <Link
                   href={`/${userName}/admin`}
@@ -113,6 +116,7 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
                   <span className="text-lg font-medium">Admin</span>
                 </Link>
               )}
+              */}
             </nav>
 
             {/* Back to search */}
