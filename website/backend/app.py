@@ -20,7 +20,7 @@ from email_intro.generate_template import generate_introduction_email
 from email_intro.send_email import send_introduction_email
 from users import validate_user, get_all_users, get_db_connection
 from bookmarks import add_bookmark, remove_bookmark, get_user_bookmarks, is_bookmarked
-from receivers import get_receiver, get_all_receivers
+from receivers import get_receiver, get_all_receivers, is_valid_receiver_email
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend
@@ -628,6 +628,11 @@ def send_introduction_email_endpoint():
     # Validate inputs
     if not to_email or '@' not in to_email:
         return jsonify({'error': 'Valid recipient email required'}), 400
+
+    # SECURITY: Only allow sending to verified receivers in the database
+    if not is_valid_receiver_email(to_email):
+        print(f"[SECURITY] Blocked attempt to send email to unauthorized recipient: {to_email}")
+        return jsonify({'error': 'Recipient not authorized. Emails can only be sent to verified partners.'}), 403
 
     if not subject:
         return jsonify({'error': 'Email subject required'}), 400

@@ -62,6 +62,36 @@ def get_receiver(username):
         return None
 
 
+def is_valid_receiver_email(email):
+    """
+    Check if email belongs to a valid receiver
+    
+    Args:
+        email: Email address to check
+        
+    Returns:
+        bool: True if email exists in receivers table
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT 1 
+            FROM receivers 
+            WHERE email = %s
+        """, (email,))
+
+        exists = cursor.fetchone() is not None
+        cursor.close()
+        conn.close()
+
+        return exists
+    except Exception as e:
+        print(f"Error checking receiver email: {e}")
+        return False
+
+
 def get_all_receivers():
     """
     Get all receivers
