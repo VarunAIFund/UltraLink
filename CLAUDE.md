@@ -27,12 +27,16 @@ UltraLink is a comprehensive LinkedIn data processing and candidate search platf
 ### Current System Status
 - **13,432 candidates** being processed (including Mary's connections)
 - **AI-enhanced profiles** with inferred seniority, skills, and company insights
+- **Multi-user workspaces** with personalized search, bookmarks, and history
 - **Web + CLI interfaces** for natural language candidate search
 - **Connection filtering** by Dan, Linda, Jon, and Mary
 - **Shareable search links** with UUID-based persistent search sessions
 - **Background search processing** with status tracking and automatic frontend polling
 - **AI-generated highlights** via Perplexity search + GPT-4o analysis
 - **HR Notes feature** for candidate annotations with edit/view modes
+- **Bookmarks system** - Save candidates for later with per-user organization
+- **Search history** - View and revisit past searches per user
+- **Lever integration** - Shows "Hired" status from Lever ATS with toggle to filter
 - **Supabase Storage profile pictures** with automatic HiUser icon fallback for missing images (5,383 uploaded, 99.1% success rate)
 - **Real-time cost tracking** for all AI operations (SQL generation, classification, ranking) with backend logs and frontend display
 - **Introduction email requests** - AI-generated casual emails asking mutual connections for introductions, with sender selection and dynamic recipient routing
@@ -47,36 +51,66 @@ UltraLink/
 │   ├── backend/                 # Flask API backend
 │   │   ├── app.py              # Main Flask app with all endpoints
 │   │   ├── search.py           # Natural language to SQL generation (supports multi-connection filtering)
+│   │   ├── search_new.py       # New search implementation
 │   │   ├── utils.py            # Profile picture URL generation (Railway-compatible)
 │   │   ├── ranking.py          # GPT-4o candidate reranking (top 30)
 │   │   ├── ranking_gemini.py   # Gemini 2.5 Pro ranking (ALL candidates)
-│   │   ├── ranking_stage_1.py  # Async parallel classification (strong vs partial matches)
+│   │   ├── ranking_stage_1_nano.py   # GPT-5-nano classification (strong vs partial matches)
+│   │   ├── ranking_stage_2_gemini.py # Stage 2 Gemini ranking
 │   │   ├── highlights.py       # Perplexity + GPT-4o highlights
 │   │   ├── save_search.py      # Search session persistence
 │   │   ├── add_note.py         # HR notes for candidates
+│   │   ├── bookmarks.py        # User bookmarks management
+│   │   ├── location.py         # Location/geography utilities
+│   │   ├── constants.py        # Application constants
+│   │   ├── receivers.py        # Connection owner (receiver) management
+│   │   ├── users/              # User management module
+│   │   │   ├── __init__.py
+│   │   │   ├── routes.py       # User API endpoints
+│   │   │   └── validation.py   # User validation logic
 │   │   ├── email_intro/        # Introduction email generation and sending
 │   │   │   ├── generate_template.py  # GPT-4o email generation
 │   │   │   └── send_email.py         # Resend API email sending
-│   │   ├── db_schema.py        # Database schema for AI context
+│   │   ├── db_schema.py        # Database schema for AI context (includes lever_opportunities)
 │   │   └── requirements.txt    # Python dependencies (includes google-generativeai)
 │   │
 │   ├── frontend/                # Next.js frontend
 │   │   ├── app/
-│   │   │   ├── page.tsx        # Main search page (handles both new & saved)
+│   │   │   ├── page.tsx        # Landing/redirect page
+│   │   │   ├── layout.tsx      # Root layout
 │   │   │   ├── globals.css     # Global styles & theme
-│   │   │   └── search/[[...id]]/page.tsx  # Catch-all for /search/[uuid]
-│   │   │   ├── components/
+│   │   │   ├── [user]/         # User workspace routes (multi-user support)
+│   │   │   │   ├── page.tsx    # User's main search page
+│   │   │   │   ├── search/[[...id]]/page.tsx  # Catch-all for /[user]/search/[uuid]
+│   │   │   │   ├── bookmarks/page.tsx  # User's bookmarked candidates
+│   │   │   │   ├── searches/page.tsx   # User's search history
+│   │   │   │   └── admin/page.tsx      # Admin panel (commented out)
+│   │   │   └── search/[[...id]]/page.tsx  # Legacy search route
+│   │   ├── components/
 │   │   │   ├── SearchBar.tsx           # Multi-select connection filter
-│   │   │   ├── CandidateList.tsx
-│   │   │   ├── CandidateCard.tsx       # With HR notes and email intro dialog
+│   │   │   ├── CandidateList.tsx       # Results list with filtering
+│   │   │   ├── CandidateCard.tsx       # With HR notes, Lever status, bookmarks, email intro
+│   │   │   ├── CandidateCardSkeleton.tsx  # Loading state skeleton
+│   │   │   ├── BookmarkedCandidateCard.tsx  # Card for bookmarks page
 │   │   │   ├── IntroductionEmailDialog.tsx  # Email generation modal
-│   │   │   ├── CandidateHighlights.tsx
-│   │   │   ├── SqlDisplay.tsx
-│   │   │   └── ui/
-│   │   │       ├── textarea.tsx        # Textarea component for notes
-│   │   │       └── multi-select.tsx    # Custom multi-select dropdown
+│   │   │   ├── CandidateHighlights.tsx # AI-generated highlights
+│   │   │   ├── SqlDisplay.tsx          # SQL query display
+│   │   │   ├── EmptyState.tsx          # Empty state with feature descriptions
+│   │   │   ├── HamburgerMenu.tsx       # Navigation menu trigger
+│   │   │   ├── Sidebar.tsx             # Navigation sidebar (Past Searches, Bookmarks)
+│   │   │   └── ui/                     # shadcn/ui components
+│   │   │       ├── button.tsx
+│   │   │       ├── card.tsx
+│   │   │       ├── dialog.tsx
+│   │   │       ├── input.tsx
+│   │   │       ├── label.tsx
+│   │   │       ├── select.tsx
+│   │   │       └── textarea.tsx
 │   │   ├── lib/
-│   │   │   └── api.ts          # API client functions
+│   │   │   ├── api.ts          # API client (users, bookmarks, searches, receivers)
+│   │   │   └── utils.ts        # Utility functions
+│   │   ├── public/
+│   │   │   └── walkthrough/    # Product walkthrough screenshots
 │   │   └── next.config.ts      # Next.js configuration
 │   │
 │   ├── tests/                   # Test files
@@ -98,11 +132,17 @@ UltraLink/
 │
 ├── transform_data/              # AI transformation and database import
 │   ├── transform.py            # GPT-5-nano AI transformation engine (Tier 2: 250 req/min)
+│   ├── main.py                 # Pipeline runner (includes Lever integration step)
 │   ├── models.py               # Pydantic data models
-│   ├── upload_to_supabase.py   # Supabase database upload
+│   ├── upload_to_supabase.py   # Supabase database upload (includes lever_opportunities)
 │   ├── supabase_config.py      # Supabase client setup
 │   ├── count_unique_linkedin_urls.py   # Validate LinkedIn URL uniqueness
 │   ├── download_profile_pictures.py    # Download profile pictures locally (no default copies)
+│   ├── lever/                  # Lever ATS integration
+│   │   └── add_lever_opportunities.py  # Match candidates with Lever hiring data
+│   ├── portfolio_companies/    # Portfolio company integration
+│   │   ├── add_portfolio_company_hired_status.py  # Add hired status from portfolio companies
+│   │   └── check_portfolio_companies.py
 │   ├── upload_pictures/        # Profile picture upload utilities
 │   │   └── upload_profile_pictures_to_supabase.py  # Upload to Supabase Storage
 │   ├── profile_pictures/       # Local profile picture storage (5,383 images)
@@ -379,11 +419,15 @@ class Education(BaseModel):
 
 **Sequential Pipeline Execution:**
 1. Extract company URLs from profiles
-2. Clean company data
-3. Clean profile data with company enrichment
-4. AI transformation with GPT-5-nano
-5. Data quality analysis
-6. Database import
+2. **Add Lever opportunities** to profiles (matches LinkedIn URLs with Lever hiring data)
+3. Clean company data
+4. Clean profile data with company enrichment
+5. AI transformation with GPT-5-nano
+6. Data quality analysis
+7. Database import (includes lever_opportunities field)
+
+**Prerequisites:**
+- `lever/linkedin_mapping_with_hired_status.json` must exist for Lever integration
 
 ```bash
 python main.py  # Runs complete pipeline automatically
@@ -591,6 +635,76 @@ python count_unique_linkedin_urls.py
      }
      ```
 
+7. **`GET /users`** - List all platform users
+   - **Output:**
+     ```json
+     {
+       "success": true,
+       "users": [{"username": "varun", "display_name": "Varun Sharma", "email": "..."}],
+       "total": 3
+     }
+     ```
+
+8. **`GET /users/<username>`** - Get user details
+   - **Output:**
+     ```json
+     {
+       "success": true,
+       "user": {"username": "varun", "display_name": "Varun Sharma", "email": "..."}
+     }
+     ```
+
+9. **`GET /users/<username>/searches`** - Get user's search history
+   - **Output:**
+     ```json
+     {
+       "success": true,
+       "searches": [
+         {"id": "uuid", "query": "...", "total_results": 47, "created_at": "...", "status": "completed"}
+       ],
+       "total": 10
+     }
+     ```
+
+10. **`GET /users/<username>/bookmarks`** - Get user's bookmarks with candidate data
+    - **Output:**
+      ```json
+      {
+        "success": true,
+        "bookmarks": [
+          {
+            "id": "uuid",
+            "linkedin_url": "...",
+            "notes": "...",
+            "bookmarked_at": "...",
+            "candidate": {...full candidate data...}
+          }
+        ],
+        "total": 5
+      }
+      ```
+
+11. **`POST /users/<username>/bookmarks`** - Add bookmark
+    - **Input:** `{"linkedin_url": "...", "notes": "optional note"}`
+    - **Output:** `{"success": true, "message": "Bookmark added", "bookmark_id": "uuid"}`
+
+12. **`DELETE /users/<username>/bookmarks/<linkedin_url>`** - Remove bookmark
+    - **Input:** URL-encoded LinkedIn URL in path
+    - **Output:** `{"success": true, "message": "Bookmark removed"}`
+
+13. **`GET /receivers`** - List connection owners for email routing
+    - **Output:**
+      ```json
+      {
+        "success": true,
+        "receivers": [
+          {"username": "dan", "display_name": "Dan", "email": "dan@..."},
+          {"username": "linda", "display_name": "Linda", "email": "linda@..."}
+        ],
+        "total": 4
+      }
+      ```
+
 #### Ranking Pipelines
 
 **Three ranking approaches available:**
@@ -646,12 +760,18 @@ python count_unique_linkedin_urls.py
 - Modern Next.js 15 App Router with TypeScript
 - Framer Motion animations
 - shadcn/ui components with Tailwind CSS
+- **Multi-user workspaces** - Personalized `/username/` routes
+- **Navigation sidebar** - Hamburger menu with Past Searches, Bookmarks links
 - AI-generated highlights per candidate (click to expand)
 - Candidate cards with skill badges and relevance scores
 - LinkedIn profile links
 - Responsive mobile design
 - **Shareable search links** (auto-generated UUID URLs)
 - **HR Notes** - Collapsible notes section on each candidate card with edit/view modes
+- **Bookmarks** - Star icon to save candidates, dedicated bookmarks page
+- **Search history** - View and revisit past searches
+- **Lever integration** - "Hired" badges, expandable Lever opportunities
+- **Empty state** - Feature-rich onboarding with example searches
 
 #### Shareable Search Links Feature
 
@@ -741,6 +861,153 @@ python count_unique_linkedin_urls.py
 - Share internal assessments with hiring team
 - Document concerns or red flags
 - Add follow-up reminders
+
+#### User Workspaces Feature
+
+**Purpose:** Multi-user support with personalized workspaces for search, bookmarks, and history
+
+**URL Structure:**
+- `/{username}/` - User's main search page
+- `/{username}/search/{uuid}` - Saved search results
+- `/{username}/bookmarks` - User's bookmarked candidates
+- `/{username}/searches` - User's search history
+- `/{username}/admin` - Admin panel (currently commented out)
+
+**How It Works:**
+
+1. **User-Scoped Routes** (`app/[user]/`)
+   - Next.js dynamic routes capture username from URL
+   - All features scoped to user workspace
+   - Searches automatically associated with user
+
+2. **Navigation Sidebar** (`Sidebar.tsx`)
+   - Hamburger menu opens slide-out navigation
+   - Links to: Past Searches, Bookmarks, Back to Search
+   - Shows user display name
+   - Admin link (hidden until re-enabled)
+
+3. **User Management** (`backend/users/`)
+   - `users` table stores platform users
+   - `receivers` table stores connection owners (Dan, Linda, Jon, Mary)
+   - Display names separate from usernames
+
+4. **Frontend Components:**
+   - `HamburgerMenu.tsx` - Opens sidebar
+   - `Sidebar.tsx` - Navigation with Framer Motion animations
+
+**API Endpoints:**
+- `GET /users` - List all users
+- `GET /users/{username}` - Get user details
+- `GET /receivers` - List connection owners
+- `GET /receivers/{username}` - Get receiver details
+
+#### Bookmarks Feature
+
+**Purpose:** Allow users to save candidates for later review and quick access
+
+**How It Works:**
+
+1. **Bookmark Button on Candidate Cards**
+   - Star icon on each candidate card
+   - Click to bookmark/unbookmark
+   - Optimistic UI updates immediately
+   - `is_bookmarked` field returned in search results via JOIN
+
+2. **Bookmarks Page** (`app/[user]/bookmarks/page.tsx`)
+   - Grid layout showing all bookmarked candidates
+   - Profile picture, name, headline
+   - Notes per bookmarked candidate
+   - Click star to remove bookmark
+
+3. **BookmarkedCandidateCard Component**
+   - Simplified card for bookmarks page
+   - Notes section with auto-save on blur
+   - LinkedIn profile link
+   - Smooth removal animation
+
+4. **Database Storage**
+   - `bookmarks` table with user_name, linkedin_url, notes
+   - Unique constraint on (user_name, linkedin_url)
+   - JOIN with candidates for full data
+
+**API Endpoints:**
+- `GET /users/{username}/bookmarks` - Get user's bookmarks with candidate data
+- `POST /users/{username}/bookmarks` - Add bookmark
+- `DELETE /users/{username}/bookmarks/{linkedin_url}` - Remove bookmark
+- `GET /users/{username}/bookmarks/check/{linkedin_url}` - Check if bookmarked
+
+#### Search History Feature
+
+**Purpose:** View and revisit past searches for each user
+
+**How It Works:**
+
+1. **Auto-Save on Search**
+   - Every search automatically saved with user_name
+   - UUID generated immediately for shareable links
+   - Status tracking: searching → classifying → ranking → completed
+
+2. **Search History Page** (`app/[user]/searches/page.tsx`)
+   - List of past searches with query, result count, timestamp
+   - Click any search to revisit with full results
+   - Status badges (completed, in-progress, failed)
+
+3. **Search Session Updates**
+   - `search_sessions` table now includes `user_name` column
+   - Queries filtered by user
+   - Most recent searches first
+
+**API Endpoints:**
+- `GET /users/{username}/searches` - Get user's search history
+
+#### Lever Integration
+
+**Purpose:** Display hiring status from Lever ATS and allow filtering of previously hired candidates
+
+**How It Works:**
+
+1. **Data Pipeline** (`transform_data/lever/add_lever_opportunities.py`)
+   - Reads `linkedin_mapping_with_hired_status.json`
+   - Matches candidates by normalized LinkedIn URL
+   - Adds `lever_opportunities` array to each profile
+   - Format: `[{url: "lever_url", hired: true/false}, ...]`
+
+2. **Database Storage**
+   - `lever_opportunities JSONB` column in candidates table
+   - Each entry contains Lever candidate URL and hired status
+   - Portfolio company hired status also added via separate script
+
+3. **Frontend Display** (`CandidateCard.tsx`)
+   - "Hired" badge on candidates with `hired: true` in any opportunity
+   - "Lever" button to expand/collapse Lever opportunities
+   - Shows all Lever URLs with hired status
+   - Links directly to Lever candidate pages
+
+4. **Filtering**
+   - `CandidateList.tsx` can filter out hired candidates
+   - "Hide Hired" toggle to focus on new candidates
+
+**Pipeline Integration:**
+```bash
+cd transform_data
+python main.py  # Step 2 runs add_lever_opportunities.py
+```
+
+**Data Flow:**
+```
+linkedin_mapping_with_hired_status.json (from Lever export)
+        ↓
+add_lever_opportunities.py
+        ↓
+structured_profiles_test.json (lever_opportunities added)
+        ↓
+upload_to_supabase.py (uploads with lever field)
+        ↓
+Frontend displays "Hired" badges and Lever links
+```
+
+**EmptyState Feature Highlight:**
+The empty state on the search page (`EmptyState.tsx`) includes a description of the Lever integration feature, showing users they can see "Hired" status and filter candidates already in the ecosystem.
 
 #### Profile Picture System
 
@@ -866,6 +1133,9 @@ CREATE TABLE candidates (
     experiences JSONB,  -- Array of work experiences
     education JSONB,    -- Array of educational background
 
+    -- Lever ATS Integration
+    lever_opportunities JSONB,  -- Array of {url: string, hired: boolean} objects
+
     -- HR Team Notes
     notes TEXT,  -- HR notes for recruitment process (added 2025-10-25)
 
@@ -927,6 +1197,10 @@ CREATE TABLE search_sessions (
     total_results INTEGER NOT NULL,
     total_cost DECIMAL(10, 6) DEFAULT 0,
     status TEXT DEFAULT 'searching',
+    user_name TEXT,  -- Optional: tracks which user ran the search
+    ranking_enabled BOOLEAN DEFAULT TRUE,
+    logs TEXT,
+    total_time DECIMAL(10, 3),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
@@ -934,11 +1208,63 @@ CREATE TABLE search_sessions (
 **Purpose:** Stores search sessions for shareable links with background processing
 - Each search created immediately with UUID, processed in background thread
 - Status tracking: 'searching' → 'classifying' → 'ranking' → 'completed' / 'failed'
-- URL pattern: `ultralink.com/search/[uuid]` (updates instantly before SQL generation)
+- URL pattern: `/{username}/search/[uuid]` (updates instantly before SQL generation)
 - Results stored as JSONB for fast retrieval
 - Frontend polls for updates every 2s, continues even if user refreshes
 - Total cost tracked for each search (SQL + classification + ranking)
-- No user authentication required - public sharing
+- User association enables search history per user
+
+**Users Table: `users`** (Platform users)
+
+```sql
+CREATE TABLE users (
+    username TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    email TEXT,
+    is_admin BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+**Purpose:** Stores platform users who can search and bookmark candidates
+- Username used in URL paths (e.g., `/varun/search/...`)
+- Display name shown in UI (e.g., "Varun Sharma")
+- Admin flag for future admin features
+
+**Receivers Table: `receivers`** (Connection owners)
+
+```sql
+CREATE TABLE receivers (
+    username TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+**Purpose:** Stores connection owners (Dan, Linda, Jon, Mary) for email routing
+- Used for introduction email sending (routes to correct person)
+- Maps lowercase names to display names and emails
+- Separate from users table (receivers may not have platform accounts)
+
+**Bookmarks Table: `bookmarks`** (User-saved candidates)
+
+```sql
+CREATE TABLE bookmarks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_name TEXT NOT NULL,
+    linkedin_url TEXT NOT NULL,
+    notes TEXT,
+    bookmarked_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_name, linkedin_url)
+);
+```
+
+**Purpose:** Stores user bookmarks for candidate tracking
+- Each user can bookmark any candidate
+- Notes field for user-specific annotations
+- JOIN with candidates table for full candidate data
+- Unique constraint prevents duplicate bookmarks
 
 ### Database Configuration
 
@@ -1183,11 +1509,43 @@ CREATE TABLE search_sessions (
     total_results INTEGER NOT NULL,
     total_cost DECIMAL(10, 6) DEFAULT 0,
     status TEXT DEFAULT 'searching',
+    user_name TEXT,
+    ranking_enabled BOOLEAN DEFAULT TRUE,
+    logs TEXT,
+    total_time DECIMAL(10, 3),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-# 3. Add notes column to candidates table (for HR notes feature)
+# 3. Add notes and lever_opportunities columns to candidates table
 ALTER TABLE candidates ADD COLUMN notes TEXT;
+ALTER TABLE candidates ADD COLUMN lever_opportunities JSONB;
+
+# 4. Create users table (platform users)
+CREATE TABLE users (
+    username TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    email TEXT,
+    is_admin BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+# 5. Create receivers table (connection owners for email routing)
+CREATE TABLE receivers (
+    username TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+# 6. Create bookmarks table (user-saved candidates)
+CREATE TABLE bookmarks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_name TEXT NOT NULL,
+    linkedin_url TEXT NOT NULL,
+    notes TEXT,
+    bookmarked_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_name, linkedin_url)
+);
 ```
 
 **4. Railway Deployment:**
@@ -1245,25 +1603,34 @@ npm run dev  # Start frontend
 
 **6. Test Features:**
 ```bash
-# Test HR notes API
 cd website/tests
+
+# Test HR notes API
 python test_notes.py
 
 # Test search functionality
-cd website/tests
 python test_save_search.py
 
 # Test highlights generation
-cd website/tests
 python test_highlights.py
 
 # Test ranking stage 1 classification
-cd website/tests
 python test_ranking_stage_1.py
 
 # Test Gemini ranking
-cd website/tests
 python test_ranking_gemini.py
+```
+
+**7. Add Lever Opportunities (Data Pipeline):**
+```bash
+cd transform_data
+
+# Ensure lever/linkedin_mapping_with_hired_status.json exists
+# Then run the pipeline which includes Lever integration as step 2
+python main.py
+
+# Or run Lever integration standalone:
+python lever/add_lever_opportunities.py
 ```
 
 ---
@@ -1509,6 +1876,6 @@ python test_set.py  # Create test datasets
 
 ---
 
-**Built with:** OpenAI GPT-5-nano, GPT-4o, Google Gemini 2.5 Pro, Apify, Supabase, Flask, Next.js, Pydantic
+**Built with:** OpenAI GPT-5-nano, GPT-4o, Google Gemini 2.5 Pro, Apify, Supabase, Flask, Next.js, Pydantic, Framer Motion, shadcn/ui
 
-**Last Updated:** 2025-10-29
+**Last Updated:** 2026-01-21
