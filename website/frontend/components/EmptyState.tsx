@@ -62,6 +62,16 @@ export function EmptyState() {
       image: "/images/step10_complete_view.png",
       title: "Step 10: Organize Your Bookmarks",
       description: "The Bookmarks page displays all candidates you've starred for later review. Each card shows their profile picture, name, current role, and headline. Click the star to remove a bookmark, or use 'Notes' to add private recruitment comments. You can access their LinkedIn profiles directly from here. All bookmarks are saved to your account and available whenever you need them."
+    },
+    {
+      image: "/images/step11_request_intro.png",
+      title: "Step 11: Request an Introduction",
+      description: "When you find a great candidate, click to request an introduction through your mutual connection. A dialog appears showing which connection knows the candidate (in this case, Dan). Click 'Generate Email' to create a personalized introduction request. The email will be sent from your account to your mutual connection asking them to make the introduction."
+    },
+    {
+      image: "/images/step12_send_email.png",
+      title: "Step 12: Review and Send the Email",
+      description: "The system generates a personalized email with a subject line and body text. The email explains why you're interested in the candidate and highlights their relevant background from their profile. You can edit the text before sending - double line breaks create new paragraphs. When ready, click 'Send Email' to request the introduction, or 'Cancel' to go back."
     }
   ];
 
