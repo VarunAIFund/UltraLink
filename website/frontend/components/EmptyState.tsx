@@ -19,24 +19,24 @@ export function EmptyState() {
       description: "Welcome to UltraLink! Start by entering your search in the main search bar. Choose between 'Fast Response' for quick results, or 'Relevance Ranking' for AI-powered scoring and match explanations. The homepage shows three key features: AI-Powered Search that understands natural language, Smart Ranking that scores every candidate, and Rich Profiles with detailed information."
     },
     {
-      image: "/images/step8_more_candidates.png",
-      title: "Step 2: View Results & Add Notes",
-      description: "After searching, you'll see candidate cards with AI relevance scores from 0-100. Each card shows the candidate's name, headline, location, experience, and top skills. Click 'Notes' to add private recruitment notes for your team. In this example, Abtin Tondar scored 100 as a perfect match for a healthcare CEO role, with a detailed AI explanation of why he fits the criteria."
-    },
-    {
       image: "/images/step3_select_connections.png",
-      title: "Step 3: Filter by Your Connections",
+      title: "Step 2: Filter by Your Connections",
       description: "Use the dropdown menu to filter candidates by which mutual connection knows them. You can search through All connections at once, or narrow down to specific people like Dan, Linda, Jon, Mary, and others. This helps you leverage your network for warm introductions and see who can make the best introduction to each candidate."
     },
     {
       image: "/images/step4_results_loading.png",
-      title: "Step 4: See Your Results Summary",
+      title: "Step 3: See Your Results Summary",
       description: "The results page shows how many total candidates were found (297 in this example) and breaks them down by match quality. Strong Matches (245) are candidates with AI scores of 70-100 who closely fit your requirements. The system automatically organizes results by relevance so the best matches appear first."
     },
     {
       image: "/images/step5_results_list.png",
-      title: "Step 5: Explore Candidate Details",
+      title: "Step 4: Explore Candidate Details",
       description: "Click on any candidate to see their full profile. Strong Matches appear first with detailed explanations of why they're a good fit. Each profile includes their location, seniority level (like C-Level), years of experience, relevant skills, and which connections you have in common. Three quick-access buttons let you add Notes, check Lever hiring status, or view AI Insights."
+    },
+    {
+      image: "/images/step8_more_candidates.png",
+      title: "Step 5: Add Private Notes",
+      description: "Click 'Notes' to add private recruitment notes for your team. This example shows Abtin Tondar who scored 100 as a perfect match for a healthcare CEO role, with a detailed AI explanation of why he fits the criteria. Use the notes section to track your recruitment feedback, next steps, or interview scheduling information."
     },
     {
       image: "/images/step6_candidate_details.png",
