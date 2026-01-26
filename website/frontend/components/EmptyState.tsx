@@ -235,7 +235,7 @@ export function EmptyState() {
                     src={step.image}
                     alt={step.title}
                     fill
-                    className="object-cover object-top"
+                    className="object-contain"
                   />
                 </div>
               </div>
