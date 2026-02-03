@@ -43,7 +43,7 @@ def load_company_descriptions_from_db():
         
         while True:
             response = supabase.table('raw_companies') \
-                .select('linkedin_url, company_name, description, url') \
+                .select('linkedin_url, name, description') \
                 .range(page * page_size, (page + 1) * page_size - 1) \
                 .execute()
             
@@ -57,8 +57,8 @@ def load_company_descriptions_from_db():
                     if normalized_url:
                         company_lookup[normalized_url] = {
                             'description': company.get('description', ''),
-                            'company_name': company.get('company_name', 'Unknown'),
-                            'url': company.get('url', linkedin_url)
+                            'company_name': company.get('name', 'Unknown'),
+                            'linkedin_url': linkedin_url
                         }
             
             # If we got fewer than page_size, we're done

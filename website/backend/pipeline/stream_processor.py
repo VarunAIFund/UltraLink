@@ -15,6 +15,7 @@ from transform.supabase_config import get_supabase_client
 from transform.transform import process_batch_concurrent
 from transform.upload_to_supabase import transform_profile_for_db
 from upload_profile_pictures import upload_profile_pictures_batch
+from scrape_companies import scrape_companies_for_profiles
 from enrich_with_companies import enrich_batch_with_companies
 
 # Load env (now in website/.env)
@@ -280,7 +281,29 @@ class StreamProcessor:
             
             self.log(f"Scraping completed. Total processed: {scraped_total} (skipped {len(urls) - len(urls_to_scrape)} existing)")
             
-            # 2.5. Upload profile pictures to Supabase Storage
+            # 2.5. Scrape companies from newly scraped profiles
+            if urls_to_scrape:  # Only if we scraped new profiles
+                self._update_job_status('scraping', current_step="Scraping companies")
+                self.log(f"Extracting and scraping companies from {len(urls_to_scrape)} newly scraped profiles...")
+                
+                try:
+                    # Fetch newly scraped profiles to get company URLs
+                    company_profiles = self.supabase.table('raw_profiles') \
+                        .select('linkedin_url, experiences') \
+                        .in_('linkedin_url', urls_to_scrape) \
+                        .execute()
+                    
+                    if company_profiles.data:
+                        company_stats = scrape_companies_for_profiles(company_profiles.data, log_func=self.log)
+                        self.log(f"Company scraping: {company_stats['scraped']} new companies scraped ({company_stats['existing']} already existed)")
+                    else:
+                        self.log("No profiles found for company scraping")
+                        
+                except Exception as company_error:
+                    self.log(f"Warning: Company scraping failed: {company_error}")
+                    self.log("Continuing with profile pictures and transformation...")
+            
+            # 2.6. Upload profile pictures to Supabase Storage
             if urls_to_scrape:  # Only if we scraped new profiles
                 self._update_job_status('scraping', current_step="Uploading profile pictures")
                 self.log(f"Uploading profile pictures for {len(urls_to_scrape)} newly scraped profiles...")
