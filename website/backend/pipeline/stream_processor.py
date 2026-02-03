@@ -15,6 +15,7 @@ from transform.supabase_config import get_supabase_client
 from transform.transform import process_batch_concurrent
 from transform.upload_to_supabase import transform_profile_for_db
 from upload_profile_pictures import upload_profile_pictures_batch
+from enrich_with_companies import enrich_batch_with_companies
 
 # Load env (now in website/.env)
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
@@ -360,6 +361,16 @@ class StreamProcessor:
                             "experiences": p.get('experiences', []),
                             "educations": p.get('educations', [])
                         })
+                    
+                    # Enrich with company descriptions before transformation
+                    self.log(f"Enriching {len(mapped_batch)} profiles with company data...")
+                    try:
+                        enriched_batch, enrich_stats = enrich_batch_with_companies(mapped_batch, log_func=self.log)
+                        mapped_batch = enriched_batch  # Use enriched data
+                        self.log(f"Enriched {enrich_stats.get('enriched', 0)} experiences with company descriptions")
+                    except Exception as enrich_error:
+                        self.log(f"Warning: Company enrichment failed: {enrich_error}")
+                        self.log("Continuing with transformation without enrichment...")
                     
                     self.log(f"Starting AI transformation for {len(mapped_batch)} profiles...")
                     self.log(f"DEBUG: About to call process_batch_concurrent with {len(mapped_batch)} profiles")
