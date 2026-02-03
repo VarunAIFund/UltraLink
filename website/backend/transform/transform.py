@@ -29,8 +29,8 @@ from models import AIInferredProfile
 from supabase_config import get_supabase_client
 from upload_to_supabase import transform_profile_for_db
 
-# Load .env from parent directory
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+# Load .env from website root directory
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 
 # Concurrent processing configuration
 BATCH_SIZE = 100  # Reduced batch size for memory safety
@@ -193,48 +193,37 @@ async def process_batch_concurrent(candidates: list) -> list:
     Returns:
         List of transformed profile dicts
     """
-    print(f"DEBUG: process_batch_concurrent called with {len(candidates) if candidates else 0} candidates")
-    
     if not candidates or len(candidates) == 0:
-        print("DEBUG: No candidates to process, returning empty list")
         return []
 
     start_time = time.time()
 
-    print(f"\n🚀 Processing {len(candidates)} candidates with 250 concurrent requests...")
-    print(f"   Timeout: 300 seconds (5 minutes)")
-    print(f"DEBUG: About to create httpx.AsyncClient...")
+    print(f"\n🚀 Processing {len(candidates)} candidates with 500 concurrent requests...")
+    print(f"   No artificial rate limiting - relying on OpenAI's retry logic")
 
     # Create fresh httpx client for this batch (supports concurrent processing)
-    # Reduced from 500 to 250 connections for more stability
     async with httpx.AsyncClient(
         limits=httpx.Limits(
-            max_connections=250,
-            max_keepalive_connections=50
+            max_connections=500,
+            max_keepalive_connections=100
         ),
-        timeout=httpx.Timeout(300.0)  # Reduced from 480s to 300s (5 minutes)
+        timeout=httpx.Timeout(480.0)
     ) as http_client:
-        print(f"DEBUG: httpx.AsyncClient created successfully")
-        
         # Create OpenAI client with custom http client
         # Increased max_retries to 8 to handle rate limits better
         client = AsyncOpenAI(
             http_client=http_client,
             max_retries=3
         )
-        print(f"DEBUG: AsyncOpenAI client created successfully")
 
         # First pass: process all candidates concurrently
-        print(f"DEBUG: Creating {len(candidates)} tasks...")
         tasks = [
             extract_profile_data(candidate, i, client)
             for i, candidate in enumerate(candidates)
         ]
-        print(f"DEBUG: Tasks created, calling asyncio.gather...")
 
         # Use return_exceptions=True so one failure doesn't cancel all
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        print(f"DEBUG: asyncio.gather completed with {len(results)} results")
 
         # Identify failures (exceptions or error field)
         failed_indices = []

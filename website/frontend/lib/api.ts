@@ -691,3 +691,104 @@ export async function getAdminSearches(
 
   return response.json();
 }
+
+// ========================
+// CSV UPLOAD API
+// ========================
+
+export interface UploadJob {
+  id: string;
+  filename: string;
+  uploaded_by: string;
+  connection_owner: string | null;
+  status: string;
+  current_step: string | null;
+  total_urls: number;
+  scraped_urls: number;
+  transformed_urls: number;
+  failed_urls: number;
+  failed_urls_list: string[];
+  error_message: string | null;
+  logs: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface UploadJobsResponse {
+  success: boolean;
+  jobs: UploadJob[];
+  error?: string;
+}
+
+export interface UploadJobResponse {
+  success: boolean;
+  job: UploadJob;
+  error?: string;
+}
+
+export interface UploadCSVResponse {
+  success: boolean;
+  job_id: string;
+  message: string;
+  error?: string;
+}
+
+export async function uploadCSV(
+  file: File,
+  userName: string
+): Promise<UploadCSVResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("user", userName);
+
+  // This is a LONG request (may take 20-30 minutes)
+  // No timeout - let Railway handle it
+  const response = await fetch(`${API_BASE_URL}/admin/upload-csv`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function getUploadJobs(userName: string): Promise<UploadJobsResponse> {
+  const response = await fetch(`${API_BASE_URL}/admin/jobs?user=${userName}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function getUploadJobDetails(
+  jobId: string,
+  userName: string
+): Promise<UploadJobResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/admin/jobs/${jobId}?user=${userName}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}

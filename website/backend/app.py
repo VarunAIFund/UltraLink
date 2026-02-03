@@ -8,8 +8,12 @@ import json
 import os
 import psycopg2
 import threading
+import uuid as uuid_lib
+import asyncio
+from werkzeug.utils import secure_filename
 from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
+from psycopg2.extras import RealDictCursor
 from search import execute_search
 from ranking import rank_candidates
 from ranking_gemini import rank_candidates_gemini
@@ -21,6 +25,10 @@ from email_intro.send_email import send_introduction_email
 from users import validate_user, get_all_users, get_db_connection
 from bookmarks import add_bookmark, remove_bookmark, get_user_bookmarks, is_bookmarked
 from receivers import get_receiver, get_all_receivers, is_valid_receiver_email
+
+# Add pipeline directory to path (now in backend/pipeline)
+sys.path.append(os.path.join(os.path.dirname(__file__), 'pipeline'))
+from stream_processor import StreamProcessor
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend
@@ -922,10 +930,240 @@ def get_receiver_info(username):
         }), 500
 
 
-# ========================
-# ADMIN ENDPOINTS
-# ========================
+import sys
+import uuid
+import threading
+from werkzeug.utils import secure_filename
 
+# Add pipeline directory to path to import stream_processor
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'pipeline'))
+try:
+    from stream_processor import StreamProcessor
+except ImportError:
+    print("[WARNING] Could not import StreamProcessor. CSV upload will not work.")
+
+# ... existing code ...
+
+@app.route('/admin/upload-csv', methods=['POST'])
+def upload_csv():
+    """
+    Upload CSV and process synchronously on Railway (blocking request)
+    """
+    # 1. Validate Admin
+    username = request.form.get('user')
+    if not username:
+        return jsonify({'error': 'User required'}), 400
+        
+    user = validate_user(username)
+    if not user or user.get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized: Admin access required'}), 403
+
+    # 2. Get File
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+    
+    if not file.filename.endswith('.csv'):
+        return jsonify({'error': 'File must be a CSV'}), 400
+
+    try:
+        # 3. Save to temp file
+        filename = secure_filename(file.filename)
+        temp_dir = '/tmp'
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
+        
+        file_path = os.path.join(temp_dir, f"{uuid.uuid4()}_{filename}")
+        file.save(file_path)
+        
+        # 4. Auto-detect connection owner from filename pattern: {name}_connections.csv
+        connection_owner = None
+        lower_filename = filename.lower()
+        
+        # Try to extract pattern: anything_connections.csv
+        if '_connections.csv' in lower_filename:
+            # Extract everything before '_connections.csv'
+            connection_owner = lower_filename.split('_connections.csv')[0]
+            # Normalize: replace hyphens with underscores, strip whitespace
+            connection_owner = connection_owner.replace('-', '_').strip()
+        
+        # Get valid receivers from database (no hardcoding!)
+        valid_receivers = []
+        try:
+            receivers_response = get_all_receivers()
+            # get_all_receivers returns a dict with 'success' and 'receivers' keys
+            if isinstance(receivers_response, dict) and receivers_response.get('success'):
+                valid_receivers = [r['username'] for r in receivers_response.get('receivers', [])]
+            else:
+                print(f"[WARNING] Invalid receivers response format: {type(receivers_response)}")
+        except Exception as e:
+            print(f"[WARNING] Could not fetch receivers: {e}")
+        
+        if not connection_owner:
+            # Fallback: check if any receiver name appears in filename
+            for receiver in valid_receivers:
+                if receiver in lower_filename:
+                    connection_owner = receiver
+                    break
+        
+        if not connection_owner:
+            # Last fallback: use uploader's username
+            connection_owner = username
+        
+        # Validate connection owner exists in receivers table (optional warning)
+        if connection_owner and connection_owner not in valid_receivers:
+            print(f"[WARNING] Connection owner '{connection_owner}' not found in receivers table.")
+            print(f"[INFO] Valid receivers: {valid_receivers}")
+            print(f"[INFO] Add to Supabase: INSERT INTO receivers (username, display_name, email) VALUES ('{connection_owner}', '{connection_owner.title()}', '{connection_owner}@example.com');")
+            # Don't fail - still allow upload, but log warning
+        
+        # 5. Create Job Record
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        job_id = str(uuid.uuid4())
+        cursor.execute("""
+            INSERT INTO upload_jobs (id, filename, uploaded_by, connection_owner, status)
+            VALUES (%s, %s, %s, %s, 'pending')
+        """, (job_id, filename, username, connection_owner))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        # 6. Run Pipeline (Synchronous / Blocking)
+        # On Railway, this request will stay open until finished or timed out
+        # But we set up the processor to handle it
+        
+        processor = StreamProcessor(job_id=job_id, connection_owner=connection_owner)
+        
+        # Run pipeline in background thread (non-blocking!)
+        import threading
+        import asyncio
+        
+        def run_pipeline():
+            """Run pipeline in background thread"""
+            try:
+                asyncio.run(processor.run(file_path))
+            except Exception as e:
+                print(f"Pipeline error: {e}")
+                # Mark job as failed
+                try:
+                    supabase.table('upload_jobs').update({
+                        'status': 'failed',
+                        'error_message': str(e)
+                    }).eq('id', job_id).execute()
+                except:
+                    pass
+            finally:
+                # Cleanup temp file
+                if os.path.exists(file_path):
+                    try:
+                        os.remove(file_path)
+                    except:
+                        pass
+        
+        # Start background thread
+        thread = threading.Thread(target=run_pipeline, daemon=True)
+        thread.start()
+        
+        # Return immediately (don't wait for pipeline to finish!)
+        print(f"[INFO] Pipeline started in background thread for job {job_id}")
+            
+        return jsonify({
+            'success': True,
+            'job_id': job_id,
+            'message': 'Upload processed successfully'
+        })
+
+    except Exception as e:
+        print(f"[ERROR] CSV Upload failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/admin/jobs', methods=['GET'])
+def get_upload_jobs():
+    """Get all upload jobs"""
+    try:
+        requesting_user = request.args.get('user')
+        if not requesting_user:
+             return jsonify({'error': 'Unauthorized'}), 403
+            
+        user = validate_user(requesting_user)
+        if not user or user.get('role') != 'admin':
+            return jsonify({'error': 'Unauthorized'}), 403
+
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor) # Use RealDictCursor
+
+        cursor.execute("""
+            SELECT *
+            FROM upload_jobs
+            ORDER BY created_at DESC
+            LIMIT 50
+        """)
+        
+        jobs = cursor.fetchall()
+        
+        # Convert datetime objects to ISO strings
+        for job in jobs:
+            for key, value in job.items():
+                if hasattr(value, 'isoformat'):
+                    job[key] = value.isoformat()
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'jobs': jobs
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/admin/jobs/<job_id>', methods=['GET'])
+def get_upload_job_details(job_id):
+    """Get details for a specific job"""
+    try:
+        requesting_user = request.args.get('user')
+        if not requesting_user:
+             return jsonify({'error': 'Unauthorized'}), 403
+            
+        user = validate_user(requesting_user)
+        if not user or user.get('role') != 'admin':
+            return jsonify({'error': 'Unauthorized'}), 403
+
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        cursor.execute("""
+            SELECT *
+            FROM upload_jobs
+            WHERE id = %s
+        """, (job_id,))
+        
+        job = cursor.fetchone()
+        
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+            
+        # Convert datetime objects
+        for key, value in job.items():
+            if hasattr(value, 'isoformat'):
+                job[key] = value.isoformat()
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'job': job
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/admin/searches', methods=['GET'])
 def get_all_searches():
