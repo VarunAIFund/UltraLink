@@ -14,6 +14,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from transform.supabase_config import get_supabase_client
 from transform.transform import process_batch_concurrent
 from transform.upload_to_supabase import transform_profile_for_db
+from upload_profile_pictures import upload_profile_pictures_batch
 
 # Load env (now in website/.env)
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
@@ -277,6 +278,31 @@ class StreamProcessor:
                     gc.collect()
             
             self.log(f"Scraping completed. Total processed: {scraped_total} (skipped {len(urls) - len(urls_to_scrape)} existing)")
+            
+            # 2.5. Upload profile pictures to Supabase Storage
+            if urls_to_scrape:  # Only if we scraped new profiles
+                self._update_job_status('scraping', current_step="Uploading profile pictures")
+                self.log(f"Uploading profile pictures for {len(urls_to_scrape)} newly scraped profiles...")
+                
+                try:
+                    # Fetch the newly scraped profiles to get picture URLs
+                    picture_profiles = self.supabase.table('raw_profiles') \
+                        .select('linkedin_url, profile_pic, profile_pic_high_quality') \
+                        .in_('linkedin_url', urls_to_scrape) \
+                        .execute()
+                    
+                    if picture_profiles.data:
+                        upload_result = upload_profile_pictures_batch(picture_profiles.data, log_func=self.log)
+                        self.log(f"Profile picture upload: {upload_result['success']} success, {upload_result['failed']} failed, {upload_result['no_image']} no image")
+                        
+                        # No need to update URLs - utils.py generates Supabase Storage URLs dynamically
+                        # from LinkedIn URLs, so pictures are automatically accessible via the standard URL pattern
+                    else:
+                        self.log("No profiles found to upload pictures for")
+                        
+                except Exception as pic_error:
+                    self.log(f"Warning: Profile picture upload failed: {pic_error}")
+                    self.log("Continuing with transformation...")
             
             # 3. Transform
             self._update_job_status('transforming')
