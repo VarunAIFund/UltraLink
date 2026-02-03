@@ -5,13 +5,26 @@ import os
 from supabase import create_client, Client
 from dotenv import load_dotenv, dotenv_values
 
-# Load environment variables from website root directory using dotenv_values to avoid env var conflicts
-env_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env')
-env_vars = dotenv_values(env_path)
+# Try to load from environment variables first (Railway)
+# Then fallback to .env file (local development)
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-# Get Supabase credentials from the .env file directly
-SUPABASE_URL = env_vars.get("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = env_vars.get("SUPABASE_SERVICE_ROLE_KEY")
+print(f"[DEBUG supabase_config.py] SUPABASE_URL from env: {SUPABASE_URL is not None}")
+print(f"[DEBUG supabase_config.py] SERVICE_KEY from env: {SUPABASE_SERVICE_ROLE_KEY is not None}")
+
+# If not in environment, try loading from .env file
+if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+    print(f"[DEBUG supabase_config.py] Trying to load from .env file...")
+    env_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env')
+    print(f"[DEBUG supabase_config.py] .env path: {env_path}")
+    print(f"[DEBUG supabase_config.py] .env exists: {os.path.exists(env_path)}")
+    
+    if os.path.exists(env_path):
+        env_vars = dotenv_values(env_path)
+        SUPABASE_URL = SUPABASE_URL or env_vars.get("SUPABASE_URL")
+        SUPABASE_SERVICE_ROLE_KEY = SUPABASE_SERVICE_ROLE_KEY or env_vars.get("SUPABASE_SERVICE_ROLE_KEY")
+        print(f"[DEBUG supabase_config.py] Loaded from .env - URL: {SUPABASE_URL is not None}, KEY: {SUPABASE_SERVICE_ROLE_KEY is not None}")
 
 def get_supabase_client() -> Client:
     """
