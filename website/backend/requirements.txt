@@ -8,3 +8,6 @@ google-generativeai
 packaging
 pydantic==2.10.5
 resend
+apify-client
+supabase
+httpx
