@@ -80,12 +80,12 @@ export function EmptyState() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="max-w-4xl mx-auto py-6"
+      className="max-w-4xl mx-auto pt-2"
     >
-      {/* Main Card */}
-      <div className="bg-card rounded-2xl border shadow-sm p-8">
+      {/* Main Card - COMMENTED OUT */}
+      {/* <div className="bg-card rounded-2xl border shadow-sm p-8"> */}
         {/* Header */}
-        <div className="text-center mb-10">
+        {/* <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-4">
             <Search className="w-7 h-7 text-primary" />
           </div>
@@ -93,12 +93,12 @@ export function EmptyState() {
           <p className="text-muted-foreground">
             Search through profiles using natural language. AI understands your requirements.
           </p>
-        </div>
+        </div> */}
 
         {/* Features Grid */}
-        <div className="grid md:grid-cols-2 gap-4 mb-10">
+        {/* <div className="grid md:grid-cols-2 gap-4 mb-10"> */}
           {/* Feature 1 */}
-          <div className="flex gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+          {/* <div className="flex gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
             <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
               <Zap className="w-5 h-5 text-orange-600" />
             </div>
@@ -108,10 +108,10 @@ export function EmptyState() {
                 Fast Response for quick results, or Relevance Ranking for AI-scored matches with fit explanations.
               </p>
             </div>
-          </div>
+          </div> */}
 
           {/* Feature 2 */}
-          <div className="flex gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+          {/* <div className="flex gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
             <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
               <Star className="w-5 h-5 text-orange-600" />
             </div>
@@ -121,10 +121,10 @@ export function EmptyState() {
                 Every candidate scored 0-100. See Strong, Partial, and No Matches with AI-written explanations.
               </p>
             </div>
-          </div>
+          </div> */}
 
           {/* Feature 3 */}
-          <div className="flex gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+          {/* <div className="flex gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
             <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
               <Filter className="w-5 h-5 text-orange-600" />
             </div>
@@ -134,10 +134,10 @@ export function EmptyState() {
                 Filter by mutual connections. See who you know in common with each candidate.
               </p>
             </div>
-          </div>
+          </div> */}
 
           {/* Feature 4 */}
-          <div className="flex gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+          {/* <div className="flex gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
             <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
               <MapPin className="w-5 h-5 text-orange-600" />
             </div>
@@ -147,10 +147,10 @@ export function EmptyState() {
                 Search by city and automatically include nearby areas within 25 miles.
               </p>
             </div>
-          </div>
+          </div> */}
 
           {/* Feature 5 */}
-          <div className="flex gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+          {/* <div className="flex gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
             <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
               <Users className="w-5 h-5 text-orange-600" />
             </div>
@@ -160,10 +160,10 @@ export function EmptyState() {
                 See &quot;Hired&quot; status from Lever. Toggle to hide candidates already in the ecosystem.
               </p>
             </div>
-          </div>
+          </div> */}
 
           {/* Feature 6 */}
-          <div className="flex gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+          {/* <div className="flex gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
             <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
               <Mail className="w-5 h-5 text-orange-600" />
             </div>
@@ -174,10 +174,10 @@ export function EmptyState() {
               </p>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Example Searches */}
-        <div>
+        {/* <div>
           <div className="flex items-center gap-2 mb-4">
             <Sparkles className="w-4 h-4 text-primary" />
             <h3 className="font-semibold text-sm">Try these searches</h3>
@@ -197,14 +197,11 @@ export function EmptyState() {
             ))}
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Walkthrough Section */}
-      <div className="bg-card rounded-2xl border shadow-sm p-8 mt-6">
+      <div className="bg-card rounded-2xl border shadow-sm p-8">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 mb-4">
-            <PlayCircle className="w-7 h-7 text-primary" />
-          </div>
           <h2 className="text-2xl font-bold mb-2">See How It Works</h2>
           <p className="text-muted-foreground">
             Follow this example search to understand the full workflow
