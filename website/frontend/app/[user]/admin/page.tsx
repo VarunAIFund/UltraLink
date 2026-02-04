@@ -8,9 +8,11 @@ import {
   getAllUsers,
   uploadCSV,
   getUploadJobs,
+  getAllReceivers,
   type AdminSearchItem,
   type User,
   type UploadJob,
+  type Receiver,
 } from "@/lib/api";
 import HamburgerMenu from "@/components/HamburgerMenu";
 import Sidebar from "@/components/Sidebar";
@@ -50,6 +52,7 @@ export default function AdminPage() {
   const [uploadSuccess, setUploadSuccess] = useState("");
   const [jobs, setJobs] = useState<UploadJob[]>([]);
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
+  const [receivers, setReceivers] = useState<Receiver[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if user is admin
@@ -100,10 +103,11 @@ export default function AdminPage() {
   
   const loadData = async () => {
     try {
-      const [usersData, searchesData, jobsData] = await Promise.all([
+      const [usersData, searchesData, jobsData, receiversData] = await Promise.all([
         getAllUsers(),
         getAdminSearches(userName),
-        getUploadJobs(userName)
+        getUploadJobs(userName),
+        getAllReceivers()
       ]);
       
       if (usersData.success && searchesData.success) {
@@ -134,6 +138,10 @@ export default function AdminPage() {
       
       if (jobsData.success) {
         setJobs(jobsData.jobs);
+      }
+      
+      if (receiversData.success) {
+        setReceivers(receiversData.receivers);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
@@ -286,11 +294,51 @@ export default function AdminPage() {
               <CardTitle>Upload LinkedIn Connections CSV</CardTitle>
             </div>
             <CardDescription>
-              Upload a CSV file with LinkedIn profile URLs. Connection owner will be auto-detected from filename.
+              Upload a CSV file with LinkedIn profile URLs. The connection owner will be auto-detected from the filename.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
+              {/* Naming Instructions */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
+                <div className="flex items-center gap-2 text-amber-900 font-semibold">
+                  <FileUp className="h-4 w-4" />
+                  File Naming Convention
+                </div>
+                <p className="text-sm text-amber-800">
+                  Name your CSV file as: <code className="bg-amber-100 px-2 py-1 rounded text-xs font-mono">name_connections.csv</code>
+                </p>
+                <p className="text-sm text-amber-700">
+                  Examples: <code className="bg-amber-100 px-1.5 py-0.5 rounded text-xs font-mono">linda_connections.csv</code>, <code className="bg-amber-100 px-1.5 py-0.5 rounded text-xs font-mono">dan_connections.csv</code>, <code className="bg-amber-100 px-1.5 py-0.5 rounded text-xs font-mono">varun_connections.csv</code>
+                </p>
+                <p className="text-sm text-amber-700 mt-2">
+                  💡 <strong>Tip:</strong> To update existing connections, simply upload a new CSV with the same name. New profiles will be added and existing ones will be updated.
+                </p>
+              </div>
+              
+              {/* Current Connection Owners */}
+              {receivers.length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-blue-900 font-semibold">
+                    <UserIcon className="h-4 w-4" />
+                    Current Connection Owners
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {receivers.map((receiver) => (
+                      <span
+                        key={receiver.username}
+                        className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium"
+                      >
+                        {receiver.display_name} ({receiver.username})
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-sm text-blue-700 mt-2">
+                    These names are already in the system. New names will be automatically added when you upload.
+                  </p>
+                </div>
+              )}
+              
               <div className="flex items-center gap-4">
                 <input
                   ref={fileInputRef}
