@@ -109,6 +109,7 @@ async def extract_profile_data(raw_data: dict, index: int, client: AsyncOpenAI) 
     
     Note: 
     - Skip career breaks or non-work experiences when creating positions
+    - If a companyDescription field is present in an experience, use it to generate more accurate company_skills, industry_tags, and business_model — it contains the official company description scraped from LinkedIn
     """
 
     # Should short summary be there if the summary is empty?

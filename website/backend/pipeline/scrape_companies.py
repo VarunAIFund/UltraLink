@@ -161,11 +161,28 @@ def save_companies_to_supabase(companies, input_urls, log_func=print):
     supabase = get_supabase_client()
     current_time = datetime.now().isoformat()
     
+    # Warn if Apify returned fewer results than requested (index drift risk)
+    if len(companies) != len(input_urls):
+        log_func(f"Warning: Apify returned {len(companies)} results for {len(input_urls)} inputs - some companies may have failed to scrape")
+
     # Transform for database
     db_companies = []
     for i, company in enumerate(companies):
-        # Map input URL (what we requested) to scraped data
-        input_url = input_urls[i] if i < len(input_urls) else "unknown"
+        # Try to extract URL from the scraped result first (safer than index-based mapping,
+        # which breaks when Apify skips failed URLs and returns fewer results than inputs)
+        scraped_url = (
+            company.get('linkedinUrl') or
+            company.get('url') or
+            company.get('companyUrl') or
+            (f"https://www.linkedin.com/company/{company.get('universalName')}"
+             if company.get('universalName') else None)
+        )
+        # Normalize scraped URL the same way as input URLs
+        if scraped_url:
+            scraped_url = scraped_url.strip().rstrip('/').split('?')[0]
+
+        # Fall back to index-based mapping only if no URL found in result
+        input_url = scraped_url if scraped_url else (input_urls[i] if i < len(input_urls) else "unknown")
         
         # Parse founded year from foundedOn object
         founded_year = None
