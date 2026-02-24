@@ -54,6 +54,9 @@ export default function AdminPage() {
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const [receivers, setReceivers] = useState<Receiver[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Admin sub-tab: "upload" | "jobs" | "activity"
+  const [activeTab, setActiveTab] = useState<"upload" | "jobs" | "activity">("upload");
 
   // Check if user is admin
   useEffect(() => {
@@ -279,8 +282,54 @@ export default function AdminPage() {
           {error}
         </motion.div>
       )}
+
+      {/* Sub-tabs */}
+      <div className="flex gap-1 p-1 mb-6 rounded-lg bg-muted/50 border border-border/50 w-fit">
+        <button
+          type="button"
+          onClick={() => setActiveTab("upload")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-colors ${
+            activeTab === "upload"
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+          }`}
+        >
+          <FileUp className="h-4 w-4" />
+          Upload CSV
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("jobs")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-colors ${
+            activeTab === "jobs"
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+          }`}
+        >
+          <Upload className="h-4 w-4" />
+          Upload Jobs
+          {jobs.length > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 text-xs font-medium">
+              {jobs.length}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("activity")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-colors ${
+            activeTab === "activity"
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+          }`}
+        >
+          <UserIcon className="h-4 w-4" />
+          User Activity
+        </button>
+      </div>
       
-      {/* CSV Upload Card */}
+      {/* Tab: Upload CSV */}
+      {activeTab === "upload" && (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -395,9 +444,12 @@ export default function AdminPage() {
           </CardContent>
         </Card>
       </motion.div>
-      
-      {/* Upload Jobs Table */}
-      {jobs.length > 0 && (
+      )}
+
+      {/* Tab: Upload Jobs */}
+      {activeTab === "jobs" && (
+      <>
+      {jobs.length > 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -523,9 +575,23 @@ export default function AdminPage() {
             ))}
           </div>
         </motion.div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center py-16 rounded-lg border border-dashed border-muted-foreground/25 bg-muted/20"
+        >
+          <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+          <h2 className="text-xl font-semibold mb-2">No Upload Jobs Yet</h2>
+          <p className="text-muted-foreground text-sm">Upload a CSV from the Upload CSV tab to see jobs here.</p>
+        </motion.div>
+      )}
+      </>
       )}
 
-      {/* User Search Activity */}
+      {/* Tab: User Activity */}
+      {activeTab === "activity" && (
+      <>
       <h2 className="text-2xl font-bold mb-4">User Search Activity</h2>
       
       {loading ? (
@@ -668,6 +734,8 @@ export default function AdminPage() {
             </motion.div>
           ))}
         </motion.div>
+      )}
+      </>
       )}
     </div>
   );
