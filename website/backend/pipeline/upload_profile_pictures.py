@@ -61,9 +61,9 @@ def download_and_upload_picture(linkedin_url, profile_pic_url, supabase):
             'error': 'No profile picture URL'
         }
     
-    # Generate filename from LinkedIn URL
+    # Generate filename from LinkedIn URL - must match utils.py's in-{username}.jpg format
     username = sanitize_linkedin_url_for_filename(linkedin_url)
-    filename = f"{username}.jpg"
+    filename = f"in-{username}.jpg" if not username.startswith('in-') else f"{username}.jpg"
     
     # Try to download and upload
     for attempt in range(MAX_RETRIES):
