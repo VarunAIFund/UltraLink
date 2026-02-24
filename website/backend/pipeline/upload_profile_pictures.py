@@ -69,7 +69,13 @@ def download_and_upload_picture(linkedin_url, profile_pic_url, supabase):
     for attempt in range(MAX_RETRIES):
         try:
             # Download image from LinkedIn
-            response = requests.get(profile_pic_url, timeout=TIMEOUT, stream=True)
+            # User-Agent required — LinkedIn CDN returns 403 for headless requests
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Referer': 'https://www.linkedin.com/',
+                'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+            }
+            response = requests.get(profile_pic_url, timeout=TIMEOUT, stream=True, headers=headers)
             
             if response.status_code == 200:
                 # Read image data into memory

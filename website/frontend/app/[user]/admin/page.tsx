@@ -9,15 +9,20 @@ import {
   uploadCSV,
   getUploadJobs,
   getAllReceivers,
+  adminGetUsers,
+  adminCreateUser,
+  adminUpdateUser,
+  adminDeleteUser,
   type AdminSearchItem,
   type User,
+  type UserWithRole,
   type UploadJob,
   type Receiver,
 } from "@/lib/api";
 import HamburgerMenu from "@/components/HamburgerMenu";
 import Sidebar from "@/components/Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
-import { Shield, Search, Clock, User as UserIcon, ChevronDown, ChevronRight, Upload, FileUp, Loader2 } from "lucide-react";
+import { Shield, Search, Clock, User as UserIcon, ChevronDown, ChevronRight, Upload, FileUp, Loader2, Plus, Pencil, Trash2, Check, X } from "lucide-react";
 import {
   Card,
   CardDescription,
@@ -55,8 +60,20 @@ export default function AdminPage() {
   const [receivers, setReceivers] = useState<Receiver[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Admin sub-tab: "upload" | "jobs" | "activity"
-  const [activeTab, setActiveTab] = useState<"upload" | "jobs" | "activity">("upload");
+  // Admin sub-tab: "upload" | "jobs" | "activity" | "users"
+  const [activeTab, setActiveTab] = useState<"upload" | "jobs" | "activity" | "users">("upload");
+
+  // User management states
+  const [managedUsers, setManagedUsers] = useState<UserWithRole[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState("");
+  const [editingUser, setEditingUser] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ display_name: "", email: "", role: "user" });
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createForm, setCreateForm] = useState({ username: "", display_name: "", email: "", role: "user" });
+  const [createError, setCreateError] = useState("");
+  const [createLoading, setCreateLoading] = useState(false);
+  const [deletingUser, setDeletingUser] = useState<string | null>(null);
 
   // Check if user is admin
   useEffect(() => {
@@ -87,6 +104,13 @@ export default function AdminPage() {
     }
   }, [userName, isAdmin]);
   
+  // Load managed users when switching to users tab
+  useEffect(() => {
+    if (activeTab === "users" && isAdmin && managedUsers.length === 0) {
+      loadManagedUsers();
+    }
+  }, [activeTab, isAdmin]);
+
   // Auto-refresh jobs every 10 seconds if any are processing
   useEffect(() => {
     if (!userName || !isAdmin) return;
@@ -193,6 +217,66 @@ export default function AdminPage() {
     (job) => job.status === 'scraping' || job.status === 'transforming'
   );
   
+  const loadManagedUsers = async () => {
+    setUsersLoading(true);
+    setUsersError("");
+    try {
+      const data = await adminGetUsers(userName);
+      if (data.success) setManagedUsers(data.users);
+      else setUsersError("Failed to load users");
+    } catch (err) {
+      setUsersError(err instanceof Error ? err.message : "Failed to load users");
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const handleEditStart = (user: UserWithRole) => {
+    setEditingUser(user.username);
+    setEditForm({ display_name: user.display_name, email: user.email || "", role: user.role || "user" });
+  };
+
+  const handleEditSave = async (username: string) => {
+    try {
+      const data = await adminUpdateUser(userName, username, editForm);
+      if (data.success) {
+        setManagedUsers((prev) => prev.map((u) => u.username === username ? { ...u, ...data.user } : u));
+        setEditingUser(null);
+      }
+    } catch (err) {
+      setUsersError(err instanceof Error ? err.message : "Failed to update user");
+    }
+  };
+
+  const handleDelete = async (targetUsername: string) => {
+    setDeletingUser(targetUsername);
+    try {
+      await adminDeleteUser(userName, targetUsername);
+      setManagedUsers((prev) => prev.filter((u) => u.username !== targetUsername));
+    } catch (err) {
+      setUsersError(err instanceof Error ? err.message : "Failed to delete user");
+    } finally {
+      setDeletingUser(null);
+    }
+  };
+
+  const handleCreate = async () => {
+    setCreateError("");
+    setCreateLoading(true);
+    try {
+      const data = await adminCreateUser(userName, createForm);
+      if (data.success) {
+        setManagedUsers((prev) => [...prev, data.user].sort((a, b) => a.display_name.localeCompare(b.display_name)));
+        setCreateForm({ username: "", display_name: "", email: "", role: "user" });
+        setShowCreateForm(false);
+      }
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Failed to create user");
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -325,6 +409,18 @@ export default function AdminPage() {
         >
           <UserIcon className="h-4 w-4" />
           User Activity
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("users")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-colors ${
+            activeTab === "users"
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+          }`}
+        >
+          <Shield className="h-4 w-4" />
+          Manage Users
         </button>
       </div>
       
@@ -587,6 +683,253 @@ export default function AdminPage() {
         </motion.div>
       )}
       </>
+      )}
+
+      {/* Tab: Manage Users */}
+      {activeTab === "users" && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="mb-8"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold">Manage Users</h2>
+            <Button
+              onClick={() => { setShowCreateForm(!showCreateForm); setCreateError(""); }}
+              className="bg-amber-500 hover:bg-amber-600 flex items-center gap-2"
+              size="sm"
+            >
+              <Plus className="h-4 w-4" />
+              New User
+            </Button>
+          </div>
+
+          {usersError && (
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-2 rounded text-sm mb-4">
+              {usersError}
+            </div>
+          )}
+
+          {/* Create User Form */}
+          <AnimatePresence>
+            {showCreateForm && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="overflow-hidden mb-4"
+              >
+                <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-900/10">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Plus className="h-4 w-4 text-amber-600" />
+                      Create New User
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Username *</label>
+                        <input
+                          className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          placeholder="e.g. jsmith"
+                          value={createForm.username}
+                          onChange={(e) => setCreateForm((f) => ({ ...f, username: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Display Name *</label>
+                        <input
+                          className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          placeholder="e.g. Jane Smith"
+                          value={createForm.display_name}
+                          onChange={(e) => setCreateForm((f) => ({ ...f, display_name: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Email</label>
+                        <input
+                          type="email"
+                          className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          placeholder="jane@example.com"
+                          value={createForm.email}
+                          onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Role</label>
+                        <select
+                          className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          value={createForm.role}
+                          onChange={(e) => setCreateForm((f) => ({ ...f, role: e.target.value }))}
+                        >
+                          <option value="user">User</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </div>
+                    </div>
+                    {createError && (
+                      <div className="mt-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+                        {createError}
+                      </div>
+                    )}
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        onClick={handleCreate}
+                        disabled={createLoading || !createForm.username || !createForm.display_name}
+                        className="bg-amber-500 hover:bg-amber-600"
+                        size="sm"
+                      >
+                        {createLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                        <span className="ml-1">Create</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setShowCreateForm(false); setCreateError(""); }}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Cancel
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Users List */}
+          {usersLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <Card key={i} className="animate-pulse">
+                  <CardHeader>
+                    <div className="h-5 bg-muted rounded w-1/3 mb-2" />
+                    <div className="h-4 bg-muted rounded w-1/4" />
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+          ) : managedUsers.length === 0 ? (
+            <div className="text-center py-16 rounded-lg border border-dashed border-muted-foreground/25 bg-muted/20">
+              <UserIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">No users found. Create one above.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {managedUsers.map((user) => (
+                <Card key={user.username} className="transition-shadow hover:shadow-md">
+                  <CardContent className="py-3 px-4">
+                    {editingUser === user.username ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground mb-1 block">Display Name</label>
+                          <input
+                            className="w-full px-3 py-1.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            value={editForm.display_name}
+                            onChange={(e) => setEditForm((f) => ({ ...f, display_name: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground mb-1 block">Email</label>
+                          <input
+                            type="email"
+                            className="w-full px-3 py-1.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            value={editForm.email}
+                            onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground mb-1 block">Role</label>
+                          <select
+                            className="w-full px-3 py-1.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            value={editForm.role}
+                            onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
+                          >
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                        </div>
+                        <div className="flex items-end gap-2">
+                          <Button
+                            size="sm"
+                            className="bg-amber-500 hover:bg-amber-600"
+                            onClick={() => handleEditSave(user.username)}
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingUser(null)}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                            <UserIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{user.display_name}</span>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  user.role === "admin"
+                                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                                    : "bg-muted text-muted-foreground"
+                                }`}
+                              >
+                                {user.role || "user"}
+                              </span>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              @{user.username}{user.email ? ` · ${user.email}` : ""}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEditStart(user)}
+                            className="h-8 w-8 p-0 hover:bg-amber-50 hover:text-amber-700"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={deletingUser === user.username || user.username === userName}
+                            onClick={() => {
+                              if (window.confirm(`Delete user "${user.display_name}" (@${user.username})? This cannot be undone.`)) {
+                                handleDelete(user.username);
+                              }
+                            }}
+                            className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
+                          >
+                            {deletingUser === user.username ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </motion.div>
       )}
 
       {/* Tab: User Activity */}

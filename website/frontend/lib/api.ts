@@ -423,6 +423,77 @@ export async function getUser(userName: string): Promise<UserResponse> {
   return response.json();
 }
 
+export interface UserWithRole extends User {
+  role: string;
+}
+
+export interface AdminUsersResponse {
+  success: boolean;
+  users: UserWithRole[];
+  total: number;
+  error?: string;
+}
+
+export interface AdminUserResponse {
+  success: boolean;
+  user: UserWithRole;
+  error?: string;
+}
+
+export async function adminGetUsers(requestingUser: string): Promise<AdminUsersResponse> {
+  const response = await fetch(`${API_BASE_URL}/admin/users?user=${requestingUser}`);
+  if (!response.ok) throw new Error(`API error: ${response.statusText}`);
+  return response.json();
+}
+
+export async function adminCreateUser(
+  requestingUser: string,
+  data: { username: string; display_name: string; email: string; role: string }
+): Promise<AdminUserResponse> {
+  const response = await fetch(`${API_BASE_URL}/admin/users`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ requesting_user: requestingUser, ...data }),
+  });
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error || `API error: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+export async function adminUpdateUser(
+  requestingUser: string,
+  username: string,
+  data: { display_name: string; email: string; role: string }
+): Promise<AdminUserResponse> {
+  const response = await fetch(`${API_BASE_URL}/admin/users/${username}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ requesting_user: requestingUser, ...data }),
+  });
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error || `API error: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+export async function adminDeleteUser(
+  requestingUser: string,
+  username: string
+): Promise<{ success: boolean; message: string; error?: string }> {
+  const response = await fetch(
+    `${API_BASE_URL}/admin/users/${username}?user=${requestingUser}`,
+    { method: "DELETE" }
+  );
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error || `API error: ${response.statusText}`);
+  }
+  return response.json();
+}
+
 // ========================
 // RECEIVERS API (Connection Owners)
 // ========================

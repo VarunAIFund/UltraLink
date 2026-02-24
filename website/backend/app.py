@@ -1251,6 +1251,121 @@ def check_admin():
         })
 
 
+@app.route('/admin/users', methods=['GET'])
+def admin_get_users():
+    """Get all users (admin only)"""
+    username = request.args.get('user')
+    user = validate_user(username)
+    if not user or user.get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT username, display_name, email, role FROM users ORDER BY display_name")
+        users = [dict(u) for u in cursor.fetchall()]
+        cursor.close()
+        conn.close()
+        return jsonify({'success': True, 'users': users, 'total': len(users)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/admin/users', methods=['POST'])
+def admin_create_user():
+    """Create a new user (admin only)"""
+    data = request.json
+    requesting_user = data.get('requesting_user')
+    admin = validate_user(requesting_user)
+    if not admin or admin.get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    username = data.get('username', '').strip().lower()
+    display_name = data.get('display_name', '').strip()
+    email = data.get('email', '').strip()
+    role = data.get('role', 'user')
+
+    if not username or not display_name:
+        return jsonify({'error': 'username and display_name are required'}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("""
+            INSERT INTO users (username, display_name, email, role)
+            VALUES (%s, %s, %s, %s)
+            RETURNING username, display_name, email, role
+        """, (username, display_name, email, role))
+        new_user = dict(cursor.fetchone())
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({'success': True, 'user': new_user})
+    except Exception as e:
+        err = str(e)
+        if 'duplicate key' in err or 'already exists' in err:
+            return jsonify({'error': f'Username "{username}" already exists'}), 409
+        return jsonify({'error': err}), 500
+
+
+@app.route('/admin/users/<target_username>', methods=['PUT'])
+def admin_update_user(target_username):
+    """Update an existing user (admin only)"""
+    data = request.json
+    requesting_user = data.get('requesting_user')
+    admin = validate_user(requesting_user)
+    if not admin or admin.get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    display_name = data.get('display_name', '').strip()
+    email = data.get('email', '').strip()
+    role = data.get('role')
+
+    if not display_name:
+        return jsonify({'error': 'display_name is required'}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("""
+            UPDATE users SET display_name = %s, email = %s, role = %s
+            WHERE username = %s
+            RETURNING username, display_name, email, role
+        """, (display_name, email, role, target_username))
+        updated = cursor.fetchone()
+        conn.commit()
+        cursor.close()
+        conn.close()
+        if not updated:
+            return jsonify({'error': 'User not found'}), 404
+        return jsonify({'success': True, 'user': dict(updated)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/users/<target_username>', methods=['DELETE'])
+def admin_delete_user(target_username):
+    """Delete a user (admin only)"""
+    requesting_user = request.args.get('user')
+    admin = validate_user(requesting_user)
+    if not admin or admin.get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    if target_username == requesting_user:
+        return jsonify({'error': 'Cannot delete your own account'}), 400
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM users WHERE username = %s", (target_username,))
+        deleted = cursor.rowcount
+        conn.commit()
+        cursor.close()
+        conn.close()
+        if deleted == 0:
+            return jsonify({'error': 'User not found'}), 404
+        return jsonify({'success': True, 'message': f'User "{target_username}" deleted'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/health', methods=['GET'])
 def health():
     """Health check"""
