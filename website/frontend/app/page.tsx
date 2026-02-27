@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { searchAndRank, searchAndRankStream, getSearchSession, type CandidateResult } from "@/lib/api";
+import { searchAndRankStream, getSearchSession, type CandidateResult } from "@/lib/api";
 import { createBrowserClient } from "@/lib/supabase";
 import { useAuth } from "@/lib/useAuth";
 import AuthButton from "@/components/AuthButton";

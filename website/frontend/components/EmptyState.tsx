@@ -1,17 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Search, Zap, Users, Star, Mail, Filter, MapPin, Sparkles, PlayCircle } from "lucide-react";
 import Image from "next/image";
 
 export function EmptyState() {
-  const examples = [
-    "CEO at healthcare company with startup experience",
-    "Senior Python engineers in San Francisco",
-    "Stanford CS graduates who worked at Google",
-    "AI engineers with 5+ years experience",
-  ];
-
   const walkthroughSteps = [
     {
       image: "/images/step1_search_bar.png",

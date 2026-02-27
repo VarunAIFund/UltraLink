@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -51,7 +50,6 @@ export function IntroductionEmailDialog({
 
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
-  const [bodyHtml, setBodyHtml] = useState(""); // Store original HTML
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [generated, setGenerated] = useState(false);
@@ -143,7 +141,6 @@ export function IntroductionEmailDialog({
         currentUser.display_name
       );
       setSubject(result.subject);
-      setBodyHtml(result.body); // Store original HTML
       setBody(htmlToPlainText(result.body)); // Convert to plain text for display
       setGenerated(true);
     } catch (err) {
@@ -164,6 +161,9 @@ export function IntroductionEmailDialog({
       // Convert plain text back to HTML for sending
       const htmlToSend = plainTextToHtml(body);
 
+      if (!receiverUser.email) {
+        throw new Error("Recipient email not available. Please try again.");
+      }
       await onSend(
         subject,
         htmlToSend,
@@ -179,7 +179,6 @@ export function IntroductionEmailDialog({
         setTimeout(() => {
           setSubject("");
           setBody("");
-          setBodyHtml("");
           setGenerated(false);
           setSent(false);
         }, 300);
@@ -198,7 +197,6 @@ export function IntroductionEmailDialog({
     setTimeout(() => {
       setSubject("");
       setBody("");
-      setBodyHtml("");
       setGenerated(false);
       setSent(false);
       setError(null);

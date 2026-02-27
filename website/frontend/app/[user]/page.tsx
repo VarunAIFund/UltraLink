@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { searchAndRank, searchAndRankStream, getSearchSession, getUser, type CandidateResult } from "@/lib/api";
+import { searchAndRankStream, getSearchSession, getUser, type CandidateResult } from "@/lib/api";
 import { SearchBar } from "@/components/SearchBar";
 import { SqlDisplay } from "@/components/SqlDisplay";
 import { CandidateList } from "@/components/CandidateList";

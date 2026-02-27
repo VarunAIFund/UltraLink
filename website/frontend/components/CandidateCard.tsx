@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -199,10 +199,6 @@ export function CandidateCard({
     setNoteError(null);
   };
 
-  const handleCancelNote = () => {
-    setShowNotes(false);
-    setNoteError(null);
-  };
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

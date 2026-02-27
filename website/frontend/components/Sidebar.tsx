@@ -1,13 +1,12 @@
 "use client";
 
 import { X, Search, Star, LogOut } from "lucide-react";
-import { Shield } from "lucide-react"; // Admin icon - uncomment when re-enabling admin
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "./ui/button";
-import { getUser, checkIsAdmin } from "@/lib/api";
+import { getUser } from "@/lib/api";
 import { createBrowserClient } from "@/lib/supabase";
 import { useAuth } from "@/lib/useAuth";
 
@@ -23,7 +22,6 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
   // The username/display name of the *signed-in* user (may differ from URL userName)
   const [activeUserName, setActiveUserName] = useState(userName);
   const [userDisplayName, setUserDisplayName] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
   const handleSignOut = async () => {
@@ -41,21 +39,22 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
     if (authLoading) return;
 
     if (isAuthenticated && session?.user?.email) {
-      const supabase = createBrowserClient();
-      supabase
-        .from("users")
-        .select("username, display_name")
-        .ilike("email", session.user.email)
-        .single()
-        .then(({ data }) => {
+      (async () => {
+        try {
+          const supabase = createBrowserClient();
+          const { data } = await supabase
+            .from("users")
+            .select("username, display_name")
+            .ilike("email", session.user.email!)
+            .single();
           if (data) {
             setActiveUserName(data.username);
             setUserDisplayName(data.display_name);
           }
-        })
-        .catch((err) => {
+        } catch (err) {
           console.error("Error fetching signed-in user info:", err);
-        });
+        }
+      })();
     } else if (!isAuthenticated && userName) {
       // Unauthenticated: fall back to URL user display name
       getUser(userName)

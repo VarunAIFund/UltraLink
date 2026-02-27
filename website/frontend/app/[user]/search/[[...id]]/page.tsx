@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, usePathname } from "next/navigation";
-import { searchAndRank, searchAndRankStream, getSearchSession, getUser, type CandidateResult } from "@/lib/api";
+import { searchAndRankStream, getSearchSession, type CandidateResult } from "@/lib/api";
 import { SearchBar } from "@/components/SearchBar";
 import { SqlDisplay } from "@/components/SqlDisplay";
 import { CandidateList } from "@/components/CandidateList";
@@ -52,21 +52,6 @@ export default function UserSearchResultsPage() {
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // User display name
-  const [userDisplayName, setUserDisplayName] = useState<string>("");
-
-  // Fetch URL user display name (no admin check here — URL user may differ from signed-in user)
-  useEffect(() => {
-    if (userName) {
-      getUser(userName)
-        .then((data) => {
-          if (data.success) setUserDisplayName(data.user.display_name);
-        })
-        .catch((err) => {
-          console.error('Error fetching user info:', err);
-        });
-    }
-  }, [userName]);
 
   // Check admin status for the SIGNED-IN user (not the URL user)
   useEffect(() => {
