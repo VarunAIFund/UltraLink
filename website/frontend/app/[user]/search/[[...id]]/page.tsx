@@ -46,7 +46,8 @@ export default function UserSearchResultsPage() {
   const [hasActiveSSE, setHasActiveSSE] = useState<boolean>(false);
 
   // Auth
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, session, loading: authLoading } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -54,20 +55,41 @@ export default function UserSearchResultsPage() {
   // User display name
   const [userDisplayName, setUserDisplayName] = useState<string>("");
 
-  // Fetch user display name
+  // Fetch URL user display name (no admin check here — URL user may differ from signed-in user)
   useEffect(() => {
     if (userName) {
       getUser(userName)
         .then((data) => {
-          if (data.success) {
-            setUserDisplayName(data.user.display_name);
-          }
+          if (data.success) setUserDisplayName(data.user.display_name);
         })
         .catch((err) => {
           console.error('Error fetching user info:', err);
         });
     }
   }, [userName]);
+
+  // Check admin status for the SIGNED-IN user (not the URL user)
+  useEffect(() => {
+    if (authLoading) return;
+    if (!session?.user?.email) {
+      setIsAdmin(false);
+      return;
+    }
+    (async () => {
+      try {
+        const { createBrowserClient } = await import("@/lib/supabase");
+        const supabase = createBrowserClient();
+        const { data } = await supabase
+          .from("users")
+          .select("role")
+          .ilike("email", session.user.email!)
+          .single();
+        setIsAdmin(data?.role === "admin");
+      } catch {
+        setIsAdmin(false);
+      }
+    })();
+  }, [authLoading, session]);
 
   // Load saved search if searchId exists
   useEffect(() => {
@@ -266,7 +288,7 @@ export default function UserSearchResultsPage() {
         </motion.div>
       )}
 
-      <SqlDisplay sql={sql} />
+      {isAdmin && <SqlDisplay sql={sql} />}
 
       <CandidateList
         results={results}
@@ -274,11 +296,12 @@ export default function UserSearchResultsPage() {
         loading={loading}
         searchStep={searchStep}
         searchStatus={searchStatus}
-        totalCost={totalCost}
-        totalTime={totalTime}
-        logs={logs}
+        totalCost={isAdmin ? totalCost : 0}
+        totalTime={isAdmin ? totalTime : 0}
+        logs={isAdmin ? logs : ""}
         searchQuery={query}
         userName={userName}
+        isAdmin={isAdmin}
       />
     </div>
   );

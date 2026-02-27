@@ -47,6 +47,7 @@ export default function UserSearchPage() {
 
   // Auth
   const { isAuthenticated, session, loading: authLoading } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -54,7 +55,7 @@ export default function UserSearchPage() {
   // User display name — null means still validating
   const [userDisplayName, setUserDisplayName] = useState<string | null>(null);
 
-  // Validate user and fetch display name — redirect to / if not found
+  // Validate URL user and fetch display name — redirect to / if not found
   useEffect(() => {
     if (userName) {
       getUser(userName)
@@ -70,6 +71,29 @@ export default function UserSearchPage() {
         });
     }
   }, [userName, router]);
+
+  // Check admin status for the SIGNED-IN user (not the URL user)
+  useEffect(() => {
+    if (authLoading) return;
+    if (!session?.user?.email) {
+      setIsAdmin(false);
+      return;
+    }
+    (async () => {
+      try {
+        const { createBrowserClient } = await import("@/lib/supabase");
+        const supabase = createBrowserClient();
+        const { data } = await supabase
+          .from("users")
+          .select("role")
+          .ilike("email", session.user.email!)
+          .single();
+        setIsAdmin(data?.role === "admin");
+      } catch {
+        setIsAdmin(false);
+      }
+    })();
+  }, [authLoading, session]);
 
   // Ownership check — unauthenticated users go to /, signed-in users go to their own workspace
   useEffect(() => {
@@ -309,7 +333,7 @@ export default function UserSearchPage() {
         </motion.div>
       )}
 
-      <SqlDisplay sql={sql} />
+      {isAdmin && <SqlDisplay sql={sql} />}
 
       <CandidateList
         results={results}
@@ -317,11 +341,12 @@ export default function UserSearchPage() {
         loading={loading}
         searchStep={searchStep}
         searchStatus={searchStatus}
-        totalCost={totalCost}
-        totalTime={totalTime}
-        logs={logs}
+        totalCost={isAdmin ? totalCost : 0}
+        totalTime={isAdmin ? totalTime : 0}
+        logs={isAdmin ? logs : ""}
         searchQuery={query}
         userName={userName}
+        isAdmin={isAdmin}
       />
     </div>
   );

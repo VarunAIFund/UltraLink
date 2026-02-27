@@ -18,6 +18,7 @@ interface CandidateListProps {
   logs?: string;
   searchQuery?: string;
   userName?: string;
+  isAdmin?: boolean;
 }
 
 export function CandidateList({
@@ -31,6 +32,7 @@ export function CandidateList({
   logs,
   searchQuery,
   userName,
+  isAdmin = false,
 }: CandidateListProps) {
   // Collapsible state for each section
   const [strongExpanded, setStrongExpanded] = useState(true);
@@ -213,8 +215,8 @@ export function CandidateList({
             </div>
           )}
 
-          {/* No Matches Section */}
-          {groupedCandidates.noMatch.length > 0 && (
+          {/* No Matches Section — admin only */}
+          {isAdmin && groupedCandidates.noMatch.length > 0 && (
             <div>
               <button
                 onClick={() => setNoMatchExpanded(!noMatchExpanded)}
@@ -245,8 +247,8 @@ export function CandidateList({
             </div>
           )}
 
-          {/* Search Info Section */}
-          {((totalCost !== undefined && totalCost > 0) ||
+          {/* Search Info Section — admin only */}
+          {isAdmin && ((totalCost !== undefined && totalCost > 0) ||
             (totalTime !== undefined && totalTime > 0) ||
             (logs && logs.length > 0)) && (
             <div>
