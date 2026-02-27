@@ -2,9 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const redirect = searchParams.get("redirect");
+
+  // Behind a reverse proxy (Railway, Vercel, etc.) request.url contains the
+  // internal container URL (e.g. http://localhost:3000).  Use the forwarded
+  // headers to reconstruct the public-facing origin instead.
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
+  const origin = forwardedHost
+    ? `${forwardedProto}://${forwardedHost}`
+    : new URL(request.url).origin;
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=missing_code`);
