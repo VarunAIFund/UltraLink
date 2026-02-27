@@ -53,20 +53,30 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=no_email`);
   }
 
-  // Look up username from public users table by primary OR secondary email
-  // We use a raw filter since the JS client doesn't support unnest queries.
-  const { data: usersData, error: userError } = await supabase
+  // Look up username from public users table by primary OR secondary email.
+  // We do two separate queries because the .or() raw filter with cs.{email}
+  // doesn't quote email addresses properly in the array literal, causing
+  // PostgREST to fail to match addresses containing @ or dots.
+
+  // 1. Primary email (case-insensitive)
+  const { data: primaryMatch } = await supabase
     .from("users")
     .select("username, email, secondary_emails")
-    .or(`email.ilike.${authEmail},secondary_emails.cs.{${authEmail}}`);
+    .ilike("email", authEmail)
+    .maybeSingle();
 
-  const userData = usersData?.find(
-    (u) =>
-      u.email?.toLowerCase() === authEmail ||
-      (u.secondary_emails as string[] | null)?.map((e: string) => e.toLowerCase()).includes(authEmail)
-  ) ?? null;
+  // 2. Secondary email — .contains() quotes values correctly
+  let userData = primaryMatch;
+  if (!userData) {
+    const { data: secondaryMatch } = await supabase
+      .from("users")
+      .select("username, email, secondary_emails")
+      .contains("secondary_emails", [authEmail])
+      .maybeSingle();
+    userData = secondaryMatch;
+  }
 
-  if (userError || !userData) {
+  if (!userData) {
     await supabase.auth.signOut();
     return NextResponse.redirect(
       `${origin}/login?error=unauthorized&email=${encodeURIComponent(authEmail)}`
