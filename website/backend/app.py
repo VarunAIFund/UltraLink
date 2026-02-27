@@ -22,9 +22,10 @@ from save_search import save_search_session, update_search_session, get_search_s
 from add_note import update_candidate_note, get_candidate_note
 from email_intro.generate_template import generate_introduction_email
 from email_intro.send_email import send_introduction_email
-from users import validate_user, get_all_users, get_db_connection
+from users import validate_user, get_all_users, get_db_connection, get_user_by_email
 from bookmarks import add_bookmark, remove_bookmark, get_user_bookmarks, is_bookmarked
 from receivers import get_receiver, get_all_receivers, is_valid_receiver_email
+from auth import get_request_user
 
 # Add pipeline directory to path (now in backend/pipeline)
 sys.path.append(os.path.join(os.path.dirname(__file__), 'pipeline'))
@@ -549,7 +550,14 @@ def get_note(linkedin_url):
 
 @app.route('/notes', methods=['POST'])
 def add_note():
-    """Add or update note for a candidate"""
+    """Add or update note for a candidate — requires authentication"""
+    token_user = get_request_user(request)
+    if not token_user:
+        return jsonify({'error': 'Unauthorized'}), 401
+    platform_user = get_user_by_email(token_user['email'])
+    if not platform_user:
+        return jsonify({'error': 'Forbidden: not a platform user'}), 403
+
     data = request.json
     linkedin_url = data.get('linkedin_url', '').strip()
     note = data.get('note', '').strip()
@@ -626,12 +634,25 @@ def generate_introduction_email_endpoint():
 
 @app.route('/send-introduction-email', methods=['POST'])
 def send_introduction_email_endpoint():
-    """Send introduction email via Resend API"""
+    """Send introduction email via Resend API — requires authentication"""
+    # Verify the caller is an authenticated platform user
+    token_user = get_request_user(request)
+    if not token_user:
+        return jsonify({'error': 'Unauthorized'}), 401
+    platform_user = get_user_by_email(token_user['email'])
+    if not platform_user:
+        return jsonify({'error': 'Forbidden: not a platform user'}), 403
+
     data = request.json
     to_email = data.get('to_email', '').strip()
     subject = data.get('subject', '').strip()
     body = data.get('body', '').strip()
-    sender_info = data.get('sender_info', {})
+
+    # Override sender info with the verified identity from the session — never trust client input
+    sender_info = {
+        'email': platform_user['email'],
+        'name': platform_user.get('display_name', platform_user['username']),
+    }
 
     # Validate inputs
     if not to_email or '@' not in to_email:
@@ -776,15 +797,14 @@ def get_user_searches(username):
 
 @app.route('/users/<username>/bookmarks', methods=['POST'])
 def add_user_bookmark(username):
-    """Add a bookmark for a user"""
+    """Add a bookmark — caller must be authenticated as the URL user"""
     try:
-        # Validate username (database lookup)
-        user = validate_user(username)
-        if not user:
-            return jsonify({
-                'success': False,
-                'error': 'Invalid username'
-            }), 404
+        token_user = get_request_user(request)
+        if not token_user:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        platform_user = get_user_by_email(token_user['email'])
+        if not platform_user or platform_user['username'] != username:
+            return jsonify({'success': False, 'error': 'Forbidden'}), 403
 
         data = request.json
         linkedin_url = data.get('linkedin_url')
@@ -813,15 +833,14 @@ def add_user_bookmark(username):
 
 @app.route('/users/<username>/bookmarks/<path:linkedin_url>', methods=['DELETE'])
 def remove_user_bookmark(username, linkedin_url):
-    """Remove a bookmark"""
+    """Remove a bookmark — caller must be authenticated as the URL user"""
     try:
-        # Validate username (database lookup)
-        user = validate_user(username)
-        if not user:
-            return jsonify({
-                'success': False,
-                'error': 'Invalid username'
-            }), 404
+        token_user = get_request_user(request)
+        if not token_user:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        platform_user = get_user_by_email(token_user['email'])
+        if not platform_user or platform_user['username'] != username:
+            return jsonify({'success': False, 'error': 'Forbidden'}), 403
 
         result = remove_bookmark(username, linkedin_url)
 
@@ -949,14 +968,14 @@ def upload_csv():
     """
     Upload CSV and process synchronously on Railway (blocking request)
     """
-    # 1. Validate Admin
-    username = request.form.get('user')
-    if not username:
-        return jsonify({'error': 'User required'}), 400
-        
-    user = validate_user(username)
+    # 1. Validate Admin via token
+    token_user = get_request_user(request)
+    if not token_user:
+        return jsonify({'error': 'Unauthorized'}), 401
+    user = get_user_by_email(token_user['email'])
     if not user or user.get('role') != 'admin':
-        return jsonify({'error': 'Unauthorized: Admin access required'}), 403
+        return jsonify({'error': 'Forbidden: Admin access required'}), 403
+    username = user['username']
 
     # 2. Get File
     if 'file' not in request.files:
@@ -1088,13 +1107,12 @@ def upload_csv():
 def get_upload_jobs():
     """Get all upload jobs"""
     try:
-        requesting_user = request.args.get('user')
-        if not requesting_user:
-             return jsonify({'error': 'Unauthorized'}), 403
-            
-        user = validate_user(requesting_user)
+        token_user = get_request_user(request)
+        if not token_user:
+            return jsonify({'error': 'Unauthorized'}), 401
+        user = get_user_by_email(token_user['email'])
         if not user or user.get('role') != 'admin':
-            return jsonify({'error': 'Unauthorized'}), 403
+            return jsonify({'error': 'Forbidden'}), 403
 
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor) # Use RealDictCursor
@@ -1128,13 +1146,12 @@ def get_upload_jobs():
 def get_upload_job_details(job_id):
     """Get details for a specific job"""
     try:
-        requesting_user = request.args.get('user')
-        if not requesting_user:
-             return jsonify({'error': 'Unauthorized'}), 403
-            
-        user = validate_user(requesting_user)
+        token_user = get_request_user(request)
+        if not token_user:
+            return jsonify({'error': 'Unauthorized'}), 401
+        user = get_user_by_email(token_user['email'])
         if not user or user.get('role') != 'admin':
-            return jsonify({'error': 'Unauthorized'}), 403
+            return jsonify({'error': 'Forbidden'}), 403
 
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -1169,22 +1186,12 @@ def get_upload_job_details(job_id):
 def get_all_searches():
     """Get all searches from all users (admin only)"""
     try:
-        # Check if requesting user is admin
-        requesting_user = request.args.get('user')
-        
-        # Validate user and check role from database
-        if not requesting_user:
-             return jsonify({
-                'success': False,
-                'error': 'Unauthorized: User required'
-            }), 403
-            
-        user = validate_user(requesting_user)
+        token_user = get_request_user(request)
+        if not token_user:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        user = get_user_by_email(token_user['email'])
         if not user or user.get('role') != 'admin':
-            return jsonify({
-                'success': False,
-                'error': 'Unauthorized: Admin access required'
-            }), 403
+            return jsonify({'success': False, 'error': 'Forbidden: Admin access required'}), 403
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -1224,40 +1231,29 @@ def get_all_searches():
 
 @app.route('/admin/check', methods=['GET'])
 def check_admin():
-    """Check if a user is an admin"""
-    username = request.args.get('user')
-    
-    if not username:
-        return jsonify({
-            'success': False,
-            'is_admin': False
-        })
-        
+    """Check if the authenticated user is an admin"""
+    token_user = get_request_user(request)
+    if not token_user:
+        return jsonify({'success': False, 'is_admin': False})
+
     try:
-        user = validate_user(username)
-        # Check role from database
+        user = get_user_by_email(token_user['email'])
         is_admin = user is not None and user.get('role') == 'admin'
-        
-        return jsonify({
-            'success': True,
-            'is_admin': is_admin
-        })
+        return jsonify({'success': True, 'is_admin': is_admin})
     except Exception as e:
         print(f"Error checking admin status: {e}")
-        return jsonify({
-            'success': False,
-            'is_admin': False,
-            'error': str(e)
-        })
+        return jsonify({'success': False, 'is_admin': False, 'error': str(e)})
 
 
 @app.route('/admin/users', methods=['GET'])
 def admin_get_users():
     """Get all users (admin only)"""
-    username = request.args.get('user')
-    user = validate_user(username)
+    token_user = get_request_user(request)
+    if not token_user:
+        return jsonify({'error': 'Unauthorized'}), 401
+    user = get_user_by_email(token_user['email'])
     if not user or user.get('role') != 'admin':
-        return jsonify({'error': 'Unauthorized'}), 403
+        return jsonify({'error': 'Forbidden'}), 403
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -1273,11 +1269,13 @@ def admin_get_users():
 @app.route('/admin/users', methods=['POST'])
 def admin_create_user():
     """Create a new user (admin only)"""
-    data = request.json
-    requesting_user = data.get('requesting_user')
-    admin = validate_user(requesting_user)
+    token_user = get_request_user(request)
+    if not token_user:
+        return jsonify({'error': 'Unauthorized'}), 401
+    admin = get_user_by_email(token_user['email'])
     if not admin or admin.get('role') != 'admin':
-        return jsonify({'error': 'Unauthorized'}), 403
+        return jsonify({'error': 'Forbidden'}), 403
+    data = request.json
 
     username = data.get('username', '').strip().lower()
     display_name = data.get('display_name', '').strip()
@@ -1310,11 +1308,13 @@ def admin_create_user():
 @app.route('/admin/users/<target_username>', methods=['PUT'])
 def admin_update_user(target_username):
     """Update an existing user (admin only)"""
-    data = request.json
-    requesting_user = data.get('requesting_user')
-    admin = validate_user(requesting_user)
+    token_user = get_request_user(request)
+    if not token_user:
+        return jsonify({'error': 'Unauthorized'}), 401
+    admin = get_user_by_email(token_user['email'])
     if not admin or admin.get('role') != 'admin':
-        return jsonify({'error': 'Unauthorized'}), 403
+        return jsonify({'error': 'Forbidden'}), 403
+    data = request.json
 
     display_name = data.get('display_name', '').strip()
     email = data.get('email', '').strip()
@@ -1345,11 +1345,13 @@ def admin_update_user(target_username):
 @app.route('/admin/users/<target_username>', methods=['DELETE'])
 def admin_delete_user(target_username):
     """Delete a user (admin only)"""
-    requesting_user = request.args.get('user')
-    admin = validate_user(requesting_user)
+    token_user = get_request_user(request)
+    if not token_user:
+        return jsonify({'error': 'Unauthorized'}), 401
+    admin = get_user_by_email(token_user['email'])
     if not admin or admin.get('role') != 'admin':
-        return jsonify({'error': 'Unauthorized'}), 403
-    if target_username == requesting_user:
+        return jsonify({'error': 'Forbidden'}), 403
+    if target_username == admin['username']:
         return jsonify({'error': 'Cannot delete your own account'}), 400
     try:
         conn = get_db_connection()

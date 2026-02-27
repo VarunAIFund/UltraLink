@@ -11,3 +11,4 @@ resend
 apify-client
 supabase
 httpx
+requests

@@ -4,6 +4,27 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
+/**
+ * Get the current Supabase session's access token for use in Authorization headers.
+ * Returns null if the user is not authenticated.
+ */
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const { createBrowserClient } = await import("./supabase");
+    const supabase = createBrowserClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Build auth headers for protected requests */
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getAuthToken();
+  return token ? { "Authorization": `Bearer ${token}` } : {};
+}
+
 export interface Experience {
   org: string;
   company_url?: string;
@@ -276,10 +297,12 @@ export async function updateNoteForCandidate(
   linkedinUrl: string,
   note: string
 ): Promise<UpdateNoteResponse> {
+  const auth = await authHeaders();
   const response = await fetch(`${API_BASE_URL}/notes`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...auth,
     },
     body: JSON.stringify({
       linkedin_url: linkedinUrl,
@@ -343,23 +366,21 @@ export async function generateIntroductionEmail(
 export async function sendIntroductionEmail(
   subject: string,
   body: string,
-  fromEmail: string,
-  senderName?: string,
+  _fromEmail?: string,   // ignored — backend looks up sender from verified session
+  _senderName?: string,  // ignored — backend looks up sender from verified session
   toEmail?: string
 ): Promise<SendEmailResponse> {
+  const auth = await authHeaders();
   const response = await fetch(`${API_BASE_URL}/send-introduction-email`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...auth,
     },
     body: JSON.stringify({
       to_email: toEmail || "",
       subject: subject,
       body: body,
-      sender_info: {
-        name: senderName || "",
-        email: fromEmail,
-      },
     }),
   });
 
@@ -440,20 +461,22 @@ export interface AdminUserResponse {
   error?: string;
 }
 
-export async function adminGetUsers(requestingUser: string): Promise<AdminUsersResponse> {
-  const response = await fetch(`${API_BASE_URL}/admin/users?user=${requestingUser}`);
+export async function adminGetUsers(_requestingUser?: string): Promise<AdminUsersResponse> {
+  const auth = await authHeaders();
+  const response = await fetch(`${API_BASE_URL}/admin/users`, { headers: auth });
   if (!response.ok) throw new Error(`API error: ${response.statusText}`);
   return response.json();
 }
 
 export async function adminCreateUser(
-  requestingUser: string,
+  _requestingUser: string,
   data: { username: string; display_name: string; email: string; role: string }
 ): Promise<AdminUserResponse> {
+  const auth = await authHeaders();
   const response = await fetch(`${API_BASE_URL}/admin/users`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ requesting_user: requestingUser, ...data }),
+    headers: { "Content-Type": "application/json", ...auth },
+    body: JSON.stringify(data),
   });
   if (!response.ok) {
     const err = await response.json();
@@ -463,14 +486,15 @@ export async function adminCreateUser(
 }
 
 export async function adminUpdateUser(
-  requestingUser: string,
+  _requestingUser: string,
   username: string,
   data: { display_name: string; email: string; role: string }
 ): Promise<AdminUserResponse> {
+  const auth = await authHeaders();
   const response = await fetch(`${API_BASE_URL}/admin/users/${username}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ requesting_user: requestingUser, ...data }),
+    headers: { "Content-Type": "application/json", ...auth },
+    body: JSON.stringify(data),
   });
   if (!response.ok) {
     const err = await response.json();
@@ -480,13 +504,14 @@ export async function adminUpdateUser(
 }
 
 export async function adminDeleteUser(
-  requestingUser: string,
+  _requestingUser: string,
   username: string
 ): Promise<{ success: boolean; message: string; error?: string }> {
-  const response = await fetch(
-    `${API_BASE_URL}/admin/users/${username}?user=${requestingUser}`,
-    { method: "DELETE" }
-  );
+  const auth = await authHeaders();
+  const response = await fetch(`${API_BASE_URL}/admin/users/${username}`, {
+    method: "DELETE",
+    headers: auth,
+  });
   if (!response.ok) {
     const err = await response.json();
     throw new Error(err.error || `API error: ${response.statusText}`);
@@ -642,10 +667,12 @@ export async function addBookmark(
     notes?: string;
   }
 ): Promise<BookmarkActionResponse> {
+  const auth = await authHeaders();
   const response = await fetch(`${API_BASE_URL}/users/${userName}/bookmarks`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...auth,
     },
     body: JSON.stringify(data),
   });
@@ -661,6 +688,7 @@ export async function removeBookmark(
   userName: string,
   linkedinUrl: string
 ): Promise<BookmarkActionResponse> {
+  const auth = await authHeaders();
   const encodedUrl = encodeURIComponent(linkedinUrl);
   const response = await fetch(
     `${API_BASE_URL}/users/${userName}/bookmarks/${encodedUrl}`,
@@ -668,6 +696,7 @@ export async function removeBookmark(
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
+        ...auth,
       },
     }
   );
@@ -727,12 +756,14 @@ export interface AdminCheckResponse {
 }
 
 export async function checkIsAdmin(
-  userName: string
+  _userName?: string
 ): Promise<AdminCheckResponse> {
-  const response = await fetch(`${API_BASE_URL}/admin/check?user=${userName}`, {
+  const auth = await authHeaders();
+  const response = await fetch(`${API_BASE_URL}/admin/check`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
+      ...auth,
     },
   });
 
@@ -744,17 +775,16 @@ export async function checkIsAdmin(
 }
 
 export async function getAdminSearches(
-  userName: string
+  _userName?: string
 ): Promise<AdminSearchesResponse> {
-  const response = await fetch(
-    `${API_BASE_URL}/admin/searches?user=${userName}`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    }
-  );
+  const auth = await authHeaders();
+  const response = await fetch(`${API_BASE_URL}/admin/searches`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...auth,
+    },
+  });
 
   if (!response.ok) {
     throw new Error(`API error: ${response.statusText}`);
@@ -807,16 +837,17 @@ export interface UploadCSVResponse {
 
 export async function uploadCSV(
   file: File,
-  userName: string
+  _userName?: string
 ): Promise<UploadCSVResponse> {
+  const auth = await authHeaders();
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("user", userName);
 
   // This is a LONG request (may take 20-30 minutes)
   // No timeout - let Railway handle it
   const response = await fetch(`${API_BASE_URL}/admin/upload-csv`, {
     method: "POST",
+    headers: auth, // no Content-Type — let browser set multipart boundary
     body: formData,
   });
 
@@ -828,12 +859,11 @@ export async function uploadCSV(
   return response.json();
 }
 
-export async function getUploadJobs(userName: string): Promise<UploadJobsResponse> {
-  const response = await fetch(`${API_BASE_URL}/admin/jobs?user=${userName}`, {
+export async function getUploadJobs(_userName?: string): Promise<UploadJobsResponse> {
+  const auth = await authHeaders();
+  const response = await fetch(`${API_BASE_URL}/admin/jobs`, {
     method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json", ...auth },
   });
 
   if (!response.ok) {
@@ -845,17 +875,13 @@ export async function getUploadJobs(userName: string): Promise<UploadJobsRespons
 
 export async function getUploadJobDetails(
   jobId: string,
-  userName: string
+  _userName?: string
 ): Promise<UploadJobResponse> {
-  const response = await fetch(
-    `${API_BASE_URL}/admin/jobs/${jobId}?user=${userName}`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    }
-  );
+  const auth = await authHeaders();
+  const response = await fetch(`${API_BASE_URL}/admin/jobs/${jobId}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json", ...auth },
+  });
 
   if (!response.ok) {
     throw new Error(`API error: ${response.statusText}`);

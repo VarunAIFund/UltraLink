@@ -2,6 +2,7 @@ import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from urllib.parse import quote_plus
+from typing import Optional
 
 def get_db_connection():
     """Get database connection (Railway vs local)"""
@@ -55,6 +56,28 @@ def validate_user(username):
         return dict(user) if user else None
     except Exception as e:
         print(f"Error validating user: {e}")
+        return None
+
+
+def get_user_by_email(email: str) -> Optional[dict]:
+    """Look up a platform user by their verified email address.
+
+    Returns {'username': str, 'display_name': str, 'email': str, 'role': str}
+    or None if no matching user exists.
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            "SELECT username, display_name, email, role FROM users WHERE lower(email) = lower(%s)",
+            (email,)
+        )
+        user = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return dict(user) if user else None
+    except Exception as e:
+        print(f"Error looking up user by email: {e}")
         return None
 
 

@@ -212,8 +212,17 @@ Generate a broader SQL query for: {original_query}"""
 
     return generate_sql(relaxation_prompt, connected_to)
 
+import re as _re
+
 def wrap_sql_with_bookmark_check(sql: str, user_name: str) -> str:
-    """Wrap SQL query with LEFT JOIN to user_bookmarks to get is_bookmarked status"""
+    """Wrap SQL query with LEFT JOIN to user_bookmarks to get is_bookmarked status.
+
+    user_name is validated to contain only safe characters, preventing SQL injection.
+    All real platform usernames are lowercase alphanumeric + underscores/hyphens.
+    """
+    if not _re.match(r'^[a-zA-Z0-9_-]+$', user_name):
+        raise ValueError(f"Invalid user_name: contains unsafe characters")
+
     # Remove trailing semicolon if present (causes syntax error in subquery)
     sql = sql.rstrip().rstrip(';')
 
