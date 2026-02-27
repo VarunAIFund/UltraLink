@@ -2,6 +2,7 @@
 Ranking Stage 1 - GPT-5-nano Classification
 Classify candidates as strong/partial/no_match with detailed analyses
 
+
 Optimized for concurrent processing:
 - Fires all requests concurrently using asyncio.gather()
 - Creates fresh httpx.AsyncClient per search request (supports concurrent Flask requests)
