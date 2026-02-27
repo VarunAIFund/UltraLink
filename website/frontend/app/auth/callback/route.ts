@@ -53,12 +53,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=no_email`);
   }
 
-  // Look up username from public users table by email
-  const { data: userData, error: userError } = await supabase
+  // Look up username from public users table by primary OR secondary email
+  // We use a raw filter since the JS client doesn't support unnest queries.
+  const { data: usersData, error: userError } = await supabase
     .from("users")
-    .select("username")
-    .ilike("email", authEmail)
-    .single();
+    .select("username, email, secondary_emails")
+    .or(`email.ilike.${authEmail},secondary_emails.cs.{${authEmail}}`);
+
+  const userData = usersData?.find(
+    (u) =>
+      u.email?.toLowerCase() === authEmail ||
+      (u.secondary_emails as string[] | null)?.map((e: string) => e.toLowerCase()).includes(authEmail)
+  ) ?? null;
 
   if (userError || !userData) {
     await supabase.auth.signOut();
