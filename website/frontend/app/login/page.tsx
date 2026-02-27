@@ -93,7 +93,7 @@ function LoginForm() {
               <button
                 type="button"
                 onClick={() => { setSent(false); setEmail(""); }}
-                className="text-sm text-amber-600 hover:text-amber-700 underline"
+                className="text-sm text-primary hover:text-primary/80 underline"
               >
                 Use a different email
               </button>
@@ -125,7 +125,7 @@ function LoginForm() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       disabled={loading}
-                      className="w-full pl-9 pr-4 py-2.5 text-sm border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50"
+                      className="w-full pl-9 pr-4 py-2.5 text-sm border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -139,7 +139,7 @@ function LoginForm() {
                 <Button
                   type="submit"
                   disabled={loading || !email.trim()}
-                  className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
                   {loading ? (
                     <>

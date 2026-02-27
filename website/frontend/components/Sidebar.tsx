@@ -154,7 +154,7 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
                 <Link
                   href={`/login?redirect=/${userName}`}
                   onClick={onClose}
-                  className="flex items-center justify-center gap-2 w-full p-3 rounded-lg text-sm text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                  className="flex items-center justify-center gap-2 w-full p-3 rounded-lg text-sm text-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors"
                 >
                   <LogOut className="h-4 w-4 rotate-180" />
                   Sign in

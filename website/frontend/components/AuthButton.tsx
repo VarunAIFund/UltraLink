@@ -18,7 +18,7 @@ export default function AuthButton() {
   return (
     <Link
       href={`/login?redirect=${encodeURIComponent(pathname)}`}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-500 hover:bg-amber-600 text-white transition-colors"
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground transition-colors"
     >
       <LogIn className="h-4 w-4" />
       Sign In

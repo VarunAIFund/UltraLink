@@ -349,7 +349,7 @@ export default function AdminPage() {
   if (!authChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -378,7 +378,7 @@ export default function AdminPage() {
         className="mb-8 mt-12"
       >
         <div className="flex items-center gap-3 mb-2">
-          <Shield className="h-8 w-8 text-amber-500" />
+          <Shield className="h-8 w-8 text-primary" />
           <h1 className="text-4xl font-bold">Admin Dashboard</h1>
         </div>
         <p className="text-muted-foreground">
@@ -422,7 +422,7 @@ export default function AdminPage() {
           <Upload className="h-4 w-4" />
           Upload Jobs
           {jobs.length > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 text-xs font-medium">
+            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-primary/10 dark:bg-primary/20 text-primary/70 dark:text-primary text-xs font-medium">
               {jobs.length}
             </span>
           )}
@@ -464,7 +464,7 @@ export default function AdminPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <FileUp className="h-5 w-5 text-amber-500" />
+              <FileUp className="h-5 w-5 text-primary" />
               <CardTitle>Upload LinkedIn Connections CSV</CardTitle>
             </div>
             <CardDescription>
@@ -474,18 +474,18 @@ export default function AdminPage() {
           <CardContent>
             <div className="space-y-4">
               {/* Naming Instructions */}
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
-                <div className="flex items-center gap-2 text-amber-900 font-semibold">
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 space-y-2">
+                <div className="flex items-center gap-2 text-primary font-semibold">
                   <FileUp className="h-4 w-4" />
                   File Naming Convention
                 </div>
-                <p className="text-sm text-amber-800">
-                  Name your CSV file as: <code className="bg-amber-100 px-2 py-1 rounded text-xs font-mono">name_connections.csv</code>
+                <p className="text-sm text-primary/70">
+                  Name your CSV file as: <code className="bg-primary/10 px-2 py-1 rounded text-xs font-mono">name_connections.csv</code>
                 </p>
-                <p className="text-sm text-amber-700">
-                  Examples: <code className="bg-amber-100 px-1.5 py-0.5 rounded text-xs font-mono">linda_connections.csv</code>, <code className="bg-amber-100 px-1.5 py-0.5 rounded text-xs font-mono">dan_connections.csv</code>, <code className="bg-amber-100 px-1.5 py-0.5 rounded text-xs font-mono">varun_connections.csv</code>
+                <p className="text-sm text-primary/80">
+                  Examples: <code className="bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">linda_connections.csv</code>, <code className="bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">dan_connections.csv</code>, <code className="bg-primary/10 px-1.5 py-0.5 rounded text-xs font-mono">varun_connections.csv</code>
                 </p>
-                <p className="text-sm text-amber-700 mt-2">
+                <p className="text-sm text-primary/80 mt-2">
                   💡 <strong>Tip:</strong> To update existing connections, simply upload a new CSV with the same name. New profiles will be added and existing ones will be updated.
                 </p>
               </div>
@@ -520,12 +520,12 @@ export default function AdminPage() {
                   accept=".csv"
                   onChange={handleFileSelect}
                   disabled={uploading || hasProcessingJobs}
-                  className="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 disabled:opacity-50"
+                  className="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/5 file:text-primary/80 hover:file:bg-primary/10 disabled:opacity-50"
                 />
                 <Button
                   onClick={handleUpload}
                   disabled={!selectedFile || uploading || hasProcessingJobs}
-                  className="bg-amber-500 hover:bg-amber-600"
+                  className="bg-primary hover:bg-primary/90"
                 >
                   {uploading ? (
                     <>
@@ -588,8 +588,8 @@ export default function AdminPage() {
                 key={job.id}
                 className={`cursor-pointer transition-all border-l-4 ${
                   expandedJob === job.id
-                    ? "border-l-amber-500 shadow-lg"
-                    : "border-l-transparent hover:border-l-amber-500/50 hover:shadow-md"
+                    ? "border-l-primary shadow-lg"
+                    : "border-l-transparent hover:border-l-primary/50 hover:shadow-md"
                 }`}
                 onClick={() => handleJobClick(job.id)}
               >
@@ -629,7 +629,7 @@ export default function AdminPage() {
                         )}
                       </span>
                       {expandedJob === job.id ? (
-                        <ChevronDown className="w-5 h-5 text-amber-500" />
+                        <ChevronDown className="w-5 h-5 text-primary" />
                       ) : (
                         <ChevronRight className="w-5 h-5 text-muted-foreground" />
                       )}
@@ -682,7 +682,7 @@ export default function AdminPage() {
                             className="mt-2" 
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <summary className="cursor-pointer font-medium hover:text-amber-600">
+                            <summary className="cursor-pointer font-medium hover:text-primary">
                               View Logs
                             </summary>
                             <div className="mt-2 border border-muted rounded overflow-hidden">
@@ -726,7 +726,7 @@ export default function AdminPage() {
             <h2 className="text-2xl font-bold">Manage Users</h2>
             <Button
               onClick={() => { setShowCreateForm(!showCreateForm); setCreateError(""); }}
-              className="bg-amber-500 hover:bg-amber-600 flex items-center gap-2"
+              className="bg-primary hover:bg-primary/90 flex items-center gap-2"
               size="sm"
             >
               <Plus className="h-4 w-4" />
@@ -750,10 +750,10 @@ export default function AdminPage() {
                 transition={{ duration: 0.3 }}
                 className="overflow-hidden mb-4"
               >
-                <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-900/10">
+                <Card className="border-primary/20 bg-primary/5/50 dark:bg-primary/5">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
-                      <Plus className="h-4 w-4 text-amber-600" />
+                      <Plus className="h-4 w-4 text-primary" />
                       Create New User
                     </CardTitle>
                   </CardHeader>
@@ -762,7 +762,7 @@ export default function AdminPage() {
                       <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Username *</label>
                         <input
-                          className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                           placeholder="e.g. jsmith"
                           value={createForm.username}
                           onChange={(e) => setCreateForm((f) => ({ ...f, username: e.target.value }))}
@@ -771,7 +771,7 @@ export default function AdminPage() {
                       <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Display Name *</label>
                         <input
-                          className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                           placeholder="e.g. Jane Smith"
                           value={createForm.display_name}
                           onChange={(e) => setCreateForm((f) => ({ ...f, display_name: e.target.value }))}
@@ -781,7 +781,7 @@ export default function AdminPage() {
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Email</label>
                         <input
                           type="email"
-                          className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                           placeholder="jane@example.com"
                           value={createForm.email}
                           onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
@@ -790,7 +790,7 @@ export default function AdminPage() {
                       <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Role</label>
                         <select
-                          className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                           value={createForm.role}
                           onChange={(e) => setCreateForm((f) => ({ ...f, role: e.target.value }))}
                         >
@@ -808,7 +808,7 @@ export default function AdminPage() {
                       <Button
                         onClick={handleCreate}
                         disabled={createLoading || !createForm.username || !createForm.display_name}
-                        className="bg-amber-500 hover:bg-amber-600"
+                        className="bg-primary hover:bg-primary/90"
                         size="sm"
                       >
                         {createLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
@@ -856,7 +856,7 @@ export default function AdminPage() {
                         <div>
                           <label className="text-xs font-medium text-muted-foreground mb-1 block">Display Name</label>
                           <input
-                            className="w-full px-3 py-1.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            className="w-full px-3 py-1.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                             value={editForm.display_name}
                             onChange={(e) => setEditForm((f) => ({ ...f, display_name: e.target.value }))}
                           />
@@ -865,7 +865,7 @@ export default function AdminPage() {
                           <label className="text-xs font-medium text-muted-foreground mb-1 block">Email</label>
                           <input
                             type="email"
-                            className="w-full px-3 py-1.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            className="w-full px-3 py-1.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                             value={editForm.email}
                             onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
                           />
@@ -873,7 +873,7 @@ export default function AdminPage() {
                         <div>
                           <label className="text-xs font-medium text-muted-foreground mb-1 block">Role</label>
                           <select
-                            className="w-full px-3 py-1.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            className="w-full px-3 py-1.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                             value={editForm.role}
                             onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
                           >
@@ -884,7 +884,7 @@ export default function AdminPage() {
                         <div className="flex items-end gap-2">
                           <Button
                             size="sm"
-                            className="bg-amber-500 hover:bg-amber-600"
+                            className="bg-primary hover:bg-primary/90"
                             onClick={() => handleEditSave(user.username)}
                           >
                             <Check className="h-4 w-4 mr-1" />
@@ -903,8 +903,8 @@ export default function AdminPage() {
                     ) : (
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
-                            <UserIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                          <div className="w-9 h-9 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center flex-shrink-0">
+                            <UserIcon className="w-4 h-4 text-primary dark:text-primary" />
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
@@ -912,7 +912,7 @@ export default function AdminPage() {
                               <span
                                 className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                   user.role === "admin"
-                                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                                    ? "bg-primary/10 text-primary/70 dark:bg-primary/20 dark:text-primary"
                                     : "bg-muted text-muted-foreground"
                                 }`}
                               >
@@ -929,7 +929,7 @@ export default function AdminPage() {
                             size="sm"
                             variant="ghost"
                             onClick={() => handleEditStart(user)}
-                            className="h-8 w-8 p-0 hover:bg-amber-50 hover:text-amber-700"
+                            className="h-8 w-8 p-0 hover:bg-primary/5 hover:text-primary/80"
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -1005,16 +1005,16 @@ export default function AdminPage() {
               <Card
                 className={`cursor-pointer transition-all border-l-4 ${
                   expandedUser === user.username
-                    ? "border-l-amber-500 shadow-lg"
-                    : "border-l-transparent hover:border-l-amber-500/50 hover:shadow-md"
+                    ? "border-l-primary shadow-lg"
+                    : "border-l-transparent hover:border-l-primary/50 hover:shadow-md"
                 }`}
                 onClick={() => handleUserClick(user.username)}
               >
                 <CardHeader className="py-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                        <UserIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                      <div className="w-10 h-10 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
+                        <UserIcon className="w-5 h-5 text-primary dark:text-primary" />
                       </div>
                       <div>
                         <CardTitle className="text-lg">{user.display_name}</CardTitle>
@@ -1028,7 +1028,7 @@ export default function AdminPage() {
                         {user.searchCount} {user.searchCount === 1 ? "search" : "searches"}
                       </span>
                       {expandedUser === user.username ? (
-                        <ChevronDown className="w-5 h-5 text-amber-500" />
+                        <ChevronDown className="w-5 h-5 text-primary" />
                       ) : (
                         <ChevronRight className="w-5 h-5 text-muted-foreground" />
                       )}
@@ -1047,7 +1047,7 @@ export default function AdminPage() {
                     transition={{ duration: 0.3 }}
                     className="overflow-hidden"
                   >
-                    <div className="ml-6 mt-2 border-l-2 border-amber-500/30 pl-4">
+                    <div className="ml-6 mt-2 border-l-2 border-primary/30 pl-4">
                       {user.searches.length === 0 ? (
                         <div className="py-4 text-muted-foreground text-sm">
                           No searches yet
