@@ -236,15 +236,21 @@ export function IntroductionEmailDialog({
                   Unable to load user information
                 </p>
               )}
-              <Button
-                onClick={handleGenerate}
-                size="lg"
-                className="shadow-sm"
-                disabled={loadingUsers || !currentUser}
-              >
-                <HiMail className="w-4 h-4 mr-2" />
-                Generate Email
-              </Button>
+              {currentUser && !currentUser.email?.endsWith("@aifund.ai") ? (
+                <p className="text-sm text-muted-foreground bg-muted rounded-lg px-4 py-3">
+                  Introduction emails can only be sent from @aifund.ai addresses.
+                </p>
+              ) : (
+                <Button
+                  onClick={handleGenerate}
+                  size="lg"
+                  className="shadow-sm"
+                  disabled={loadingUsers || !currentUser}
+                >
+                  <HiMail className="w-4 h-4 mr-2" />
+                  Generate Email
+                </Button>
+              )}
             </div>
           )}
 
