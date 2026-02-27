@@ -121,7 +121,7 @@ function LoginForm() {
                       autoComplete="email"
                       autoFocus
                       required
-                      placeholder="you@aifund.ai"
+                      placeholder="you@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       disabled={loading}
