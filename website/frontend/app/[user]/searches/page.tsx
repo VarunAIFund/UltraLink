@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getUserSearches, getUser, type SearchHistoryItem } from "@/lib/api";
-import { createBrowserClient } from "@/lib/supabase";
+import { getUserBySessionEmail } from "@/lib/supabase";
 import HamburgerMenu from "@/components/HamburgerMenu";
 import Sidebar from "@/components/Sidebar";
 import { motion } from "framer-motion";
@@ -47,19 +47,13 @@ export default function SearchHistoryPage() {
       return;
     }
 
-    const supabase = createBrowserClient();
-    supabase
-      .from("users")
-      .select("username")
-      .ilike("email", session.user.email!)
-      .single()
-      .then(({ data }) => {
-        if (data?.username === userName) {
-          setOwnerConfirmed(true);
-        } else {
-          router.replace(data?.username ? `/${data.username}/` : "/");
-        }
-      });
+    getUserBySessionEmail(session.user.email!).then((data) => {
+      if (data?.username === userName) {
+        setOwnerConfirmed(true);
+      } else {
+        router.replace(data?.username ? `/${data.username}/` : "/");
+      }
+    });
   }, [authLoading, urlUserDisplayName, session, userName, router]);
 
   // Effect 3: Load search history once ownership is confirmed

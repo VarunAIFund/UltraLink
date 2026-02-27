@@ -24,6 +24,35 @@ export function createServerClient(cookieStore: ReadonlyRequestCookies) {
   });
 }
 
+/**
+ * Look up a platform user by email, checking both primary email and secondary_emails.
+ * Returns {username, display_name, role} or null if not found.
+ *
+ * Use this everywhere you need to map session.user.email → platform username
+ * so that secondary-email logins work correctly.
+ */
+export async function getUserBySessionEmail(
+  email: string
+): Promise<{ username: string; display_name: string; role: string } | null> {
+  const supabase = createBrowserClient();
+
+  // 1. Try primary email
+  const { data: primary } = await supabase
+    .from("users")
+    .select("username, display_name, role")
+    .ilike("email", email)
+    .maybeSingle();
+  if (primary) return primary;
+
+  // 2. Try secondary emails (.contains() quotes values properly for array literals)
+  const { data: secondary } = await supabase
+    .from("users")
+    .select("username, display_name, role")
+    .contains("secondary_emails", [email.toLowerCase()])
+    .maybeSingle();
+  return secondary ?? null;
+}
+
 /** Use in middleware (needs access to both req and res to refresh sessions) */
 export function createMiddlewareClient(request: NextRequest, response: NextResponse) {
   return _createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

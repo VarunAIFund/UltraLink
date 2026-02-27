@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "./ui/button";
 import { getUser } from "@/lib/api";
-import { createBrowserClient } from "@/lib/supabase";
+import { createBrowserClient, getUserBySessionEmail } from "@/lib/supabase";
 import { useAuth } from "@/lib/useAuth";
 
 interface SidebarProps {
@@ -42,12 +42,7 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
     if (isAuthenticated && session?.user?.email) {
       (async () => {
         try {
-          const supabase = createBrowserClient();
-          const { data } = await supabase
-            .from("users")
-            .select("username, display_name, role")
-            .ilike("email", session.user.email!)
-            .single();
+          const data = await getUserBySessionEmail(session.user.email!);
           if (data) {
             setActiveUserName(data.username);
             setUserDisplayName(data.display_name);

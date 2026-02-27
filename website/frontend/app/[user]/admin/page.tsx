@@ -89,40 +89,34 @@ export default function AdminPage() {
       return;
     }
 
-    import("@/lib/supabase").then(({ createBrowserClient }) => {
-      const supabase = createBrowserClient();
-      supabase
-        .from("users")
-        .select("username")
-        .ilike("email", session.user.email!)
-        .single()
-        .then(({ data }) => {
-          const signedInUsername = data?.username;
+    import("@/lib/supabase").then(({ getUserBySessionEmail }) => {
+      getUserBySessionEmail(session.user.email!).then((data) => {
+        const signedInUsername = data?.username;
 
-          // Signed-in user doesn't own this workspace → redirect to their own workspace
-          if (!signedInUsername || signedInUsername !== userName) {
-            router.replace(signedInUsername ? `/${signedInUsername}/` : "/");
-            setAuthChecked(true);
-            return;
-          }
+        // Signed-in user doesn't own this workspace → redirect to their own workspace
+        if (!signedInUsername || signedInUsername !== userName) {
+          router.replace(signedInUsername ? `/${signedInUsername}/` : "/");
+          setAuthChecked(true);
+          return;
+        }
 
-          // Ownership confirmed — now check if they're an admin
-          checkIsAdmin(userName)
-            .then((adminData) => {
-              if (adminData.success && adminData.is_admin) {
-                setIsAdmin(true);
-              } else {
-                router.push(`/${userName}`);
-              }
-            })
-            .catch((err) => {
-              console.error("Error checking admin status:", err);
+        // Ownership confirmed — now check if they're an admin
+        checkIsAdmin(userName)
+          .then((adminData) => {
+            if (adminData.success && adminData.is_admin) {
+              setIsAdmin(true);
+            } else {
               router.push(`/${userName}`);
-            })
-            .finally(() => {
-              setAuthChecked(true);
-            });
-        });
+            }
+          })
+          .catch((err) => {
+            console.error("Error checking admin status:", err);
+            router.push(`/${userName}`);
+          })
+          .finally(() => {
+            setAuthChecked(true);
+          });
+      });
     });
   }, [authLoading, session, userName, router]);
 
