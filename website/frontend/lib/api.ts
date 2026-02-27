@@ -449,6 +449,7 @@ export async function getUser(userName: string): Promise<UserResponse> {
 
 export interface UserWithRole extends User {
   role: string;
+  secondary_emails?: string[];
 }
 
 export interface AdminUsersResponse {
@@ -473,7 +474,7 @@ export async function adminGetUsers(_requestingUser?: string): Promise<AdminUser
 
 export async function adminCreateUser(
   _requestingUser: string,
-  data: { username: string; display_name: string; email: string; role: string }
+  data: { username: string; display_name: string; email: string; role: string; secondary_emails?: string[] }
 ): Promise<AdminUserResponse> {
   const auth = await authHeaders();
   const response = await fetch(`${API_BASE_URL}/admin/users`, {
@@ -491,7 +492,7 @@ export async function adminCreateUser(
 export async function adminUpdateUser(
   _requestingUser: string,
   username: string,
-  data: { display_name: string; email: string; role: string }
+  data: { display_name: string; email: string; role: string; secondary_emails?: string[] }
 ): Promise<AdminUserResponse> {
   const auth = await authHeaders();
   const response = await fetch(`${API_BASE_URL}/admin/users/${username}`, {

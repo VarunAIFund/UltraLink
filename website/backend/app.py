@@ -1303,7 +1303,7 @@ def admin_get_users():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("SELECT username, display_name, email, role FROM users ORDER BY display_name")
+        cursor.execute("SELECT username, display_name, email, role, secondary_emails FROM users ORDER BY display_name")
         users = [dict(u) for u in cursor.fetchall()]
         cursor.close()
         conn.close()
@@ -1327,6 +1327,7 @@ def admin_create_user():
     display_name = data.get('display_name', '').strip()
     email = data.get('email', '').strip()
     role = data.get('role', 'user')
+    secondary_emails = [e.strip().lower() for e in data.get('secondary_emails', []) if e.strip()]
 
     if not username or not display_name:
         return jsonify({'error': 'username and display_name are required'}), 400
@@ -1335,10 +1336,10 @@ def admin_create_user():
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute("""
-            INSERT INTO users (username, display_name, email, role)
-            VALUES (%s, %s, %s, %s)
-            RETURNING username, display_name, email, role
-        """, (username, display_name, email, role))
+            INSERT INTO users (username, display_name, email, role, secondary_emails)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING username, display_name, email, role, secondary_emails
+        """, (username, display_name, email, role, secondary_emails))
         new_user = dict(cursor.fetchone())
         conn.commit()
         cursor.close()
@@ -1365,6 +1366,7 @@ def admin_update_user(target_username):
     display_name = data.get('display_name', '').strip()
     email = data.get('email', '').strip()
     role = data.get('role')
+    secondary_emails = [e.strip().lower() for e in data.get('secondary_emails', []) if e.strip()]
 
     if not display_name:
         return jsonify({'error': 'display_name is required'}), 400
@@ -1373,10 +1375,10 @@ def admin_update_user(target_username):
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute("""
-            UPDATE users SET display_name = %s, email = %s, role = %s
+            UPDATE users SET display_name = %s, email = %s, role = %s, secondary_emails = %s
             WHERE username = %s
-            RETURNING username, display_name, email, role
-        """, (display_name, email, role, target_username))
+            RETURNING username, display_name, email, role, secondary_emails
+        """, (display_name, email, role, secondary_emails, target_username))
         updated = cursor.fetchone()
         conn.commit()
         cursor.close()

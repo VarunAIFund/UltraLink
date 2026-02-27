@@ -71,9 +71,9 @@ export default function AdminPage() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState("");
   const [editingUser, setEditingUser] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ display_name: "", email: "", role: "user" });
+  const [editForm, setEditForm] = useState({ display_name: "", email: "", role: "user", secondary_emails: "" });
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createForm, setCreateForm] = useState({ username: "", display_name: "", email: "", role: "user" });
+  const [createForm, setCreateForm] = useState({ username: "", display_name: "", email: "", role: "user", secondary_emails: "" });
   const [createError, setCreateError] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
   const [deletingUser, setDeletingUser] = useState<string | null>(null);
@@ -262,12 +262,16 @@ export default function AdminPage() {
 
   const handleEditStart = (user: UserWithRole) => {
     setEditingUser(user.username);
-    setEditForm({ display_name: user.display_name, email: user.email || "", role: user.role || "user" });
+    setEditForm({ display_name: user.display_name, email: user.email || "", role: user.role || "user", secondary_emails: (user.secondary_emails || []).join(", ") });
   };
 
   const handleEditSave = async (username: string) => {
     try {
-      const data = await adminUpdateUser(userName, username, editForm);
+      const secondaryEmailsList = editForm.secondary_emails
+        .split(",")
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+      const data = await adminUpdateUser(userName, username, { ...editForm, secondary_emails: secondaryEmailsList });
       if (data.success) {
         setManagedUsers((prev) => prev.map((u) => u.username === username ? { ...u, ...data.user } : u));
         setEditingUser(null);
@@ -293,10 +297,14 @@ export default function AdminPage() {
     setCreateError("");
     setCreateLoading(true);
     try {
-      const data = await adminCreateUser(userName, createForm);
+      const secondaryEmailsList = createForm.secondary_emails
+        .split(",")
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+      const data = await adminCreateUser(userName, { ...createForm, secondary_emails: secondaryEmailsList });
       if (data.success) {
         setManagedUsers((prev) => [...prev, data.user].sort((a, b) => a.display_name.localeCompare(b.display_name)));
-        setCreateForm({ username: "", display_name: "", email: "", role: "user" });
+        setCreateForm({ username: "", display_name: "", email: "", role: "user", secondary_emails: "" });
         setShowCreateForm(false);
       }
     } catch (err) {
@@ -798,6 +806,16 @@ export default function AdminPage() {
                           <option value="admin">Admin</option>
                         </select>
                       </div>
+                      <div className="md:col-span-2">
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Secondary Emails <span className="font-normal">(comma-separated)</span></label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="e.g. jane.personal@gmail.com, jane.work@other.com"
+                          value={createForm.secondary_emails}
+                          onChange={(e) => setCreateForm((f) => ({ ...f, secondary_emails: e.target.value }))}
+                        />
+                      </div>
                     </div>
                     {createError && (
                       <div className="mt-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
@@ -881,6 +899,16 @@ export default function AdminPage() {
                             <option value="admin">Admin</option>
                           </select>
                         </div>
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground mb-1 block">Secondary Emails <span className="font-normal">(comma-separated)</span></label>
+                          <input
+                            type="text"
+                            className="w-full px-3 py-1.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                            placeholder="e.g. alias@gmail.com"
+                            value={editForm.secondary_emails}
+                            onChange={(e) => setEditForm((f) => ({ ...f, secondary_emails: e.target.value }))}
+                          />
+                        </div>
                         <div className="flex items-end gap-2">
                           <Button
                             size="sm"
@@ -921,6 +949,9 @@ export default function AdminPage() {
                             </div>
                             <div className="text-xs text-muted-foreground">
                               @{user.username}{user.email ? ` · ${user.email}` : ""}
+                              {user.secondary_emails && user.secondary_emails.length > 0 && (
+                                <span className="ml-1 text-muted-foreground/60">+{user.secondary_emails.join(", ")}</span>
+                              )}
                             </div>
                           </div>
                         </div>

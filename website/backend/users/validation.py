@@ -62,15 +62,20 @@ def validate_user(username):
 def get_user_by_email(email: str) -> Optional[dict]:
     """Look up a platform user by their verified email address.
 
-    Returns {'username': str, 'display_name': str, 'email': str, 'role': str}
+    Matches on primary email OR any secondary email (case-insensitive).
+    Returns {'username': str, 'display_name': str, 'email': str, 'role': str,
+             'secondary_emails': list}
     or None if no matching user exists.
     """
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute(
-            "SELECT username, display_name, email, role FROM users WHERE lower(email) = lower(%s)",
-            (email,)
+            """SELECT username, display_name, email, role, secondary_emails
+               FROM users
+               WHERE lower(email) = lower(%s)
+                  OR lower(%s) = ANY(SELECT lower(e) FROM unnest(secondary_emails) e)""",
+            (email, email)
         )
         user = cursor.fetchone()
         cursor.close()
