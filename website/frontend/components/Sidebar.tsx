@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Search, Star, LogOut } from "lucide-react";
+import { X, Search, Star, LogOut, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -22,6 +22,7 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
   // The username/display name of the *signed-in* user (may differ from URL userName)
   const [activeUserName, setActiveUserName] = useState(userName);
   const [userDisplayName, setUserDisplayName] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
   const handleSignOut = async () => {
@@ -44,12 +45,13 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
           const supabase = createBrowserClient();
           const { data } = await supabase
             .from("users")
-            .select("username, display_name")
+            .select("username, display_name, role")
             .ilike("email", session.user.email!)
             .single();
           if (data) {
             setActiveUserName(data.username);
             setUserDisplayName(data.display_name);
+            setIsAdmin(data.role === "admin");
           }
         } catch (err) {
           console.error("Error fetching signed-in user info:", err);
@@ -124,6 +126,17 @@ export default function Sidebar({ isOpen, onClose, userName }: SidebarProps) {
                   <Star className="h-5 w-5" />
                   <span className="text-lg">Bookmarks</span>
                 </Link>
+
+                {isAdmin && (
+                  <Link
+                    href={`/${activeUserName}/admin`}
+                    onClick={onClose}
+                    className="flex items-center gap-3 p-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+                  >
+                    <Shield className="h-5 w-5" />
+                    <span className="text-lg">Admin</span>
+                  </Link>
+                )}
               </nav>
             ) : (
               <p className="text-sm text-muted-foreground">
