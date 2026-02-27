@@ -43,10 +43,30 @@ function LoginForm() {
     setLoading(true);
     setError("");
 
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Pre-check: only send magic link to registered platform users
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const checkRes = await fetch(`${apiUrl}/auth/check-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail }),
+      });
+      const checkData = await checkRes.json();
+      if (!checkData.allowed) {
+        setError("No account found for this email. Contact your admin to be added.");
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // If the check fails (e.g. backend down), fall through and let Supabase handle it
+    }
+
     const callbackUrl = `${window.location.origin}/auth/callback${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ""}`;
 
     const { error: authError } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
+      email: normalizedEmail,
       options: {
         emailRedirectTo: callbackUrl,
       },

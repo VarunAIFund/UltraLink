@@ -708,6 +708,30 @@ def send_introduction_email_endpoint():
 
 
 # ========================
+# AUTH HELPERS
+# ========================
+
+@app.route('/auth/check-email', methods=['POST'])
+def check_email_allowed():
+    """Check if an email belongs to a registered platform user.
+
+    Called before sending a magic link so we never email non-users.
+    Returns {allowed: true} or {allowed: false} — no auth required.
+    """
+    data = request.json or {}
+    email = (data.get('email') or '').strip().lower()
+    if not email or '@' not in email:
+        return jsonify({'allowed': False}), 400
+
+    try:
+        user = get_user_by_email(email)
+        return jsonify({'allowed': user is not None})
+    except Exception as e:
+        print(f"[AUTH] check-email error: {e}")
+        return jsonify({'allowed': False}), 500
+
+
+# ========================
 # USER MANAGEMENT ENDPOINTS
 # ========================
 
