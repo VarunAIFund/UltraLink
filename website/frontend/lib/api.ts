@@ -279,10 +279,12 @@ export async function getNoteForCandidate(
   linkedinUrl: string
 ): Promise<NoteResponse> {
   const encodedUrl = encodeURIComponent(linkedinUrl);
+  const auth = await authHeaders();
   const response = await fetch(`${API_BASE_URL}/notes/${encodedUrl}`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
+      ...auth,
     },
   });
 
@@ -527,7 +529,7 @@ export async function adminDeleteUser(
 export interface Receiver {
   username: string;
   display_name: string;
-  email: string;
+  email?: string; // Only present on the auth-required GET /receivers/<username> endpoint
 }
 
 export interface ReceiversResponse {
@@ -559,10 +561,12 @@ export async function getAllReceivers(): Promise<ReceiversResponse> {
 }
 
 export async function getReceiver(username: string): Promise<ReceiverResponse> {
+  const auth = await authHeaders();
   const response = await fetch(`${API_BASE_URL}/receivers/${username}`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
+      ...auth,
     },
   });
 
@@ -595,10 +599,12 @@ export interface SearchHistoryResponse {
 export async function getUserSearches(
   userName: string
 ): Promise<SearchHistoryResponse> {
+  const auth = await authHeaders();
   const response = await fetch(`${API_BASE_URL}/users/${userName}/searches`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
+      ...auth,
     },
   });
 
@@ -645,10 +651,12 @@ export interface BookmarkActionResponse {
 export async function getUserBookmarks(
   userName: string
 ): Promise<BookmarksResponse> {
+  const auth = await authHeaders();
   const response = await fetch(`${API_BASE_URL}/users/${userName}/bookmarks`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
+      ...auth,
     },
   });
 

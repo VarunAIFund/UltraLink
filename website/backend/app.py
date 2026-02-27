@@ -534,7 +534,14 @@ def generate_highlights_endpoint():
 
 @app.route('/notes/<path:linkedin_url>', methods=['GET'])
 def get_note(linkedin_url):
-    """Get note for a candidate"""
+    """Get note for a candidate — requires authentication"""
+    token_user = get_request_user(request)
+    if not token_user:
+        return jsonify({'error': 'Unauthorized'}), 401
+    platform_user = get_user_by_email(token_user['email'])
+    if not platform_user:
+        return jsonify({'error': 'Forbidden: not a platform user'}), 403
+
     try:
         note = get_candidate_note(linkedin_url)
         return jsonify({
@@ -745,7 +752,14 @@ def get_user(username):
 
 @app.route('/users/<username>/searches', methods=['GET'])
 def get_user_searches(username):
-    """Get all searches for a user"""
+    """Get all searches for a user — requires authentication as that user"""
+    token_user = get_request_user(request)
+    if not token_user:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    platform_user = get_user_by_email(token_user['email'])
+    if not platform_user or platform_user['username'] != username:
+        return jsonify({'success': False, 'error': 'Forbidden'}), 403
+
     try:
         # Validate username (database lookup)
         user = validate_user(username)
@@ -857,18 +871,16 @@ def remove_user_bookmark(username, linkedin_url):
 
 @app.route('/users/<username>/bookmarks', methods=['GET'])
 def get_user_bookmarks_endpoint(username):
-    """Get all bookmarks for a user"""
+    """Get all bookmarks for a user — requires authentication as that user"""
+    token_user = get_request_user(request)
+    if not token_user:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    platform_user = get_user_by_email(token_user['email'])
+    if not platform_user or platform_user['username'] != username:
+        return jsonify({'success': False, 'error': 'Forbidden'}), 403
+
     try:
-        # Validate username (database lookup)
-        user = validate_user(username)
-        if not user:
-            return jsonify({
-                'success': False,
-                'error': 'Invalid username'
-            }), 404
-
         bookmarks = get_user_bookmarks(username)
-
         return jsonify({
             'success': True,
             'bookmarks': bookmarks,
@@ -883,18 +895,16 @@ def get_user_bookmarks_endpoint(username):
 
 @app.route('/users/<username>/bookmarks/check/<path:linkedin_url>', methods=['GET'])
 def check_bookmark(username, linkedin_url):
-    """Check if a candidate is bookmarked"""
+    """Check if a candidate is bookmarked — requires authentication as that user"""
+    token_user = get_request_user(request)
+    if not token_user:
+        return jsonify({'success': False, 'is_bookmarked': False, 'error': 'Unauthorized'}), 401
+    platform_user = get_user_by_email(token_user['email'])
+    if not platform_user or platform_user['username'] != username:
+        return jsonify({'success': False, 'is_bookmarked': False, 'error': 'Forbidden'}), 403
+
     try:
-        # Validate username (database lookup)
-        user = validate_user(username)
-        if not user:
-            return jsonify({
-                'success': False,
-                'error': 'Invalid username'
-            }), 404
-
         bookmarked = is_bookmarked(username, linkedin_url)
-
         return jsonify({
             'success': True,
             'is_bookmarked': bookmarked
@@ -912,13 +922,18 @@ def check_bookmark(username, linkedin_url):
 
 @app.route('/receivers', methods=['GET'])
 def list_receivers():
-    """Get all receivers (connection owners)"""
+    """Get all receivers (connection owners) — email stripped from public response"""
     try:
         receivers = get_all_receivers()
+        # Only expose username + display_name publicly; email is PII not needed by the filter UI
+        public_receivers = [
+            {'username': r['username'], 'display_name': r['display_name']}
+            for r in receivers
+        ]
         return jsonify({
             'success': True,
-            'receivers': receivers,
-            'total': len(receivers)
+            'receivers': public_receivers,
+            'total': len(public_receivers)
         })
     except Exception as e:
         return jsonify({
@@ -929,7 +944,14 @@ def list_receivers():
 
 @app.route('/receivers/<username>', methods=['GET'])
 def get_receiver_info(username):
-    """Get receiver information by username"""
+    """Get full receiver info including email — requires authentication"""
+    token_user = get_request_user(request)
+    if not token_user:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    platform_user = get_user_by_email(token_user['email'])
+    if not platform_user:
+        return jsonify({'success': False, 'error': 'Forbidden: not a platform user'}), 403
+
     try:
         receiver = get_receiver(username)
         if not receiver:
