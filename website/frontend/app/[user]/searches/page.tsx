@@ -3,57 +3,78 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getUserSearches, getUser, type SearchHistoryItem } from "@/lib/api";
+import { createBrowserClient } from "@/lib/supabase";
 import HamburgerMenu from "@/components/HamburgerMenu";
 import Sidebar from "@/components/Sidebar";
 import { motion } from "framer-motion";
 import { Search, Clock } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/lib/useAuth";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function SearchHistoryPage() {
   const params = useParams();
   const router = useRouter();
   const userName = params?.user as string;
+  const { session, loading: authLoading } = useAuth();
 
   const [searches, setSearches] = useState<SearchHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [userDisplayName, setUserDisplayName] = useState<string>("");
 
-  // Fetch user display name
-  useEffect(() => {
-    if (userName) {
-      getUser(userName)
-        .then((data) => {
-          if (data.success) {
-            setUserDisplayName(data.user.display_name);
-          }
-        })
-        .catch((err) => {
-          console.error('Error fetching user info:', err);
-        });
-    }
-  }, [userName]);
+  // Two independent pieces of state that resolve in parallel:
+  // null = still loading; string = resolved
+  const [urlUserDisplayName, setUrlUserDisplayName] = useState<string | null>(null);
+  const [ownerConfirmed, setOwnerConfirmed] = useState(false);
 
-  // Fetch search history
+  // Effect 1: Validate the URL user exists — runs immediately, no auth dependency
   useEffect(() => {
-    if (userName) {
-      getUserSearches(userName)
-        .then((data) => {
-          if (data.success) {
-            setSearches(data.searches);
-          } else {
-            setError(data.error || "Failed to load searches");
-          }
-        })
-        .catch((err) => {
-          setError(err instanceof Error ? err.message : "Failed to load searches");
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+    if (!userName) return;
+    getUser(userName)
+      .then((data) => {
+        if (data.success) setUrlUserDisplayName(data.user.display_name);
+        else router.replace("/");
+      })
+      .catch(() => router.replace("/"));
+  }, [userName, router]);
+
+  // Effect 2: Ownership check — fires once BOTH user validation AND auth are done
+  useEffect(() => {
+    if (authLoading || urlUserDisplayName === null) return;
+
+    if (!session?.user?.email) {
+      router.replace(`/login?redirect=/${userName}/searches`);
+      return;
     }
-  }, [userName]);
+
+    const supabase = createBrowserClient();
+    supabase
+      .from("users")
+      .select("username")
+      .ilike("email", session.user.email!)
+      .single()
+      .then(({ data }) => {
+        if (data?.username === userName) {
+          setOwnerConfirmed(true);
+        } else {
+          router.replace(data?.username ? `/${data.username}/` : "/");
+        }
+      });
+  }, [authLoading, urlUserDisplayName, session, userName, router]);
+
+  // Effect 3: Load search history once ownership is confirmed
+  useEffect(() => {
+    if (!ownerConfirmed || !userName) return;
+    getUserSearches(userName)
+      .then((data) => {
+        if (data.success) setSearches(data.searches);
+        else setError(data.error || "Failed to load searches");
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load searches");
+      })
+      .finally(() => setLoading(false));
+  }, [ownerConfirmed, userName]);
 
   const handleSearchClick = (searchId: string) => {
     router.push(`/${userName}/search/${searchId}`);
@@ -61,21 +82,27 @@ export default function SearchHistoryPage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
+  // Show spinner until ownership is confirmed
+  if (!ownerConfirmed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen p-8 max-w-5xl mx-auto">
-      {/* Hamburger Menu */}
       <HamburgerMenu onOpen={() => setSidebarOpen(true)} />
-
-      {/* Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -89,7 +116,9 @@ export default function SearchHistoryPage() {
         className="mb-8 mt-12"
       >
         <h1 className="text-4xl font-bold mb-2">
-          {userDisplayName ? `${userDisplayName}'s Search History` : 'Search History'}
+          {urlUserDisplayName
+            ? `${urlUserDisplayName}'s Search History`
+            : "Search History"}
         </h1>
         <p className="text-muted-foreground">
           View and revisit your previous searches
@@ -169,11 +198,15 @@ export default function SearchHistoryPage() {
                           {formatDate(search.created_at)}
                         </span>
                         {search.status && (
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                            search.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                            search.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                            'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                          }`}>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              search.status === "completed"
+                                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                                : search.status === "failed"
+                                ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                                : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                            }`}
+                          >
                             {search.status}
                           </span>
                         )}

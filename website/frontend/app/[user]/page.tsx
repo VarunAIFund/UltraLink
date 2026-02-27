@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { searchAndRank, searchAndRankStream, getSearchSession, getUser, type CandidateResult } from "@/lib/api";
 import { SearchBar } from "@/components/SearchBar";
 import { SqlDisplay } from "@/components/SqlDisplay";
 import { CandidateList } from "@/components/CandidateList";
 import HamburgerMenu from "@/components/HamburgerMenu";
 import Sidebar from "@/components/Sidebar";
+import AuthButton from "@/components/AuthButton";
+import { useAuth } from "@/lib/useAuth";
 import { motion } from "framer-motion";
 
 // Helper function to get user-friendly status messages
@@ -25,6 +27,7 @@ function getStatusMessage(status: string): string {
 export default function UserSearchPage() {
   const params = useParams();
   const pathname = usePathname();
+  const router = useRouter();
   const userName = params?.user as string;
 
   const [query, setQuery] = useState("");
@@ -42,26 +45,57 @@ export default function UserSearchPage() {
   const [searchStatus, setSearchStatus] = useState<string>("completed");
   const [hasActiveSSE, setHasActiveSSE] = useState<boolean>(false);
 
+  // Auth
+  const { isAuthenticated, session, loading: authLoading } = useAuth();
+
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // User display name
-  const [userDisplayName, setUserDisplayName] = useState<string>("");
+  // User display name — null means still validating
+  const [userDisplayName, setUserDisplayName] = useState<string | null>(null);
 
-  // Fetch user display name
+  // Validate user and fetch display name — redirect to / if not found
   useEffect(() => {
     if (userName) {
       getUser(userName)
         .then((data) => {
           if (data.success) {
             setUserDisplayName(data.user.display_name);
+          } else {
+            router.replace("/");
           }
         })
-        .catch((err) => {
-          console.error('Error fetching user info:', err);
+        .catch(() => {
+          router.replace("/");
         });
     }
-  }, [userName]);
+  }, [userName, router]);
+
+  // Ownership check — unauthenticated users go to /, signed-in users go to their own workspace
+  useEffect(() => {
+    if (authLoading || userDisplayName === null) return;
+
+    // Not signed in — redirect to root
+    if (!session?.user?.email) {
+      router.replace("/");
+      return;
+    }
+
+    // Signed in — ensure they're in their own workspace
+    import("@/lib/supabase").then(({ createBrowserClient }) => {
+      const supabase = createBrowserClient();
+      supabase
+        .from("users")
+        .select("username")
+        .ilike("email", session.user.email!)
+        .single()
+        .then(({ data }) => {
+          if (data?.username && data.username !== userName) {
+            router.replace(`/${data.username}/`);
+          }
+        });
+    });
+  }, [authLoading, session, userDisplayName, userName, router]);
 
   // Load saved search if URL contains /user/search/[id] pattern
   useEffect(() => {
@@ -158,6 +192,11 @@ export default function UserSearchPage() {
   const handleSearch = async () => {
     if (!query.trim()) return;
 
+    if (!isAuthenticated) {
+      window.location.href = `/login?redirect=${encodeURIComponent(pathname)}`;
+      return;
+    }
+
     setLoading(true);
     setError("");
     setResults([]);
@@ -204,10 +243,24 @@ export default function UserSearchPage() {
     }
   };
 
+  // Block render until user validation completes (prevents flash before redirect)
+  if (userDisplayName === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-amber-500" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen p-8 max-w-5xl mx-auto">
       {/* Hamburger Menu */}
       <HamburgerMenu onOpen={() => setSidebarOpen(true)} />
+
+      {/* Sign In button (top right, visible when not authenticated) */}
+      <div className="fixed top-4 right-4 z-30">
+        <AuthButton />
+      </div>
 
       {/* Sidebar */}
       <Sidebar

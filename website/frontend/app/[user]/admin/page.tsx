@@ -21,6 +21,7 @@ import {
 } from "@/lib/api";
 import HamburgerMenu from "@/components/HamburgerMenu";
 import Sidebar from "@/components/Sidebar";
+import { useAuth } from "@/lib/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import { Shield, Search, Clock, User as UserIcon, ChevronDown, ChevronRight, Upload, FileUp, Loader2, Plus, Pencil, Trash2, Check, X } from "lucide-react";
 import {
@@ -41,6 +42,8 @@ export default function AdminPage() {
   const params = useParams();
   const router = useRouter();
   const userName = params?.user as string;
+
+  const { session, loading: authLoading } = useAuth();
 
   const [usersWithSearches, setUsersWithSearches] = useState<UserWithSearches[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,27 +78,53 @@ export default function AdminPage() {
   const [createLoading, setCreateLoading] = useState(false);
   const [deletingUser, setDeletingUser] = useState<string | null>(null);
 
-  // Check if user is admin
+  // Ownership + admin check — ensure the signed-in user owns this workspace before checking admin
   useEffect(() => {
-    if (userName) {
-      checkIsAdmin(userName)
-        .then((data) => {
-          if (data.success && data.is_admin) {
-            setIsAdmin(true);
-          } else {
-            // Redirect non-admin users
-            router.push(`/${userName}`);
-          }
-        })
-        .catch((err) => {
-          console.error("Error checking admin status:", err);
-          router.push(`/${userName}`);
-        })
-        .finally(() => {
-          setAuthChecked(true);
-        });
+    if (authLoading || !userName) return;
+
+    // Not signed in at all
+    if (!session?.user?.email) {
+      router.replace("/login");
+      setAuthChecked(true);
+      return;
     }
-  }, [userName, router]);
+
+    import("@/lib/supabase").then(({ createBrowserClient }) => {
+      const supabase = createBrowserClient();
+      supabase
+        .from("users")
+        .select("username")
+        .ilike("email", session.user.email!)
+        .single()
+        .then(({ data }) => {
+          const signedInUsername = data?.username;
+
+          // Signed-in user doesn't own this workspace → redirect to their own workspace
+          if (!signedInUsername || signedInUsername !== userName) {
+            router.replace(signedInUsername ? `/${signedInUsername}/` : "/");
+            setAuthChecked(true);
+            return;
+          }
+
+          // Ownership confirmed — now check if they're an admin
+          checkIsAdmin(userName)
+            .then((adminData) => {
+              if (adminData.success && adminData.is_admin) {
+                setIsAdmin(true);
+              } else {
+                router.push(`/${userName}`);
+              }
+            })
+            .catch((err) => {
+              console.error("Error checking admin status:", err);
+              router.push(`/${userName}`);
+            })
+            .finally(() => {
+              setAuthChecked(true);
+            });
+        });
+    });
+  }, [authLoading, session, userName, router]);
 
   // Fetch all users and searches (admin only)
   useEffect(() => {

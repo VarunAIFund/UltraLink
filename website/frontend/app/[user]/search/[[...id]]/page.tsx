@@ -8,6 +8,8 @@ import { SqlDisplay } from "@/components/SqlDisplay";
 import { CandidateList } from "@/components/CandidateList";
 import HamburgerMenu from "@/components/HamburgerMenu";
 import Sidebar from "@/components/Sidebar";
+import AuthButton from "@/components/AuthButton";
+import { useAuth } from "@/lib/useAuth";
 import { motion } from "framer-motion";
 
 // Helper function to get user-friendly status messages
@@ -42,6 +44,9 @@ export default function UserSearchResultsPage() {
   const [ranking, setRanking] = useState<boolean>(true);
   const [searchStatus, setSearchStatus] = useState<string>("completed");
   const [hasActiveSSE, setHasActiveSSE] = useState<boolean>(false);
+
+  // Auth
+  const { isAuthenticated } = useAuth();
 
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -151,6 +156,11 @@ export default function UserSearchResultsPage() {
   const handleSearch = async () => {
     if (!query.trim()) return;
 
+    if (!isAuthenticated) {
+      window.location.href = `/login?redirect=${encodeURIComponent(pathname)}`;
+      return;
+    }
+
     setLoading(true);
     setError("");
     setResults([]);
@@ -201,6 +211,11 @@ export default function UserSearchResultsPage() {
     <div className="min-h-screen p-8 max-w-5xl mx-auto">
       {/* Hamburger Menu */}
       <HamburgerMenu onOpen={() => setSidebarOpen(true)} />
+
+      {/* Sign In button (top right, visible when not authenticated) */}
+      <div className="fixed top-4 right-4 z-30">
+        <AuthButton />
+      </div>
 
       {/* Sidebar */}
       <Sidebar

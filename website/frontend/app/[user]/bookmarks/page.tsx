@@ -1,77 +1,98 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { getUserBookmarks, getUser, type Bookmark } from "@/lib/api";
+import { createBrowserClient } from "@/lib/supabase";
 import HamburgerMenu from "@/components/HamburgerMenu";
 import Sidebar from "@/components/Sidebar";
 import { BookmarkedCandidateCard } from "@/components/BookmarkedCandidateCard";
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
+import { useAuth } from "@/lib/useAuth";
 
 export default function BookmarksPage() {
   const params = useParams();
+  const router = useRouter();
   const userName = params?.user as string;
+  const { session, loading: authLoading } = useAuth();
 
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [userDisplayName, setUserDisplayName] = useState<string>("");
 
-  // Fetch user display name
+  // Two independent pieces of state that resolve in parallel:
+  // null = still loading; string = resolved
+  const [urlUserDisplayName, setUrlUserDisplayName] = useState<string | null>(null);
+  const [ownerConfirmed, setOwnerConfirmed] = useState(false);
+
+  // Effect 1: Validate the URL user exists — runs immediately, no auth dependency
   useEffect(() => {
-    if (userName) {
-      getUser(userName)
-        .then((data) => {
-          if (data.success) {
-            setUserDisplayName(data.user.display_name);
-          }
-        })
-        .catch((err) => {
-          console.error("Error fetching user info:", err);
-        });
-    }
-  }, [userName]);
+    if (!userName) return;
+    getUser(userName)
+      .then((data) => {
+        if (data.success) setUrlUserDisplayName(data.user.display_name);
+        else router.replace("/");
+      })
+      .catch(() => router.replace("/"));
+  }, [userName, router]);
 
-  // Fetch bookmarks
-  const loadBookmarks = () => {
-    if (userName) {
-      setLoading(true);
-      getUserBookmarks(userName)
-        .then((data) => {
-          if (data.success) {
-            setBookmarks(data.bookmarks);
-          } else {
-            setError(data.error || "Failed to load bookmarks");
-          }
-        })
-        .catch((err) => {
-          setError(
-            err instanceof Error ? err.message : "Failed to load bookmarks"
-          );
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    }
-  };
+  // Effect 2: Ownership check — fires once BOTH user validation AND auth are done
+  useEffect(() => {
+    if (authLoading || urlUserDisplayName === null) return;
 
-  // Remove a single bookmark from state (no reload needed)
+    if (!session?.user?.email) {
+      router.replace(`/login?redirect=/${userName}/bookmarks`);
+      return;
+    }
+
+    const supabase = createBrowserClient();
+    supabase
+      .from("users")
+      .select("username")
+      .ilike("email", session.user.email!)
+      .single()
+      .then(({ data }) => {
+        if (data?.username === userName) {
+          setOwnerConfirmed(true);
+        } else {
+          router.replace(data?.username ? `/${data.username}/` : "/");
+        }
+      });
+  }, [authLoading, urlUserDisplayName, session, userName, router]);
+
+  // Effect 3: Load bookmarks once ownership is confirmed
+  useEffect(() => {
+    if (!ownerConfirmed || !userName) return;
+    setLoading(true);
+    getUserBookmarks(userName)
+      .then((data) => {
+        if (data.success) setBookmarks(data.bookmarks);
+        else setError(data.error || "Failed to load bookmarks");
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load bookmarks");
+      })
+      .finally(() => setLoading(false));
+  }, [ownerConfirmed, userName]);
+
   const handleRemoveBookmark = (bookmarkId: string) => {
     setBookmarks((prev) => prev.filter((b) => b.id !== bookmarkId));
   };
 
-  useEffect(() => {
-    loadBookmarks();
-  }, [userName]);
+  // Show spinner until ownership is confirmed
+  if (!ownerConfirmed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-8 max-w-7xl mx-auto">
-      {/* Hamburger Menu */}
       <HamburgerMenu onOpen={() => setSidebarOpen(true)} />
-
-      {/* Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -85,7 +106,7 @@ export default function BookmarksPage() {
         className="mb-8 mt-12"
       >
         <h1 className="text-4xl font-bold mb-2">
-          {userDisplayName ? `${userDisplayName}'s Bookmarks` : "Bookmarks"}
+          {urlUserDisplayName ? `${urlUserDisplayName}'s Bookmarks` : "Bookmarks"}
         </h1>
         <p className="text-muted-foreground">
           Your saved candidates for easy access

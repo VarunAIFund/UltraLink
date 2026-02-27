@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { searchAndRank, searchAndRankStream, getSearchSession, type CandidateResult } from "@/lib/api";
+import { createBrowserClient } from "@/lib/supabase";
+import { useAuth } from "@/lib/useAuth";
+import AuthButton from "@/components/AuthButton";
 import { SearchBar } from "@/components/SearchBar";
 import { SqlDisplay } from "@/components/SqlDisplay";
 import { CandidateList } from "@/components/CandidateList";
@@ -22,6 +25,27 @@ function getStatusMessage(status: string): string {
 
 export default function Home() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  // Redirect logged-in users to their workspace
+  useEffect(() => {
+    const supabase = createBrowserClient();
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session?.user?.email) return;
+      // Look up username from the users table
+      const { data } = await supabase
+        .from("users")
+        .select("username")
+        .ilike("email", session.user.email)
+        .single();
+      if (data?.username) {
+        router.replace(`/${data.username}/`);
+      }
+    });
+  }, [router]);
+
+  const { isAuthenticated } = useAuth();
+
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<CandidateResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -139,6 +163,11 @@ export default function Home() {
   const handleSearch = async () => {
     if (!query.trim()) return;
 
+    if (!isAuthenticated) {
+      window.location.href = `/login?redirect=/`;
+      return;
+    }
+
     setLoading(true);
     setError("");
     setResults([]);
@@ -192,6 +221,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen p-8 max-w-5xl mx-auto">
+      {/* Sign In button (top right, visible when not authenticated) */}
+      <div className="fixed top-4 right-4 z-30">
+        <AuthButton />
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
