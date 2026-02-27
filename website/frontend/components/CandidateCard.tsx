@@ -218,11 +218,11 @@ export function CandidateCard({
                 <img
                   src={candidate.profile_pic}
                   alt={candidate.name}
-                  className="w-16 h-16 rounded-full object-cover flex-shrink-0"
+                  className="w-16 h-16 rounded-full object-cover flex-shrink-0 ring-2 ring-border"
                   onError={() => setImageError(true)}
                 />
               ) : (
-                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center flex-shrink-0 ring-2 ring-border">
                   <HiUser className="w-8 h-8 text-muted-foreground" />
                 </div>
               )}
@@ -257,11 +257,10 @@ export function CandidateCard({
             {candidate.match === "strong" &&
               candidate.relevance_score !== null &&
               candidate.relevance_score !== undefined && (
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-primary">
+                <div className="flex flex-col items-center justify-center w-14 h-14 rounded-full border-2 border-primary/30 bg-primary/5 flex-shrink-0">
+                  <div className="text-xl font-bold text-primary leading-none">
                     {candidate.relevance_score}
                   </div>
-                  <div className="text-xs text-muted-foreground">Score</div>
                 </div>
               )}
           </div>
@@ -290,7 +289,7 @@ export function CandidateCard({
               {candidate.skills.slice(0, 5).map((skill, i) => (
                 <span
                   key={i}
-                  className="bg-secondary text-secondary-foreground px-2 py-1 rounded text-xs"
+                  className="bg-primary/8 text-primary border border-primary/20 px-2.5 py-1 rounded-full text-xs font-medium"
                 >
                   {skill}
                 </span>

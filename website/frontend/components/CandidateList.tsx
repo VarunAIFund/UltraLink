@@ -156,15 +156,15 @@ export function CandidateList({
             <div>
               <button
                 onClick={() => setStrongExpanded(!strongExpanded)}
-                className="w-full flex items-center gap-2 mb-4 px-4 py-3 border rounded-lg bg-card shadow-sm hover:shadow-md transition-shadow"
+                className="w-full flex items-center gap-2 mb-4 px-4 py-3 border-l-4 border-l-primary border border-border/60 rounded-lg bg-card/80 hover:bg-card transition-colors"
               >
                 {strongExpanded ? (
-                  <ChevronDown className="w-5 h-5" />
+                  <ChevronDown className="w-5 h-5 text-primary" />
                 ) : (
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-5 h-5 text-primary" />
                 )}
-                <h3 className="text-lg font-semibold">Strong Matches</h3>
-                <span className="px-2 py-0.5 bg-muted text-muted-foreground text-sm font-medium rounded-full">
+                <h3 className="text-lg font-semibold tracking-tight">Strong Matches</h3>
+                <span className="px-2.5 py-0.5 bg-primary/10 text-primary text-sm font-medium rounded-full">
                   {groupedCandidates.strong.length}
                 </span>
               </button>
@@ -188,15 +188,15 @@ export function CandidateList({
             <div>
               <button
                 onClick={() => setPartialExpanded(!partialExpanded)}
-                className="w-full flex items-center gap-2 mb-4 px-4 py-3 border rounded-lg bg-card shadow-sm hover:shadow-md transition-shadow"
+                className="w-full flex items-center gap-2 mb-4 px-4 py-3 border-l-4 border-l-muted-foreground/40 border border-border/60 rounded-lg bg-card/80 hover:bg-card transition-colors"
               >
                 {partialExpanded ? (
-                  <ChevronDown className="w-5 h-5" />
+                  <ChevronDown className="w-5 h-5 text-muted-foreground" />
                 ) : (
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 )}
-                <h3 className="text-lg font-semibold">Partial Matches</h3>
-                <span className="px-2 py-0.5 bg-muted text-muted-foreground text-sm font-medium rounded-full">
+                <h3 className="text-lg font-semibold tracking-tight">Partial Matches</h3>
+                <span className="px-2.5 py-0.5 bg-muted text-muted-foreground text-sm font-medium rounded-full">
                   {groupedCandidates.partial.length}
                 </span>
               </button>
@@ -220,15 +220,15 @@ export function CandidateList({
             <div>
               <button
                 onClick={() => setNoMatchExpanded(!noMatchExpanded)}
-                className="w-full flex items-center gap-2 mb-4 px-4 py-3 border rounded-lg bg-card shadow-sm hover:shadow-md transition-shadow"
+                className="w-full flex items-center gap-2 mb-4 px-4 py-3 border-l-4 border-l-border border border-border/60 rounded-lg bg-card/80 hover:bg-card transition-colors"
               >
                 {noMatchExpanded ? (
-                  <ChevronDown className="w-5 h-5" />
+                  <ChevronDown className="w-5 h-5 text-muted-foreground" />
                 ) : (
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 )}
-                <h3 className="text-lg font-semibold">No Matches</h3>
-                <span className="px-2 py-0.5 bg-muted text-muted-foreground text-sm font-medium rounded-full">
+                <h3 className="text-lg font-semibold tracking-tight">No Matches</h3>
+                <span className="px-2.5 py-0.5 bg-muted text-muted-foreground text-sm font-medium rounded-full">
                   {groupedCandidates.noMatch.length}
                 </span>
               </button>
@@ -254,14 +254,14 @@ export function CandidateList({
             <div>
               <button
                 onClick={() => setSearchInfoExpanded(!searchInfoExpanded)}
-                className="w-full flex items-center gap-2 mb-4 px-4 py-3 border rounded-lg bg-card shadow-sm hover:shadow-md transition-shadow"
+                className="w-full flex items-center gap-2 mb-4 px-4 py-3 border-l-4 border-l-border border border-border/60 rounded-lg bg-card/80 hover:bg-card transition-colors"
               >
                 {searchInfoExpanded ? (
-                  <ChevronDown className="w-5 h-5" />
+                  <ChevronDown className="w-5 h-5 text-muted-foreground" />
                 ) : (
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 )}
-                <h3 className="text-lg font-semibold">Search Info</h3>
+                <h3 className="text-lg font-semibold tracking-tight">Search Info</h3>
                 {totalCost !== undefined && totalCost > 0 && (
                   <span className="px-2 py-0.5 bg-muted text-muted-foreground text-sm font-medium rounded-full">
                     ${totalCost.toFixed(4)}

@@ -63,20 +63,31 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Warm radial gradient atmosphere */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 60% at 50% 40%, oklch(0.85 0.08 55 / 0.18) 0%, transparent 70%)",
+        }}
+      />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-md"
+        className="w-full max-w-md relative z-10"
       >
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">UltraLink</h1>
-          <p className="text-muted-foreground">AI-powered talent search</p>
+          <h1 className="text-4xl font-bold tracking-tight mb-2 relative inline-block">
+            UltraLink
+            <span className="absolute -bottom-1 left-0 right-0 h-[2px] rounded-full bg-primary" style={{ opacity: 0.8 }} />
+          </h1>
+          <p className="text-muted-foreground mt-3 text-sm tracking-wide uppercase font-medium">AI-powered talent search</p>
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
+        <div className="bg-card border border-border/70 rounded-xl p-8 shadow-md backdrop-blur-sm">
           {sent ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -100,7 +111,7 @@ function LoginForm() {
             </motion.div>
           ) : (
             <>
-              <h2 className="text-xl font-semibold mb-1">Sign in</h2>
+              <h2 className="text-xl font-semibold mb-1 tracking-tight">Sign in</h2>
               <p className="text-muted-foreground text-sm mb-6">
                 Enter your work email to receive a magic sign-in link.
               </p>

@@ -299,8 +299,14 @@ export default function UserSearchPage() {
         transition={{ duration: 0.5 }}
         className="mb-8 mt-12 text-center"
       >
-        <h1 className="text-5xl font-bold mb-2">UltraLink</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-5xl font-bold tracking-tight mb-3 relative inline-block">
+          UltraLink
+          <span
+            className="absolute -bottom-1 left-0 right-0 h-[3px] rounded-full bg-primary"
+            style={{ opacity: 0.85 }}
+          />
+        </h1>
+        <p className="text-muted-foreground mt-4 text-sm tracking-wide uppercase font-medium">
           AI-powered candidate search and ranking
         </p>
       </motion.div>
