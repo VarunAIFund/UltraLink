@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { searchAndRankStream, getSearchSession, type CandidateResult } from "@/lib/api";
-import { createBrowserClient } from "@/lib/supabase";
+import { getUserBySessionEmail, createBrowserClient } from "@/lib/supabase";
 import { useAuth } from "@/lib/useAuth";
 import AuthButton from "@/components/AuthButton";
 import { SearchBar } from "@/components/SearchBar";
@@ -32,14 +32,9 @@ export default function Home() {
     const supabase = createBrowserClient();
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session?.user?.email) return;
-      // Look up username from the users table
-      const { data } = await supabase
-        .from("users")
-        .select("username")
-        .ilike("email", session.user.email)
-        .single();
-      if (data?.username) {
-        router.replace(`/${data.username}/`);
+      const user = await getUserBySessionEmail(session.user.email);
+      if (user?.username) {
+        router.replace(`/${user.username}/`);
       }
     });
   }, [router]);
