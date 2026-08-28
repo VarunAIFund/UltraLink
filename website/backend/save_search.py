@@ -9,6 +9,96 @@ from urllib.parse import quote_plus
 from dotenv import load_dotenv, dotenv_values
 from contextlib import contextmanager
 
+# Search-specific fields that are generated per-search and cannot be looked up
+# from the candidates table. Everything else in a result row (name, headline,
+# skills, experiences, education, ...) is a duplicate of the candidates row and
+# is reconstructed on read via hydrate_results().
+REFERENCE_FIELDS = (
+    "linkedin_url",
+    "match",
+    "relevance_score",
+    "score",
+    "stage_1_confidence",
+    "fit_description",
+    "ranking_rationale",
+)
+
+# Candidate columns needed to rebuild the full result objects the frontend expects.
+_HYDRATE_COLUMNS = (
+    "linkedin_url", "name", "headline", "location", "seniority", "skills",
+    "years_experience", "worked_at_startup", "connected_to",
+    "experiences", "education", "lever_opportunities",
+)
+
+
+def slim_results(results):
+    """Reduce hydrated candidate result dicts to lightweight references.
+
+    Keeps only the primary key (linkedin_url) plus search-specific metadata.
+    Candidates without a linkedin_url are dropped (they can't be rehydrated).
+    """
+    slim = []
+    for candidate in results or []:
+        if not isinstance(candidate, dict) or not candidate.get("linkedin_url"):
+            continue
+        slim.append({k: candidate[k] for k in REFERENCE_FIELDS if k in candidate})
+    return slim
+
+
+def hydrate_results(stored_results, conn):
+    """Rebuild full candidate result objects from lightweight references.
+
+    Rows saved before the slim-storage migration stored full candidate objects
+    inline; those are detected and returned unchanged.
+    """
+    if not stored_results:
+        return stored_results
+
+    # Legacy passthrough: pre-migration rows already contain full candidate data
+    if any(
+        isinstance(item, dict) and ("name" in item or "experiences" in item)
+        for item in stored_results
+    ):
+        return stored_results
+
+    linkedin_urls = [
+        item["linkedin_url"]
+        for item in stored_results
+        if isinstance(item, dict) and item.get("linkedin_url")
+    ]
+    if not linkedin_urls:
+        return []
+
+    cursor = conn.cursor()
+    cursor.execute(
+        f"SELECT {', '.join(_HYDRATE_COLUMNS)} FROM candidates WHERE linkedin_url = ANY(%s)",
+        (linkedin_urls,),
+    )
+    columns = [desc[0] for desc in cursor.description]
+    profiles_by_url = {row[0]: dict(zip(columns, row)) for row in cursor.fetchall()}
+    cursor.close()
+
+    hydrated = []
+    for item in stored_results:
+        if not isinstance(item, dict):
+            continue
+        profile = profiles_by_url.get(item.get("linkedin_url"))
+        if not profile:
+            # Candidate no longer exists in the database - skip it so the
+            # reconstructed list stays internally consistent.
+            continue
+        hydrated.append({**profile, **item})  # search metadata wins on conflict
+
+    # Regenerate profile picture URLs (previously stored inline)
+    try:
+        from utils import add_profile_pic_urls
+        hydrated = add_profile_pic_urls(hydrated)
+    except Exception as e:
+        print(f"[HYDRATE] Could not add profile_pic URLs: {type(e).__name__}: {e}")
+
+    return hydrated
+
+
 def sanitize_for_json(data):
     """
     Recursively remove null bytes from data structure before JSON serialization.
@@ -123,9 +213,8 @@ def save_search_session(query, connected_to, sql_query='', results=None, total_c
     Returns:
         UUID of saved search session
     """
-    # Default results to empty list if None
-    if results is None:
-        results = []
+    # Default results to empty list if None, then strip to lightweight references
+    results = slim_results(results)
 
     with get_pooled_connection() as conn:
         cursor = conn.cursor()
@@ -181,8 +270,8 @@ def update_search_session(search_id, sql_query=None, results=None, total_cost=No
         params.append(sql_query)
 
     if results is not None:
-        # Sanitize results to remove null bytes before JSON serialization
-        sanitized_results = sanitize_for_json(results)
+        # Strip to lightweight references, then sanitize null bytes before serialization
+        sanitized_results = sanitize_for_json(slim_results(results))
         updates.extend(["results = %s", "total_results = %s"])
         params.extend([json.dumps(sanitized_results), len(sanitized_results)])
 
@@ -290,6 +379,10 @@ def get_search_session(search_id):
             return None
 
         query, connected_to, sql_query, results, total_results, total_cost, logs, total_time, ranking_enabled, status, created_at, user_name = result
+
+        # Reconstruct full candidate objects from lightweight references
+        if results:
+            results = hydrate_results(results, conn)
 
         # Refresh bookmark status with current data before returning
         if user_name and results:
